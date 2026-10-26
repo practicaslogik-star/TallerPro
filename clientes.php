@@ -53,17 +53,129 @@ if (!$res) {
  */
 
 // Load translation files required by the page
-$langs->loadLangs(array("taller@taller"));
+$langs->loadLangs(array("taller@taller", "companies"));
 
 // Security check
 if (!isModEnabled('taller')) {
 	accessforbidden('Module not enabled');
 }
 
+$clientes_url = dol_buildpath('/taller/clientes.php', 1);
+
+require_once DOL_DOCUMENT_ROOT . '/societe/class/societe.class.php';
+
+$action = GETPOST('action', 'alpha');
+if (empty($action) && !empty($_POST['action'])) {
+	$action = $_POST['action'];
+}
+
+// Log de depuración
+$debug_file = __DIR__ . '/debug_clientes.log';
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+	file_put_contents($debug_file, date('Y-m-d H:i:s') . " | POST recibido | action=" . $action . " | POST=" . json_encode($_POST) . "\n", FILE_APPEND);
+}
+
+// Acción: Crear Cliente en módulo Terceros de Dolibarr
+if ($action == 'create_client' || $action == 'add_client') {
+	$name    = trim(GETPOST('name', 'alphanohtml'));
+	if (empty($name) && !empty($_POST['name'])) {
+		$name = trim($_POST['name']);
+	}
+	$phone   = trim(GETPOST('phone', 'alpha'));
+	if (empty($phone) && !empty($_POST['phone'])) {
+		$phone = trim($_POST['phone']);
+	}
+	$email   = trim(GETPOST('email', 'custom', 0, FILTER_SANITIZE_EMAIL));
+	if (empty($email) && !empty($_POST['email'])) {
+		$email = trim($_POST['email']);
+	}
+	$cif     = trim(GETPOST('cif', 'alphanohtml'));
+	if (empty($cif) && !empty($_POST['cif'])) {
+		$cif = trim($_POST['cif']);
+	}
+	$address = trim(GETPOST('address', 'alphanohtml'));
+	if (empty($address) && !empty($_POST['address'])) {
+		$address = trim($_POST['address']);
+	}
+	$notes   = trim(GETPOST('notes', 'restricthtml'));
+	if (empty($notes) && !empty($_POST['notes'])) {
+		$notes = trim($_POST['notes']);
+	}
+
+	if (empty($name)) {
+		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("Name")), null, 'errors');
+		file_put_contents($debug_file, date('Y-m-d H:i:s') . " | Error: Nombre vacio\n", FILE_APPEND);
+	} else {
+		global $mysoc;
+		$soc = new Societe($db);
+		$soc->name         = $name;
+		$soc->nom          = $name;
+		$soc->client       = 1; // 1 = Cliente
+		$soc->fournisseur  = 0;
+		$soc->phone        = $phone;
+		$soc->email        = $email;
+		$soc->idprof1      = $cif;
+		$soc->address      = $address;
+		$soc->note_private = $notes;
+
+		if (!empty($mysoc->country_id)) {
+			$soc->country_id = $mysoc->country_id;
+		} elseif (getDolGlobalInt('MAIN_INFO_SOCIETE_COUNTRY')) {
+			$soc->country_id = getDolGlobalInt('MAIN_INFO_SOCIETE_COUNTRY');
+		}
+
+		$result = $soc->create($user);
+		file_put_contents($debug_file, date('Y-m-d H:i:s') . " | soc->create: " . var_export($result, true) . " | error: " . $soc->error . " | errors: " . json_encode($soc->errors) . "\n", FILE_APPEND);
+
+		if ($result > 0) {
+			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
+			header("Location: " . $_SERVER['PHP_SELF']);
+			exit;
+		} else {
+			$errmsg = !empty($soc->error) ? $soc->error : (!empty($soc->errors) ? implode(', ', $soc->errors) : 'Error al crear el cliente');
+			setEventMessages($errmsg, $soc->errors, 'errors');
+		}
+	}
+}
+
+// Acción: Eliminar Cliente
+if ($action == 'delete_client' || $action == 'delete') {
+	$socid = GETPOST('socid', 'int');
+	if ($socid > 0) {
+		$soc = new Societe($db);
+		$res = $soc->fetch($socid);
+		if ($res > 0) {
+			$result = $soc->delete($socid, $user);
+			if ($result > 0) {
+				setEventMessages($langs->trans("RecordDeleted"), null, 'mesgs');
+				header("Location: " . $_SERVER['PHP_SELF']);
+				exit;
+			} else {
+				$errmsg = !empty($soc->error) ? $soc->error : (!empty($soc->errors) ? implode(', ', $soc->errors) : 'Error al eliminar el cliente');
+				setEventMessages($errmsg, $soc->errors, 'errors');
+			}
+		}
+	}
+}
+
+// Consultar clientes reales de la base de datos (llx_societe)
+$sql = "SELECT s.rowid, s.nom as name, s.phone, s.email, s.address, s.siren as cif";
+$sql .= " FROM " . MAIN_DB_PREFIX . "societe as s";
+$sql .= " WHERE s.client IN (1, 2, 3)";
+$sql .= " AND s.entity IN (" . getEntity('societe') . ")";
+$sql .= " ORDER BY s.nom ASC";
+
+$resql = $db->query($sql);
+if (!$resql) {
+	dol_print_error($db);
+	exit;
+}
+$num_rows = $resql ? $db->num_rows($resql) : 0;
+
 $css_file = __DIR__ . '/css/tallerpro.css';
 $js_file = __DIR__ . '/js/tallerpro.js';
-$css_version = file_exists($css_file) ? filemtime($css_file) : dol_now();
-$js_version = file_exists($js_file) ? filemtime($js_file) : dol_now();
+$css_version = (file_exists($css_file) ? filemtime($css_file) : dol_now());
+$js_version = (file_exists($js_file) ? filemtime($js_file) : dol_now()) . '_' . dol_now();
 
 $css_url = dol_buildpath('/taller/css/tallerpro.css', 1) . '?v=' . $css_version;
 $js_url = dol_buildpath('/taller/js/tallerpro.js', 1) . '?v=' . $js_version;
@@ -232,11 +344,16 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 		<!-- Dashboard Content -->
 		<div class="tallerpro-content-wrapper">
 			<main class="tallerpro-content">
+				<?php
+				// Mostrar alertas o mensajes de Dolibarr
+				echo dol_htmloutput_events();
+				?>
+
 				<!-- Header Actions & Title -->
 				<div class="tallerpro-header-actions">
 					<div class="tallerpro-content-header" style="margin-bottom: 0;">
 						<h1 class="tallerpro-page-title"><?php echo $langs->trans("Clientes"); ?></h1>
-						<p class="tallerpro-page-subtitle">3 registro(s)</p>
+						<p class="tallerpro-page-subtitle"><?php echo $num_rows; ?> registro(s)</p>
 					</div>
 					<div>
 						<button type="button" class="tallerpro-btn-primary" id="tallerOpenModalBtn">
@@ -262,98 +379,50 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							</tr>
 						</thead>
 						<tbody>
-							<!-- Row 1 -->
-							<tr>
-								<td style="font-weight: 500; color: #0f172a;">Fernández & Outerelo SL</td>
-								<td><span style="color: #94a3b8;">—</span></td>
-								<td><span style="color: #94a3b8;">—</span></td>
-								<td><span class="tallerpro-badge-pill">1</span></td>
-								<td>
-									<div class="tallerpro-actions">
-										<button type="button" class="tallerpro-action-btn" title="Ver detalles">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-												<polyline points="15 3 21 3 21 9"></polyline>
-												<line x1="10" y1="14" x2="21" y2="3"></line>
-											</svg>
-										</button>
-										<button type="button" class="tallerpro-action-btn" title="Editar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-												<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-											</svg>
-										</button>
-										<button type="button" class="tallerpro-action-btn" title="Eliminar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<polyline points="3 6 5 6 21 6"></polyline>
-												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-											</svg>
-										</button>
-									</div>
-								</td>
-							</tr>
-
-							<!-- Row 2 -->
-							<tr>
-								<td style="font-weight: 500; color: #0f172a;">Porto Martínez SL</td>
-								<td><span style="color: #94a3b8;">—</span></td>
-								<td><span style="color: #94a3b8;">—</span></td>
-								<td><span class="tallerpro-badge-pill">1</span></td>
-								<td>
-									<div class="tallerpro-actions">
-										<button type="button" class="tallerpro-action-btn" title="Ver detalles">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-												<polyline points="15 3 21 3 21 9"></polyline>
-												<line x1="10" y1="14" x2="21" y2="3"></line>
-											</svg>
-										</button>
-										<button type="button" class="tallerpro-action-btn" title="Editar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-												<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-											</svg>
-										</button>
-										<button type="button" class="tallerpro-action-btn" title="Eliminar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<polyline points="3 6 5 6 21 6"></polyline>
-												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-											</svg>
-										</button>
-									</div>
-								</td>
-							</tr>
-
-							<!-- Row 3 -->
-							<tr>
-								<td style="font-weight: 500; color: #0f172a;">Prealuma SL</td>
-								<td>986642115</td>
-								<td><span style="color: #94a3b8;">—</span></td>
-								<td><span class="tallerpro-badge-pill">1</span></td>
-								<td>
-									<div class="tallerpro-actions">
-										<button type="button" class="tallerpro-action-btn" title="Ver detalles">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-												<polyline points="15 3 21 3 21 9"></polyline>
-												<line x1="10" y1="14" x2="21" y2="3"></line>
-											</svg>
-										</button>
-										<button type="button" class="tallerpro-action-btn" title="Editar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-												<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-											</svg>
-										</button>
-										<button type="button" class="tallerpro-action-btn" title="Eliminar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<polyline points="3 6 5 6 21 6"></polyline>
-												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-											</svg>
-										</button>
-									</div>
-								</td>
-							</tr>
+							<?php if ($num_rows > 0 && $resql): ?>
+								<?php while ($obj = $db->fetch_object($resql)): ?>
+									<?php
+									$view_url = DOL_URL_ROOT . '/societe/card.php?socid=' . $obj->rowid;
+									$edit_url = DOL_URL_ROOT . '/societe/card.php?action=edit&socid=' . $obj->rowid;
+									$del_url  = $_SERVER['PHP_SELF'] . '?action=delete_client&socid=' . $obj->rowid . '&token=' . newToken();
+									?>
+									<tr>
+										<td style="font-weight: 500; color: #0f172a;"><?php echo dol_escape_htmltag($obj->name); ?></td>
+										<td><?php echo !empty($obj->phone) ? dol_escape_htmltag($obj->phone) : '<span style="color: #94a3b8;">—</span>'; ?></td>
+										<td><?php echo !empty($obj->email) ? dol_escape_htmltag($obj->email) : '<span style="color: #94a3b8;">—</span>'; ?></td>
+										<td><span class="tallerpro-badge-pill">0</span></td>
+										<td>
+											<div class="tallerpro-actions">
+												<a href="<?php echo $view_url; ?>" class="tallerpro-action-btn" title="Ver detalles en Dolibarr">
+													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+														<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+														<polyline points="15 3 21 3 21 9"></polyline>
+														<line x1="10" y1="14" x2="21" y2="3"></line>
+													</svg>
+												</a>
+												<a href="<?php echo $edit_url; ?>" class="tallerpro-action-btn" title="Editar en Dolibarr">
+													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+														<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+														<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+													</svg>
+												</a>
+												<a href="<?php echo $del_url; ?>" class="tallerpro-action-btn" title="Eliminar" onclick="return confirm('¿Estás seguro de que deseas eliminar este cliente?');">
+													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+														<polyline points="3 6 5 6 21 6"></polyline>
+														<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+													</svg>
+												</a>
+											</div>
+										</td>
+									</tr>
+								<?php endwhile; ?>
+							<?php else: ?>
+								<tr>
+									<td colspan="5" style="text-align: center; color: #94a3b8; padding: 40px 20px;">
+										Aún no hay clientes registrados. Pulsa en <strong>Añadir</strong> para crear el primero.
+									</td>
+								</tr>
+							<?php endif; ?>
 						</tbody>
 					</table>
 				</div>
@@ -365,7 +434,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 	<div class="tallerpro-modal-backdrop" id="tallerClientModal">
 		<div class="tallerpro-modal-card">
 			<div class="tallerpro-modal-header">
-				<h2 class="tallerpro-modal-title">Nuevo registro</h2>
+				<h2 class="tallerpro-modal-title">Nuevo registro de cliente</h2>
 				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="Cerrar">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<line x1="18" y1="6" x2="6" y2="18"></line>
@@ -373,33 +442,37 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					</svg>
 				</button>
 			</div>
-			<form class="tallerpro-modal-form" onsubmit="event.preventDefault();">
+			<form class="tallerpro-modal-form" id="tallerClientForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
+				<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
+				<input type="hidden" name="action" value="create_client">
+
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Nombre <span class="tallerpro-required">*</span></label>
-					<input type="text" class="tallerpro-form-input" />
+					<label class="tallerpro-form-label">Nombre / Razón Social <span class="tallerpro-required">*</span></label>
+					<input type="text" name="name" id="client_name" class="tallerpro-form-input" placeholder="Ej: Talleres Mecánicos SL o Juan Pérez" required autocomplete="off" />
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Teléfono</label>
-					<input type="text" class="tallerpro-form-input" />
+					<input type="text" name="phone" id="client_phone" class="tallerpro-form-input" placeholder="Ej: 600123456" />
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Email</label>
-					<input type="email" class="tallerpro-form-input" />
+					<input type="email" name="email" id="client_email" class="tallerpro-form-input" placeholder="ejemplo@correo.com" />
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">DNI / CIF</label>
-					<input type="text" class="tallerpro-form-input" />
+					<input type="text" name="cif" id="client_cif" class="tallerpro-form-input" placeholder="Ej: B12345678" />
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Dirección</label>
-					<input type="text" class="tallerpro-form-input" />
+					<input type="text" name="address" id="client_address" class="tallerpro-form-input" placeholder="Calle, número, ciudad..." />
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Notas</label>
-					<textarea class="tallerpro-form-textarea" rows="3"></textarea>
+					<textarea name="notes" id="client_notes" class="tallerpro-form-textarea" rows="3" placeholder="Información adicional del cliente..."></textarea>
 				</div>
 				<div class="tallerpro-modal-footer">
-					<button type="button" class="tallerpro-btn-submit" id="tallerSaveModalBtn">Guardar</button>
+					<button type="button" class="tallerpro-btn-cancel" id="tallerCancelModalBtn">Cancelar</button>
+					<button type="submit" class="tallerpro-btn-save" id="btnGuardarClienteNuevo">Guardar</button>
 				</div>
 			</form>
 		</div>

@@ -64,6 +64,14 @@ if (!isModEnabled('taller')) {
 	accessforbidden('Module not enabled');
 }
 
+// Contador real de clientes en Dolibarr (módulo Terceros)
+$nb_clientes = 0;
+$sql = "SELECT COUNT(rowid) as total FROM " . MAIN_DB_PREFIX . "societe WHERE client IN (1, 2, 3) AND entity IN (" . getEntity('societe') . ")";
+$resql = $db->query($sql);
+if ($resql && ($obj = $db->fetch_object($resql))) {
+	$nb_clientes = (int) $obj->total;
+}
+
 $css_file = __DIR__ . '/css/tallerpro.css';
 $js_file = __DIR__ . '/js/tallerpro.js';
 $css_version = file_exists($css_file) ? filemtime($css_file) : dol_now();
@@ -266,7 +274,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				<!-- Card 1: Clientes -->
 				<a href="<?php echo $clientes_url; ?>" class="tallerpro-kpi-card">
 					<div class="tallerpro-kpi-info">
-						<div class="tallerpro-kpi-value">0</div>
+						<div class="tallerpro-kpi-value"><?php echo $nb_clientes; ?></div>
 						<div class="tallerpro-kpi-label"><?php echo $langs->trans("Clientes"); ?></div>
 					</div>
 					<div class="tallerpro-kpi-icon tallerpro-icon-clientes">

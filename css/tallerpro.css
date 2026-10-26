@@ -965,10 +965,30 @@ a.tallerpro-nav-item.active {
 .tallerpro-modal-footer {
     display: flex;
     justify-content: flex-end;
-    margin-top: 10px;
+    align-items: center;
+    gap: 10px;
+    margin-top: 15px;
 }
 
-.tallerpro-btn-submit {
+.tallerpro-btn-cancel {
+    background-color: transparent;
+    color: #64748b;
+    font-size: 13.5px;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.tallerpro-btn-cancel:hover {
+    background-color: #f1f5f9;
+    color: #1e293b;
+}
+
+.tallerpro-btn-submit,
+.tallerpro-btn-save {
     background-color: #1d4ed8;
     color: #ffffff;
     font-size: 13.5px;
@@ -981,7 +1001,8 @@ a.tallerpro-nav-item.active {
     transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
 }
 
-.tallerpro-btn-submit:hover {
+.tallerpro-btn-submit:hover,
+.tallerpro-btn-save:hover {
     background-color: #1e40af;
     transform: translateY(-1px);
     box-shadow: 0 4px 10px rgba(29, 78, 216, 0.3);
@@ -1018,4 +1039,27 @@ a.tallerpro-nav-item.active {
     .tallerpro-content-wrapper {
         padding: 20px 12px;
     }
+}
+
+/* Dolibarr System Message Alerts */
+.tallerpro-content .error,
+.tallerpro-content div.error {
+    background-color: #fee2e2 !important;
+    border: 1px solid #f87171 !important;
+    color: #991b1b !important;
+    padding: 12px 16px !important;
+    border-radius: 8px !important;
+    margin-bottom: 16px !important;
+    font-size: 13.5px !important;
+}
+
+.tallerpro-content .ok,
+.tallerpro-content div.ok {
+    background-color: #dcfce7 !important;
+    border: 1px solid #4ade80 !important;
+    color: #166534 !important;
+    padding: 12px 16px !important;
+    border-radius: 8px !important;
+    margin-bottom: 16px !important;
+    font-size: 13.5px !important;
 }

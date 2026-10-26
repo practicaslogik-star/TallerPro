@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     modals.forEach(function (modal) {
-        const closeBtns = modal.querySelectorAll('.tallerpro-modal-close, #tallerCloseModalBtn, .tallerpro-btn-submit, #tallerSaveModalBtn');
+        const closeBtns = modal.querySelectorAll('.tallerpro-modal-close, #tallerCloseModalBtn, .tallerpro-btn-cancel, #tallerCancelModalBtn');
         closeBtns.forEach(function (btn) {
             btn.addEventListener('click', function (e) {
                 e.preventDefault();
