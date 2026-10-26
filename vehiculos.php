@@ -393,7 +393,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<?php if ($num_veh > 0 && $res_veh): ?>
 								<?php while ($veh = $db->fetch_object($res_veh)): ?>
 									<?php
-									$client_url = DOL_URL_ROOT . '/societe/card.php?socid=' . $veh->fk_soc;
+									$client_url = dol_buildpath('/taller/clientes.php', 1) . '?id=' . $veh->fk_soc;
 									$del_url    = $_SERVER['PHP_SELF'] . '?action=delete_vehiculo&rowid=' . $veh->rowid . '&token=' . (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken()));
 									?>
 									<tr>
@@ -402,7 +402,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<td style="color: #1e293b;"><?php echo !empty($veh->modelo) ? dol_escape_htmltag($veh->modelo) : '<span style="color: #94a3b8;">—</span>'; ?></td>
 										<td>
 											<?php if (!empty($veh->cliente_nombre)): ?>
-												<a href="<?php echo $client_url; ?>" style="color: #1d4ed8; font-weight: 500; text-decoration: none;" title="Ver ficha del cliente en Dolibarr">
+												<a href="<?php echo $client_url; ?>" style="color: #1d4ed8; font-weight: 500; text-decoration: none;" title="Ver detalles del cliente">
 													<?php echo dol_escape_htmltag($veh->cliente_nombre); ?>
 												</a>
 											<?php else: ?>

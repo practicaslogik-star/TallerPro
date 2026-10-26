@@ -172,6 +172,47 @@ $sql_veh_create = "CREATE TABLE IF NOT EXISTS " . MAIN_DB_PREFIX . "taller_vehic
 ) ENGINE=innodb;";
 $db->query($sql_veh_create);
 
+$socid = GETPOSTINT('socid');
+if (empty($socid)) {
+	$socid = GETPOSTINT('id');
+}
+
+$client_detail = null;
+$client_vehicles = array();
+$client_invoices = array();
+
+if ($socid > 0) {
+	$soc = new Societe($db);
+	$res = $soc->fetch($socid);
+	if ($res > 0) {
+		$client_detail = $soc;
+
+		// Conteo y lista de vehículos del cliente
+		$sql_v = "SELECT v.rowid, v.matricula, v.marca, v.modelo, v.anio, v.color, v.km ";
+		$sql_v .= "FROM " . MAIN_DB_PREFIX . "taller_vehiculo as v ";
+		$sql_v .= "WHERE v.fk_soc = " . ((int) $socid) . " AND v.status = 1 ";
+		$sql_v .= "ORDER BY v.rowid DESC";
+		$res_v = $db->query($sql_v);
+		if ($res_v) {
+			while ($v_obj = $db->fetch_object($res_v)) {
+				$client_vehicles[] = $v_obj;
+			}
+		}
+
+		// Conteo y lista de facturas del cliente
+		$sql_f = "SELECT f.rowid, f.ref, f.total_ttc, f.datef, f.paye, f.fk_statut ";
+		$sql_f .= "FROM " . MAIN_DB_PREFIX . "facture as f ";
+		$sql_f .= "WHERE f.fk_soc = " . ((int) $socid) . " ";
+		$sql_f .= "ORDER BY f.datef DESC";
+		$res_f = $db->query($sql_f);
+		if ($res_f) {
+			while ($f_obj = $db->fetch_object($res_f)) {
+				$client_invoices[] = $f_obj;
+			}
+		}
+	}
+}
+
 // Consultar clientes reales de la base de datos (llx_societe) con conteo de vehículos
 $sql = "SELECT s.rowid, s.nom as name, s.phone, s.email, s.address, s.siren as cif, ";
 $sql .= "COUNT(v.rowid) as nb_vehiculos ";
@@ -366,83 +407,212 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				echo dol_htmloutput_events();
 				?>
 
-				<!-- Header Actions & Title -->
-				<div class="tallerpro-header-actions">
-					<div class="tallerpro-content-header" style="margin-bottom: 0;">
-						<h1 class="tallerpro-page-title"><?php echo $langs->trans("Clientes"); ?></h1>
-						<p class="tallerpro-page-subtitle"><?php echo $num_rows; ?> registro(s)</p>
-					</div>
-					<div>
-						<button type="button" class="tallerpro-btn-primary" id="tallerOpenModalBtn">
-							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-								<line x1="12" y1="5" x2="12" y2="19"></line>
-								<line x1="5" y1="12" x2="19" y2="12"></line>
-							</svg>
-							<span>Añadir</span>
-						</button>
-					</div>
-				</div>
+				<?php if ($client_detail): ?>
+					<?php
+					$cif = !empty($client_detail->siren) ? $client_detail->siren : (!empty($client_detail->idprof1) ? $client_detail->idprof1 : '—');
+					
+					$addr_parts = array();
+					if (!empty($client_detail->address)) $addr_parts[] = $client_detail->address;
+					$zip_town = trim($client_detail->zip . ' ' . $client_detail->town);
+					if (!empty($zip_town)) $addr_parts[] = $zip_town;
+					$address = !empty($addr_parts) ? implode(' - ', $addr_parts) : '—';
 
-				<!-- Table Card -->
-				<div class="tallerpro-table-card">
-					<table class="tallerpro-table">
-						<thead>
-							<tr>
-								<th>Nombre</th>
-								<th>Teléfono</th>
-								<th>Email</th>
-								<th>Vehículos</th>
-								<th style="width: 100px; text-align: right;"></th>
-							</tr>
-						</thead>
-						<tbody>
-							<?php if ($num_rows > 0 && $resql): ?>
-								<?php while ($obj = $db->fetch_object($resql)): ?>
+					$contact_parts = array();
+					if (!empty($client_detail->phone)) $contact_parts[] = $client_detail->phone;
+					if (!empty($client_detail->email)) $contact_parts[] = $client_detail->email;
+					$contact_str = !empty($contact_parts) ? implode(' · ', $contact_parts) : 'Sin contacto';
+					?>
+
+					<!-- Breadcrumb / Volver a clientes -->
+					<a href="<?php echo $clientes_url; ?>" class="tallerpro-back-to-list">
+						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<line x1="19" y1="12" x2="5" y2="12"></line>
+							<polyline points="12 19 5 12 12 5"></polyline>
+						</svg>
+						<span>Volver a clientes</span>
+					</a>
+
+					<!-- Tarjeta 1: Información del Cliente -->
+					<div class="tallerpro-client-card">
+						<div class="tallerpro-client-main-info">
+							<h1 class="tallerpro-client-name"><?php echo dol_escape_htmltag($client_detail->nom); ?></h1>
+							<p class="tallerpro-client-contact"><?php echo dol_escape_htmltag($contact_str); ?></p>
+						</div>
+						<div class="tallerpro-client-meta-group">
+							<div class="tallerpro-client-meta-item">
+								<span class="tallerpro-client-meta-label">DNI / CIF</span>
+								<span class="tallerpro-client-meta-value"><?php echo dol_escape_htmltag($cif); ?></span>
+							</div>
+							<div class="tallerpro-client-meta-item">
+								<span class="tallerpro-client-meta-label">DIRECCIÓN</span>
+								<span class="tallerpro-client-meta-value"><?php echo dol_escape_htmltag($address); ?></span>
+							</div>
+						</div>
+					</div>
+
+					<!-- Tarjeta 2: Vehículos del cliente -->
+					<div class="tallerpro-detail-section-card">
+						<div class="tallerpro-detail-section-header">
+							<div class="tallerpro-detail-section-title">
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 3.1C2 11.4 2 11.7 2 12v4c0 .6.4 1 1 1h2"></path>
+									<circle cx="7" cy="17" r="2"></circle>
+									<path d="M9 17h6"></path>
+									<circle cx="17" cy="17" r="2"></circle>
+								</svg>
+								<span>Vehículos del cliente</span>
+							</div>
+							<span class="tallerpro-badge-pill"><?php echo count($client_vehicles); ?></span>
+						</div>
+						<div class="tallerpro-detail-list">
+							<?php if (!empty($client_vehicles)): ?>
+								<?php foreach ($client_vehicles as $v): ?>
 									<?php
-									$view_url = DOL_URL_ROOT . '/societe/card.php?socid=' . $obj->rowid;
-									$edit_url = DOL_URL_ROOT . '/societe/card.php?action=edit&socid=' . $obj->rowid;
-									$del_url  = $_SERVER['PHP_SELF'] . '?action=delete_client&socid=' . $obj->rowid . '&token=' . newToken();
+									$sub_desc = array_filter(array($v->marca, $v->modelo));
+									$sub_str = !empty($sub_desc) ? implode(' · ', $sub_desc) : 'Sin marca / modelo';
 									?>
+									<div class="tallerpro-detail-item">
+										<div class="tallerpro-detail-item-main">
+											<span class="tallerpro-detail-item-title"><?php echo dol_escape_htmltag($v->matricula); ?></span>
+											<span class="tallerpro-detail-item-sub"><?php echo dol_escape_htmltag($sub_str); ?></span>
+										</div>
+										<a href="<?php echo $vehiculos_url; ?>" class="tallerpro-detail-item-link" title="Ir a vehículos">
+											<span>Ver vehículo</span>
+											<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+												<polyline points="15 3 21 3 21 9"></polyline>
+												<line x1="10" y1="14" x2="21" y2="3"></line>
+											</svg>
+										</a>
+									</div>
+								<?php endforeach; ?>
+							<?php else: ?>
+								<div class="tallerpro-empty-message">Este cliente aún no tiene vehículos registrados.</div>
+							<?php endif; ?>
+						</div>
+					</div>
+
+					<!-- Tarjeta 3: Facturas del cliente -->
+					<div class="tallerpro-detail-section-card">
+						<div class="tallerpro-detail-section-header">
+							<div class="tallerpro-detail-section-title">
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<rect x="3" y="3" width="18" height="18" rx="2"></rect>
+									<line x1="12" y1="7" x2="12" y2="17"></line>
+									<path d="M9.5 9.5a1.5 1.5 0 0 1 1.5-1.5h2a1.5 1.5 0 0 1 1.5 1.5c0 1.5-3 1.5-3 3a1.5 1.5 0 0 0 1.5 1.5h2a1.5 1.5 0 0 0 1.5-1.5"></path>
+								</svg>
+								<span>Facturas del cliente</span>
+							</div>
+							<span class="tallerpro-badge-pill"><?php echo count($client_invoices); ?></span>
+						</div>
+						<div class="tallerpro-detail-list">
+							<?php if (!empty($client_invoices)): ?>
+								<?php foreach ($client_invoices as $f): ?>
+									<?php
+									$is_paid = !empty($f->paye);
+									$status_label = $is_paid ? 'Pagada' : 'Pendiente';
+									$status_class = $is_paid ? 'pagada' : 'pendiente';
+									?>
+									<div class="tallerpro-detail-item">
+										<div class="tallerpro-detail-item-main">
+											<span class="tallerpro-detail-item-title"><?php echo dol_escape_htmltag($f->ref); ?></span>
+											<span class="tallerpro-detail-item-sub"><?php echo dol_print_date($db->jdate($f->datef), 'day'); ?></span>
+										</div>
+										<div class="tallerpro-detail-item-end">
+											<span class="tallerpro-detail-item-price"><?php echo price($f->total_ttc, 0, $langs, 1, -1, -1, $conf->currency); ?></span>
+											<span class="tallerpro-badge-status-<?php echo $status_class; ?>"><?php echo $status_label; ?></span>
+										</div>
+									</div>
+								<?php endforeach; ?>
+							<?php else: ?>
+								<div class="tallerpro-empty-message">Este cliente aún no tiene facturas registradas.</div>
+							<?php endif; ?>
+						</div>
+					</div>
+
+				<?php else: ?>
+
+					<!-- Header Actions & Title -->
+					<div class="tallerpro-header-actions">
+						<div class="tallerpro-content-header" style="margin-bottom: 0;">
+							<h1 class="tallerpro-page-title"><?php echo $langs->trans("Clientes"); ?></h1>
+							<p class="tallerpro-page-subtitle"><?php echo $num_rows; ?> registro(s)</p>
+						</div>
+						<div>
+							<button type="button" class="tallerpro-btn-primary" id="tallerOpenModalBtn">
+								<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+									<line x1="12" y1="5" x2="12" y2="19"></line>
+									<line x1="5" y1="12" x2="19" y2="12"></line>
+								</svg>
+								<span>Añadir</span>
+							</button>
+						</div>
+					</div>
+
+					<!-- Table Card -->
+					<div class="tallerpro-table-card">
+						<table class="tallerpro-table">
+							<thead>
+								<tr>
+									<th>Nombre</th>
+									<th>Teléfono</th>
+									<th>Email</th>
+									<th>Vehículos</th>
+									<th style="width: 100px; text-align: right;"></th>
+								</tr>
+							</thead>
+							<tbody>
+								<?php if ($num_rows > 0 && $resql): ?>
+									<?php while ($obj = $db->fetch_object($resql)): ?>
+										<?php
+										$view_url = $_SERVER['PHP_SELF'] . '?id=' . $obj->rowid;
+										$edit_url = DOL_URL_ROOT . '/societe/card.php?action=edit&socid=' . $obj->rowid;
+										$del_url  = $_SERVER['PHP_SELF'] . '?action=delete_client&socid=' . $obj->rowid . '&token=' . (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken()));
+										?>
+										<tr>
+											<td style="font-weight: 500; color: #0f172a;">
+												<a href="<?php echo $view_url; ?>" style="font-weight: 500; color: #0f172a; text-decoration: none;" title="Ver detalles del cliente"><?php echo dol_escape_htmltag($obj->name); ?></a>
+											</td>
+											<td><?php echo !empty($obj->phone) ? dol_escape_htmltag($obj->phone) : '<span style="color: #94a3b8;">—</span>'; ?></td>
+											<td><?php echo !empty($obj->email) ? dol_escape_htmltag($obj->email) : '<span style="color: #94a3b8;">—</span>'; ?></td>
+											<td><span class="tallerpro-badge-pill"><?php echo (int) $obj->nb_vehiculos; ?></span></td>
+											<td>
+												<div class="tallerpro-actions">
+													<a href="<?php echo $view_url; ?>" class="tallerpro-action-btn" title="Ver detalles del cliente">
+														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+															<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+															<polyline points="15 3 21 3 21 9"></polyline>
+															<line x1="10" y1="14" x2="21" y2="3"></line>
+														</svg>
+													</a>
+													<a href="<?php echo $edit_url; ?>" class="tallerpro-action-btn" title="Editar en Dolibarr">
+														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+															<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+															<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+														</svg>
+													</a>
+													<a href="<?php echo $del_url; ?>" class="tallerpro-action-btn" title="Eliminar" onclick="return confirm('¿Estás seguro de que deseas eliminar este cliente?');">
+														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+															<polyline points="3 6 5 6 21 6"></polyline>
+															<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+														</svg>
+													</a>
+												</div>
+											</td>
+										</tr>
+									<?php endwhile; ?>
+								<?php else: ?>
 									<tr>
-										<td style="font-weight: 500; color: #0f172a;"><?php echo dol_escape_htmltag($obj->name); ?></td>
-										<td><?php echo !empty($obj->phone) ? dol_escape_htmltag($obj->phone) : '<span style="color: #94a3b8;">—</span>'; ?></td>
-										<td><?php echo !empty($obj->email) ? dol_escape_htmltag($obj->email) : '<span style="color: #94a3b8;">—</span>'; ?></td>
-										<td><span class="tallerpro-badge-pill"><?php echo (int) $obj->nb_vehiculos; ?></span></td>
-										<td>
-											<div class="tallerpro-actions">
-												<a href="<?php echo $view_url; ?>" class="tallerpro-action-btn" title="Ver detalles en Dolibarr">
-													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-														<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-														<polyline points="15 3 21 3 21 9"></polyline>
-														<line x1="10" y1="14" x2="21" y2="3"></line>
-													</svg>
-												</a>
-												<a href="<?php echo $edit_url; ?>" class="tallerpro-action-btn" title="Editar en Dolibarr">
-													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-														<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-														<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-													</svg>
-												</a>
-												<a href="<?php echo $del_url; ?>" class="tallerpro-action-btn" title="Eliminar" onclick="return confirm('¿Estás seguro de que deseas eliminar este cliente?');">
-													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-														<polyline points="3 6 5 6 21 6"></polyline>
-														<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-													</svg>
-												</a>
-											</div>
+										<td colspan="5" style="text-align: center; color: #94a3b8; padding: 40px 20px;">
+											Aún no hay clientes registrados. Pulsa en <strong>Añadir</strong> para crear el primero.
 										</td>
 									</tr>
-								<?php endwhile; ?>
-							<?php else: ?>
-								<tr>
-									<td colspan="5" style="text-align: center; color: #94a3b8; padding: 40px 20px;">
-										Aún no hay clientes registrados. Pulsa en <strong>Añadir</strong> para crear el primero.
-									</td>
-								</tr>
-							<?php endif; ?>
-						</tbody>
-					</table>
-				</div>
+								<?php endif; ?>
+							</tbody>
+						</table>
+					</div>
+
+				<?php endif; ?>
 			</main>
 		</div>
 	</div>
