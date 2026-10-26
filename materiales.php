@@ -1,0 +1,464 @@
+<?php
+/* Copyright (C) 2026 TallerPro
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 3 of the License, or
+ * (at your option) any later version.
+ */
+
+/**
+ *  \file       taller/materiales.php
+ *  \ingroup    taller
+ *  \brief      Materiales list view - TallerPro view
+ */
+
+// Load Dolibarr environment
+$res = 0;
+if (!$res && !empty($_SERVER["CONTEXT_DOCUMENT_ROOT"])) {
+	$res = @include $_SERVER["CONTEXT_DOCUMENT_ROOT"]."/main.inc.php";
+}
+$tmp = empty($_SERVER['SCRIPT_FILENAME']) ? '' : $_SERVER['SCRIPT_FILENAME'];
+$tmp2 = realpath(__FILE__);
+$i = strlen($tmp) - 1;
+$j = strlen($tmp2) - 1;
+while ($i > 0 && $j > 0 && isset($tmp[$i]) && isset($tmp2[$j]) && $tmp[$i] == $tmp2[$j]) {
+	$i--;
+	$j--;
+}
+if (!$res && $i > 0 && file_exists(substr($tmp, 0, ($i + 1))."/main.inc.php")) {
+	$res = @include substr($tmp, 0, ($i + 1))."/main.inc.php";
+}
+if (!$res && $i > 0 && file_exists(dirname(substr($tmp, 0, ($i + 1)))."/main.inc.php")) {
+	$res = @include dirname(substr($tmp, 0, ($i + 1)))."/main.inc.php";
+}
+if (!$res && file_exists("../main.inc.php")) {
+	$res = @include "../main.inc.php";
+}
+if (!$res && file_exists("../../main.inc.php")) {
+	$res = @include "../../main.inc.php";
+}
+if (!$res && file_exists("../../../main.inc.php")) {
+	$res = @include "../../../main.inc.php";
+}
+if (!$res) {
+	die("Include of main fails");
+}
+
+/**
+ * @var Conf $conf
+ * @var DoliDB $db
+ * @var Translate $langs
+ * @var User $user
+ */
+
+// Load translation files required by the page
+$langs->loadLangs(array("taller@taller"));
+
+// Security check
+if (!isModEnabled('taller')) {
+	accessforbidden('Module not enabled');
+}
+
+$css_file = __DIR__ . '/css/tallerpro.css';
+$js_file = __DIR__ . '/js/tallerpro.js';
+$css_version = file_exists($css_file) ? filemtime($css_file) : dol_now();
+$js_version = file_exists($js_file) ? filemtime($js_file) : dol_now();
+
+$css_url = dol_buildpath('/taller/css/tallerpro.css', 1) . '?v=' . $css_version;
+$js_url = dol_buildpath('/taller/js/tallerpro.js', 1) . '?v=' . $js_version;
+
+$morehead = '<link rel="stylesheet" type="text/css" href="'.$css_url.'">'."\n";
+$morehead .= '<script src="'.$js_url.'"></script>'."\n";
+
+// Page Header
+llxHeader('', 'Materiales - TallerPro', '', '', 0, 0, array(), array(), $morehead, 'mod-taller page-tallerpro');
+
+$dolibarr_root_url = DOL_URL_ROOT . '/index.php';
+$setup_url = dol_buildpath('/taller/admin/setup.php', 1);
+$index_url = dol_buildpath('/taller/tallerindex.php', 1);
+$clientes_url = dol_buildpath('/taller/clientes.php', 1);
+$vehiculos_url = dol_buildpath('/taller/vehiculos.php', 1);
+$reparaciones_url = dol_buildpath('/taller/reparaciones.php', 1);
+$materiales_url = dol_buildpath('/taller/materiales.php', 1);
+$seguros_url = dol_buildpath('/taller/seguros.php', 1);
+$facturas_url = dol_buildpath('/taller/facturas.php', 1);
+?>
+
+<div class="tallerpro-layout">
+	<!-- Lateral Menu / Sidebar -->
+	<aside class="tallerpro-sidebar" id="tallerSidebar">
+		<div class="tallerpro-sidebar-top">
+			<!-- Brand Header -->
+			<a href="<?php echo $index_url; ?>" class="tallerpro-brand">
+				<div class="tallerpro-brand-logo">
+					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+					</svg>
+				</div>
+				<div class="tallerpro-brand-info">
+					<span class="tallerpro-brand-title">TallerPro</span>
+					<span class="tallerpro-brand-subtitle"><?php echo $langs->trans("GestionDeTaller"); ?></span>
+				</div>
+			</a>
+
+			<!-- Menu Section -->
+			<div class="tallerpro-nav-section">
+				<div class="tallerpro-section-title"><?php echo $langs->trans("Menu"); ?></div>
+				<ul class="tallerpro-nav-list">
+					<li>
+						<a href="<?php echo $index_url; ?>" class="tallerpro-nav-item">
+							<span class="tallerpro-nav-icon">
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+									<polyline points="9 22 9 12 15 12 15 22"></polyline>
+								</svg>
+							</span>
+							<span class="tallerpro-nav-text"><?php echo $langs->trans("Inicio"); ?></span>
+						</a>
+					</li>
+					<li>
+						<a href="<?php echo $clientes_url; ?>" class="tallerpro-nav-item">
+							<span class="tallerpro-nav-icon">
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+									<circle cx="9" cy="7" r="4"></circle>
+									<path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+									<path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+								</svg>
+							</span>
+							<span class="tallerpro-nav-text"><?php echo $langs->trans("Clientes"); ?></span>
+						</a>
+					</li>
+					<li>
+						<a href="<?php echo $vehiculos_url; ?>" class="tallerpro-nav-item">
+							<span class="tallerpro-nav-icon">
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 3.1C2 11.4 2 11.7 2 12v4c0 .6.4 1 1 1h2"></path>
+									<circle cx="7" cy="17" r="2"></circle>
+									<path d="M9 17h6"></path>
+									<circle cx="17" cy="17" r="2"></circle>
+								</svg>
+							</span>
+							<span class="tallerpro-nav-text"><?php echo $langs->trans("Vehiculos"); ?></span>
+						</a>
+					</li>
+					<li>
+						<a href="<?php echo $reparaciones_url; ?>" class="tallerpro-nav-item">
+							<span class="tallerpro-nav-icon">
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+								</svg>
+							</span>
+							<span class="tallerpro-nav-text"><?php echo $langs->trans("Reparaciones"); ?></span>
+						</a>
+					</li>
+					<li>
+						<a href="<?php echo $materiales_url; ?>" class="tallerpro-nav-item active">
+							<span class="tallerpro-nav-icon">
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+									<polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+									<line x1="12" y1="22.08" x2="12" y2="12"></line>
+								</svg>
+							</span>
+							<span class="tallerpro-nav-text"><?php echo $langs->trans("Materiales"); ?></span>
+						</a>
+					</li>
+					<li>
+						<a href="<?php echo $seguros_url; ?>" class="tallerpro-nav-item">
+							<span class="tallerpro-nav-icon">
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+								</svg>
+							</span>
+							<span class="tallerpro-nav-text"><?php echo $langs->trans("Seguros"); ?></span>
+						</a>
+					</li>
+					<li>
+						<a href="<?php echo $facturas_url; ?>" class="tallerpro-nav-item">
+							<span class="tallerpro-nav-icon">
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<rect x="3" y="3" width="18" height="18" rx="2"></rect>
+									<line x1="12" y1="7" x2="12" y2="17"></line>
+									<path d="M9.5 9.5a1.5 1.5 0 0 1 1.5-1.5h2a1.5 1.5 0 0 1 1.5 1.5c0 1.5-3 1.5-3 3a1.5 1.5 0 0 0 1.5 1.5h2a1.5 1.5 0 0 0 1.5-1.5"></path>
+								</svg>
+							</span>
+							<span class="tallerpro-nav-text"><?php echo $langs->trans("Facturas"); ?></span>
+						</a>
+					</li>
+					<li>
+						<a href="<?php echo $setup_url; ?>" class="tallerpro-nav-item">
+							<span class="tallerpro-nav-icon">
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<circle cx="12" cy="12" r="3"></circle>
+									<path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+								</svg>
+							</span>
+							<span class="tallerpro-nav-text"><?php echo $langs->trans("Configuracion"); ?></span>
+						</a>
+					</li>
+				</ul>
+			</div>
+		</div>
+
+		<!-- Collapse Button -->
+		<div class="tallerpro-sidebar-bottom">
+			<button type="button" class="tallerpro-collapse-btn" id="tallerCollapseBtn" title="Colapsar menú">
+				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+					<polyline points="15 18 9 12 15 6"></polyline>
+				</svg>
+			</button>
+		</div>
+	</aside>
+
+	<!-- Main Workspace -->
+	<div class="tallerpro-main">
+		<!-- Top Bar -->
+		<header class="tallerpro-topbar">
+			<div class="tallerpro-topbar-left">
+				<span class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="Alternar menú">
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+						<line x1="9" y1="3" x2="9" y2="21"></line>
+					</svg>
+				</span>
+				<span class="tallerpro-topbar-dot">•</span>
+				<span class="tallerpro-topbar-title">TallerPro</span>
+			</div>
+			<div class="tallerpro-topbar-right"></div>
+		</header>
+
+		<!-- Dashboard Content -->
+		<div class="tallerpro-content-wrapper">
+			<main class="tallerpro-content">
+				<!-- Header Actions & Title -->
+				<div class="tallerpro-header-actions">
+					<div class="tallerpro-content-header" style="margin-bottom: 0;">
+						<h1 class="tallerpro-page-title"><?php echo $langs->trans("Materiales"); ?></h1>
+						<p class="tallerpro-page-subtitle">19 registro(s)</p>
+					</div>
+					<div>
+						<button type="button" class="tallerpro-btn-primary" id="tallerOpenModalBtn">
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+								<line x1="12" y1="5" x2="12" y2="19"></line>
+								<line x1="5" y1="12" x2="19" y2="12"></line>
+							</svg>
+							<span>Añadir</span>
+						</button>
+					</div>
+				</div>
+
+				<!-- Table Card -->
+				<div class="tallerpro-table-card">
+					<table class="tallerpro-table">
+						<thead>
+							<tr>
+								<th>Nombre</th>
+								<th>Referencia</th>
+								<th>Proveedor</th>
+								<th>Stock</th>
+								<th>Precio</th>
+								<th style="width: 80px; text-align: right;"></th>
+							</tr>
+						</thead>
+						<tbody>
+							<!-- Row 1 -->
+							<tr>
+								<td style="color: #1e293b; font-weight: 500;">Filtro polen origen Hyundai</td>
+								<td style="color: #64748b;">—</td>
+								<td style="color: #64748b;">—</td>
+								<td style="color: #1e293b;">0</td>
+								<td style="color: #1e293b; font-weight: 500;">24.55</td>
+								<td>
+									<div class="tallerpro-actions">
+										<button type="button" class="tallerpro-action-btn" title="Editar">
+											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+											</svg>
+										</button>
+										<button type="button" class="tallerpro-action-btn" title="Eliminar">
+											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<polyline points="3 6 5 6 21 6"></polyline>
+												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+											</svg>
+										</button>
+									</div>
+								</td>
+							</tr>
+
+							<!-- Row 2 -->
+							<tr>
+								<td style="color: #1e293b; font-weight: 500;">Filtro aire origen Hyundai</td>
+								<td style="color: #64748b;">—</td>
+								<td style="color: #64748b;">—</td>
+								<td style="color: #1e293b;">0</td>
+								<td style="color: #1e293b; font-weight: 500;">28.55</td>
+								<td>
+									<div class="tallerpro-actions">
+										<button type="button" class="tallerpro-action-btn" title="Editar">
+											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+											</svg>
+										</button>
+										<button type="button" class="tallerpro-action-btn" title="Eliminar">
+											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<polyline points="3 6 5 6 21 6"></polyline>
+												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+											</svg>
+										</button>
+									</div>
+								</td>
+							</tr>
+
+							<!-- Row 3 -->
+							<tr>
+								<td style="color: #1e293b; font-weight: 500;">Filtro aceite origen Hyundai</td>
+								<td style="color: #64748b;">—</td>
+								<td style="color: #64748b;">—</td>
+								<td style="color: #1e293b;">0</td>
+								<td style="color: #1e293b; font-weight: 500;">25.95</td>
+								<td>
+									<div class="tallerpro-actions">
+										<button type="button" class="tallerpro-action-btn" title="Editar">
+											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+											</svg>
+										</button>
+										<button type="button" class="tallerpro-action-btn" title="Eliminar">
+											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<polyline points="3 6 5 6 21 6"></polyline>
+												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+											</svg>
+										</button>
+									</div>
+								</td>
+							</tr>
+
+							<!-- Row 4 -->
+							<tr>
+								<td style="color: #1e293b; font-weight: 500;">Aceite Shell Helix Ultra Hyundai 0w30 ECT AH C2, C3</td>
+								<td style="color: #64748b;">—</td>
+								<td style="color: #64748b;">—</td>
+								<td style="color: #1e293b;">0</td>
+								<td style="color: #1e293b; font-weight: 500;">19.36</td>
+								<td>
+									<div class="tallerpro-actions">
+										<button type="button" class="tallerpro-action-btn" title="Editar">
+											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+											</svg>
+										</button>
+										<button type="button" class="tallerpro-action-btn" title="Eliminar">
+											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<polyline points="3 6 5 6 21 6"></polyline>
+												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+											</svg>
+										</button>
+									</div>
+								</td>
+							</tr>
+
+							<!-- Row 5 -->
+							<tr>
+								<td style="color: #1e293b; font-weight: 500;">Lámparas</td>
+								<td style="color: #64748b;">—</td>
+								<td style="color: #64748b;">—</td>
+								<td style="color: #1e293b;">0</td>
+								<td style="color: #1e293b; font-weight: 500;">5</td>
+								<td>
+									<div class="tallerpro-actions">
+										<button type="button" class="tallerpro-action-btn" title="Editar">
+											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+											</svg>
+										</button>
+										<button type="button" class="tallerpro-action-btn" title="Eliminar">
+											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<polyline points="3 6 5 6 21 6"></polyline>
+												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+											</svg>
+										</button>
+									</div>
+								</td>
+							</tr>
+
+							<!-- Row 6 -->
+							<tr>
+								<td style="color: #1e293b; font-weight: 500;">Placa matrícula</td>
+								<td style="color: #64748b;">—</td>
+								<td style="color: #64748b;">—</td>
+								<td style="color: #1e293b;">0</td>
+								<td style="color: #1e293b; font-weight: 500;">10</td>
+								<td>
+									<div class="tallerpro-actions">
+										<button type="button" class="tallerpro-action-btn" title="Editar">
+											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+											</svg>
+										</button>
+										<button type="button" class="tallerpro-action-btn" title="Eliminar">
+											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+												<polyline points="3 6 5 6 21 6"></polyline>
+												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+											</svg>
+										</button>
+									</div>
+								</td>
+							</tr>
+						</tbody>
+					</table>
+				</div>
+			</main>
+		</div>
+	</div>
+
+	<!-- Modal Nuevo Registro Materiales -->
+	<div class="tallerpro-modal-backdrop" id="tallerMaterialModal">
+		<div class="tallerpro-modal-card">
+			<div class="tallerpro-modal-header">
+				<h2 class="tallerpro-modal-title">Nuevo registro</h2>
+				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="Cerrar">
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+			</div>
+			<form class="tallerpro-modal-form" onsubmit="event.preventDefault();">
+				<div class="tallerpro-form-group">
+					<label class="tallerpro-form-label">Nombre <span class="tallerpro-required">*</span></label>
+					<input type="text" class="tallerpro-form-input" />
+				</div>
+				<div class="tallerpro-form-group">
+					<label class="tallerpro-form-label">Referencia</label>
+					<input type="text" class="tallerpro-form-input" />
+				</div>
+				<div class="tallerpro-form-group">
+					<label class="tallerpro-form-label">Proveedor</label>
+					<input type="text" class="tallerpro-form-input" />
+				</div>
+				<div class="tallerpro-form-group">
+					<label class="tallerpro-form-label">Stock</label>
+					<input type="text" class="tallerpro-form-input" />
+				</div>
+				<div class="tallerpro-form-group">
+					<label class="tallerpro-form-label">Precio (€)</label>
+					<input type="text" class="tallerpro-form-input" />
+				</div>
+				<div class="tallerpro-form-group">
+					<label class="tallerpro-form-label">Notas</label>
+					<textarea class="tallerpro-form-textarea" rows="3"></textarea>
+				</div>
+				<div class="tallerpro-modal-footer">
+					<button type="button" class="tallerpro-btn-submit" id="tallerSaveModalBtn">Guardar</button>
+				</div>
+			</form>
+		</div>
+	</div>
+</div>
+
+<?php
+// End of page
+llxFooter();
+$db->close();

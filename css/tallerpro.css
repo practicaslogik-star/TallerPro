@@ -1,0 +1,1021 @@
+/* TallerPro Stylesheet for Dolibarr */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+/* Reset and Override Dolibarr default framing on TallerPro view */
+body.page-tallerpro {
+    margin: 0 !important;
+    padding: 0 !important;
+    background-color: #f8fafc !important;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
+    overflow: hidden !important;
+    color: #1e293b;
+    -webkit-font-smoothing: antialiased;
+}
+
+body.page-tallerpro #id-top,
+body.page-tallerpro #id-left,
+body.page-tallerpro .side-nav-vert,
+body.page-tallerpro .topmenu-container,
+body.page-tallerpro .login_block_other,
+body.page-tallerpro .side-nav,
+body.page-tallerpro #id-footer,
+body.page-tallerpro div.bottommenu,
+body.page-tallerpro footer {
+    display: none !important;
+}
+
+body.page-tallerpro #id-container,
+body.page-tallerpro #id-right,
+body.page-tallerpro div.fiche,
+body.page-tallerpro div.fichecenter {
+    margin: 0 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 100% !important;
+    float: none !important;
+    border: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+}
+
+/* Base Layout - Viewport Fixed so it ignores all Dolibarr container limits */
+.tallerpro-layout {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    display: flex !important;
+    background-color: #f8fafc !important;
+    z-index: 99999 !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+}
+
+/* Sidebar */
+.tallerpro-sidebar {
+    width: 215px;
+    min-width: 215px;
+    height: 100vh;
+    background-color: #0b1426;
+    color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 100;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    user-select: none;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
+}
+
+.tallerpro-sidebar.collapsed {
+    width: 68px;
+    min-width: 68px;
+}
+
+.tallerpro-sidebar-top {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Brand Section */
+.tallerpro-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 20px 16px 18px;
+    text-decoration: none !important;
+}
+
+.tallerpro-brand-logo {
+    width: 36px;
+    height: 36px;
+    border-radius: 9px;
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    flex-shrink: 0;
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
+}
+
+.tallerpro-brand-info {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    white-space: nowrap;
+}
+
+.tallerpro-brand-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+}
+
+.tallerpro-brand-subtitle {
+    font-size: 11px;
+    color: #8fa0b5;
+    font-weight: 400;
+    margin-top: 1px;
+}
+
+/* Navigation Section */
+.tallerpro-nav-section {
+    margin-top: 8px;
+}
+
+.tallerpro-section-title {
+    padding: 0 18px;
+    font-size: 11px;
+    color: #5d6f85;
+    font-weight: 600;
+    margin-bottom: 8px;
+    letter-spacing: 0.04em;
+    text-transform: capitalize;
+}
+
+.tallerpro-nav-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 0 10px;
+    margin: 0;
+    list-style: none;
+}
+
+.tallerpro-nav-item,
+a.tallerpro-nav-item,
+a.tallerpro-nav-item:link,
+a.tallerpro-nav-item:visited {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    color: #94a3b8 !important;
+    font-size: 13.5px;
+    font-weight: 500;
+    text-decoration: none !important;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.tallerpro-nav-item:hover,
+a.tallerpro-nav-item:hover {
+    background-color: #15223e;
+    color: #ffffff !important;
+}
+
+.tallerpro-nav-item.active,
+a.tallerpro-nav-item.active {
+    background-color: #172445 !important;
+    color: #ffffff !important;
+    font-weight: 600;
+    box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.25);
+}
+
+.tallerpro-nav-icon,
+.tallerpro-nav-icon svg {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #94a3b8 !important;
+    stroke: #94a3b8 !important;
+    transition: color 0.15s ease;
+}
+
+.tallerpro-nav-item:hover .tallerpro-nav-icon,
+.tallerpro-nav-item:hover .tallerpro-nav-icon svg {
+    color: #ffffff !important;
+    stroke: #ffffff !important;
+}
+
+.tallerpro-nav-item.active .tallerpro-nav-icon,
+.tallerpro-nav-item.active .tallerpro-nav-icon svg {
+    color: #3b82f6 !important;
+    stroke: #3b82f6 !important;
+}
+
+.tallerpro-nav-text {
+    flex: 1;
+}
+
+/* Sidebar Bottom & Collapse Button */
+.tallerpro-sidebar-bottom {
+    padding: 20px 16px;
+    display: flex;
+    align-items: center;
+}
+
+.tallerpro-collapse-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background-color: #121c33;
+    border: 1px solid #1e2b48;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    outline: none;
+    padding: 0;
+}
+
+.tallerpro-collapse-btn:hover {
+    background-color: #1c2b50;
+    color: #ffffff;
+    border-color: #2b3e66;
+    transform: scale(1.05);
+}
+
+.tallerpro-collapse-btn svg {
+    transition: transform 0.25s ease;
+}
+
+/* Collapsed Sidebar Styles */
+.tallerpro-sidebar.collapsed .tallerpro-brand-info,
+.tallerpro-sidebar.collapsed .tallerpro-section-title,
+.tallerpro-sidebar.collapsed .tallerpro-nav-text {
+    display: none;
+}
+
+.tallerpro-sidebar.collapsed .tallerpro-brand {
+    justify-content: center;
+    padding: 20px 0 18px;
+}
+
+.tallerpro-sidebar.collapsed .tallerpro-nav-list {
+    padding: 0 6px;
+}
+
+.tallerpro-sidebar.collapsed .tallerpro-nav-item {
+    justify-content: center;
+    padding: 9px 0;
+}
+
+.tallerpro-sidebar.collapsed .tallerpro-sidebar-bottom {
+    justify-content: center;
+    padding: 20px 0;
+}
+
+.tallerpro-sidebar.collapsed .tallerpro-collapse-btn svg {
+    transform: rotate(180deg);
+}
+
+/* Main Content Area */
+.tallerpro-main {
+    flex: 1;
+    width: calc(100vw - 215px);
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background-color: #f8fafc;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
+}
+
+/* Topbar */
+.tallerpro-topbar {
+    width: 100%;
+    height: 50px;
+    background: #ffffff;
+    border-bottom: 1px solid #edf2f7;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 32px;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    position: sticky;
+    top: 0;
+    z-index: 500;
+}
+
+.tallerpro-topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.tallerpro-topbar-sidebar-toggle {
+    color: #64748b;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    transition: color 0.15s ease;
+}
+
+.tallerpro-topbar-sidebar-toggle:hover {
+    color: #0f172a;
+}
+
+.tallerpro-topbar-dot {
+    color: #2563eb;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+}
+
+.tallerpro-topbar-title {
+    color: #1e293b;
+    font-weight: 600;
+}
+
+.tallerpro-topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.tallerpro-back-dolibarr {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #94a3b8;
+    text-decoration: none !important;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    transition: all 0.15s ease;
+}
+
+.tallerpro-back-dolibarr:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+    border-color: #cbd5e1;
+}
+
+/* Content Wrapper - Centering */
+.tallerpro-content-wrapper {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 36px 24px 60px;
+    box-sizing: border-box;
+    background-color: #f8fafc;
+}
+
+/* Centered Content Container with optimal proportions matching reference */
+.tallerpro-content {
+    width: 100%;
+    max-width: 820px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    transition: max-width 0.2s ease;
+}
+
+/* Wide Content Container for views with tables (Facturas, Clientes, etc.) */
+.tallerpro-content:has(.tallerpro-table-card),
+.tallerpro-content:has(.tallerpro-table) {
+    max-width: 1400px;
+}
+
+/* Content Header */
+.tallerpro-content-header {
+    margin-bottom: 20px;
+}
+
+.tallerpro-page-title {
+    font-size: 26px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0 0 4px 0;
+    letter-spacing: -0.02em;
+}
+
+.tallerpro-page-subtitle {
+    font-size: 13.5px;
+    color: #64748b;
+    margin: 0;
+    font-weight: 400;
+}
+
+/* Search Bar Card */
+.tallerpro-search-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    height: 48px;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+    margin-bottom: 18px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.tallerpro-search-card:focus-within {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+}
+
+.tallerpro-search-icon {
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.tallerpro-search-input {
+    border: none;
+    outline: none;
+    width: 100%;
+    font-size: 13.5px;
+    color: #1e293b;
+    background: transparent;
+    font-family: inherit;
+}
+
+.tallerpro-search-input::placeholder {
+    color: #94a3b8;
+    font-weight: 400;
+}
+
+/* KPI Metrics Grid */
+.tallerpro-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-bottom: 16px;
+    width: 100%;
+}
+
+.tallerpro-kpi-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    height: 84px;
+    min-height: 84px;
+    padding: 0 20px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+    text-decoration: none !important;
+    color: inherit;
+    cursor: pointer;
+}
+
+.tallerpro-kpi-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+    border-color: #cbd5e1;
+}
+
+.tallerpro-kpi-info {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+}
+
+.tallerpro-kpi-value {
+    font-size: 26px;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1;
+    letter-spacing: -0.02em;
+}
+
+.tallerpro-kpi-label {
+    font-size: 12.5px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.tallerpro-kpi-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.tallerpro-kpi-icon svg {
+    width: 26px;
+    height: 26px;
+}
+
+/* Icon Colors */
+.tallerpro-icon-clientes {
+    color: #3b82f6;
+}
+
+.tallerpro-icon-vehiculos {
+    color: #0284c7;
+}
+
+.tallerpro-icon-reparaciones {
+    color: #f59e0b;
+}
+
+.tallerpro-icon-materiales {
+    color: #3b82f6;
+}
+
+.tallerpro-icon-seguros {
+    color: #3b82f6;
+}
+
+.tallerpro-icon-facturas {
+    color: #3b82f6;
+}
+
+/* Activity / Recent Panels Grid */
+.tallerpro-activity-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+    width: 100%;
+}
+
+.tallerpro-activity-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 20px 22px;
+    min-height: 135px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.tallerpro-activity-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+    border-color: #cbd5e1;
+}
+
+.tallerpro-activity-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 20px;
+}
+
+.tallerpro-activity-header svg {
+    color: #1e293b;
+    width: 16px;
+    height: 16px;
+}
+
+.tallerpro-empty-state {
+    font-size: 13px;
+    color: #94a3b8;
+    font-weight: 400;
+}
+
+/* Empty Card Container for Empty Views */
+.tallerpro-empty-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 50px 24px;
+    text-align: center;
+    color: #475569;
+    font-size: 14px;
+    font-weight: 400;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+/* Header Actions & Primary Button */
+.tallerpro-header-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 20px;
+}
+
+.tallerpro-btn-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background-color: #1d4ed8;
+    color: #ffffff !important;
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none !important;
+    transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+    box-shadow: 0 1px 2px rgba(29, 78, 216, 0.2);
+}
+
+.tallerpro-btn-primary:hover {
+    background-color: #1e40af;
+    box-shadow: 0 4px 10px rgba(29, 78, 216, 0.3);
+    transform: translateY(-1px);
+}
+
+/* Table Card & Data Table */
+.tallerpro-table-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.tallerpro-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.tallerpro-table th {
+    background-color: #ffffff;
+    padding: 14px 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    border-bottom: 1px solid #f1f5f9;
+    white-space: nowrap;
+}
+
+.tallerpro-table td {
+    padding: 16px 20px;
+    font-size: 13.5px;
+    color: #1e293b;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+    white-space: nowrap;
+}
+
+.tallerpro-table tr:last-child td {
+    border-bottom: none;
+}
+
+.tallerpro-table tr:hover td {
+    background-color: #f8fafc;
+}
+
+/* Badge Pill */
+.tallerpro-badge-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 8px;
+    background-color: #eff6ff;
+    color: #1d4ed8;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* Table Actions */
+.tallerpro-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.tallerpro-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 4px;
+    transition: transform 0.15s ease, opacity 0.15s ease;
+    text-decoration: none !important;
+}
+
+.tallerpro-action-btn:hover {
+    transform: scale(1.15);
+}
+
+.tallerpro-action-btn svg {
+    display: block;
+}
+
+.tallerpro-btn-table-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background-color: #1d4ed8;
+    color: #ffffff !important;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 11px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none !important;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+}
+
+.tallerpro-btn-table-primary:hover {
+    background-color: #1e40af;
+    transform: translateY(-1px);
+}
+
+.tallerpro-btn-table-secondary {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background-color: #ffffff;
+    color: #1e293b !important;
+    border: 1px solid #e2e8f0;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 5px 11px;
+    border-radius: 6px;
+    cursor: pointer;
+    text-decoration: none !important;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
+}
+
+.tallerpro-btn-table-secondary:hover {
+    background-color: #f8fafc;
+    border-color: #cbd5e1;
+}
+
+.tallerpro-badge-status-pagada {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 10px;
+    background-color: #eff6ff;
+    color: #1d4ed8;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+/* ==========================================================================
+   Modal Dialogs
+   ========================================================================== */
+.tallerpro-modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 999999;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.tallerpro-modal-backdrop.active {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+
+.tallerpro-modal-card {
+    background: #ffffff;
+    border-radius: 16px;
+    width: 100%;
+    max-width: 480px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+    padding: 24px 28px;
+    box-sizing: border-box;
+    transform: translateY(-8px) scale(0.98);
+    transition: transform 0.2s ease;
+}
+
+.tallerpro-modal-card::-webkit-scrollbar {
+    width: 6px;
+}
+.tallerpro-modal-card::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 4px;
+}
+
+.tallerpro-modal-backdrop.active .tallerpro-modal-card {
+    transform: translateY(0) scale(1);
+}
+
+.tallerpro-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.tallerpro-modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+    letter-spacing: -0.01em;
+}
+
+.tallerpro-modal-close {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.tallerpro-modal-close:hover {
+    color: #334155;
+    background-color: #f1f5f9;
+}
+
+.tallerpro-modal-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.tallerpro-form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tallerpro-form-label {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.tallerpro-required {
+    color: #ef4444;
+    font-weight: 700;
+    margin-left: 2px;
+}
+
+.tallerpro-form-input,
+.tallerpro-form-select,
+.tallerpro-form-textarea {
+    width: 100%;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 9px 13px;
+    font-size: 13.5px;
+    color: #0f172a;
+    font-family: inherit;
+    box-sizing: border-box;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tallerpro-form-select {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f172a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    background-size: 16px;
+    cursor: pointer;
+    padding-right: 36px;
+}
+
+.tallerpro-input-with-icon {
+    position: relative;
+    width: 100%;
+}
+
+.tallerpro-input-with-icon .tallerpro-form-input {
+    padding-right: 36px;
+}
+
+.tallerpro-input-icon {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+}
+
+.tallerpro-form-input:focus,
+.tallerpro-form-select:focus,
+.tallerpro-form-textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.tallerpro-form-textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.tallerpro-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+}
+
+.tallerpro-btn-submit {
+    background-color: #1d4ed8;
+    color: #ffffff;
+    font-size: 13.5px;
+    font-weight: 600;
+    padding: 8px 22px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 1px 2px rgba(29, 78, 216, 0.2);
+    transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.tallerpro-btn-submit:hover {
+    background-color: #1e40af;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(29, 78, 216, 0.3);
+}
+
+/* Responsive Breakpoints */
+@media (max-width: 1024px) {
+    .tallerpro-kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .tallerpro-content-wrapper {
+        padding: 24px 16px;
+    }
+}
+
+@media (max-width: 768px) {
+    .tallerpro-sidebar {
+        position: fixed;
+        left: -215px;
+        transition: left 0.25s ease;
+    }
+    .tallerpro-sidebar.mobile-open {
+        left: 0;
+    }
+    .tallerpro-main {
+        width: 100vw;
+    }
+    .tallerpro-kpi-grid {
+        grid-template-columns: 1fr;
+    }
+    .tallerpro-activity-grid {
+        grid-template-columns: 1fr;
+    }
+    .tallerpro-content-wrapper {
+        padding: 20px 12px;
+    }
+}

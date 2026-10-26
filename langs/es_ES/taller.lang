@@ -1,0 +1,25 @@
+# Translation file - Spanish
+ModuleTallerName = TallerPro
+ModuleTallerDesc = Módulo de Gestión de Taller para Dolibarr
+
+TallerPro = TallerPro
+GestionDeTaller = Gestión de taller
+Menu = Menú
+Inicio = Inicio
+Clientes = Clientes
+Vehiculos = Vehículos
+Reparaciones = Reparaciones
+Materiales = Materiales
+Seguros = Seguros
+Facturas = Facturas
+Configuracion = Configuración
+
+SearchPlaceholder = Ej: 1234ABC, Juan Pérez, filtro de aceite...
+SearchSubtitle = Busca por matrícula, propietario o producto.
+
+UltimasReparaciones = Últimas reparaciones
+SinReparaciones = Sin reparaciones registradas.
+VehiculosRecientes = Vehículos recientes
+SinVehiculos = Aún no hay vehículos.
+
+VolverADolibarr = Dolibarr ERP
