@@ -72,6 +72,14 @@ if ($resql && ($obj = $db->fetch_object($resql))) {
 	$nb_clientes = (int) $obj->total;
 }
 
+// Contador real de vehículos
+$nb_vehiculos = 0;
+$sql_veh = "SELECT COUNT(rowid) as total FROM " . MAIN_DB_PREFIX . "taller_vehiculo WHERE status = 1 AND entity IN (" . getEntity('taller_vehiculo') . ")";
+$resql_veh = $db->query($sql_veh);
+if ($resql_veh && ($obj_veh = $db->fetch_object($resql_veh))) {
+	$nb_vehiculos = (int) $obj_veh->total;
+}
+
 $css_file = __DIR__ . '/css/tallerpro.css';
 $js_file = __DIR__ . '/js/tallerpro.js';
 $css_version = file_exists($css_file) ? filemtime($css_file) : dol_now();
@@ -290,7 +298,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				<!-- Card 2: Vehículos -->
 				<a href="<?php echo $vehiculos_url; ?>" class="tallerpro-kpi-card">
 					<div class="tallerpro-kpi-info">
-						<div class="tallerpro-kpi-value">0</div>
+						<div class="tallerpro-kpi-value"><?php echo $nb_vehiculos; ?></div>
 						<div class="tallerpro-kpi-label"><?php echo $langs->trans("Vehiculos"); ?></div>
 					</div>
 					<div class="tallerpro-kpi-icon tallerpro-icon-vehiculos">

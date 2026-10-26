@@ -69,12 +69,6 @@ if (empty($action) && !empty($_POST['action'])) {
 	$action = $_POST['action'];
 }
 
-// Log de depuración
-$debug_file = __DIR__ . '/debug_clientes.log';
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-	file_put_contents($debug_file, date('Y-m-d H:i:s') . " | POST recibido | action=" . $action . " | POST=" . json_encode($_POST) . "\n", FILE_APPEND);
-}
-
 // Acción: Crear Cliente en módulo Terceros de Dolibarr
 if ($action == 'create_client' || $action == 'add_client') {
 	$name    = trim(GETPOST('name', 'alphanohtml'));
@@ -104,7 +98,6 @@ if ($action == 'create_client' || $action == 'add_client') {
 
 	if (empty($name)) {
 		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("Name")), null, 'errors');
-		file_put_contents($debug_file, date('Y-m-d H:i:s') . " | Error: Nombre vacio\n", FILE_APPEND);
 	} else {
 		global $mysoc;
 		$soc = new Societe($db);
@@ -125,7 +118,6 @@ if ($action == 'create_client' || $action == 'add_client') {
 		}
 
 		$result = $soc->create($user);
-		file_put_contents($debug_file, date('Y-m-d H:i:s') . " | soc->create: " . var_export($result, true) . " | error: " . $soc->error . " | errors: " . json_encode($soc->errors) . "\n", FILE_APPEND);
 
 		if ($result > 0) {
 			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
@@ -158,11 +150,36 @@ if ($action == 'delete_client' || $action == 'delete') {
 	}
 }
 
-// Consultar clientes reales de la base de datos (llx_societe)
-$sql = "SELECT s.rowid, s.nom as name, s.phone, s.email, s.address, s.siren as cif";
+// Ensure vehicle table exists
+$sql_veh_create = "CREATE TABLE IF NOT EXISTS " . MAIN_DB_PREFIX . "taller_vehiculo (
+    rowid           INT AUTO_INCREMENT PRIMARY KEY,
+    fk_soc          INT NOT NULL,
+    matricula       VARCHAR(32) NOT NULL,
+    marca           VARCHAR(64) DEFAULT NULL,
+    modelo          VARCHAR(64) DEFAULT NULL,
+    anio            VARCHAR(10) DEFAULT NULL,
+    color           VARCHAR(32) DEFAULT NULL,
+    vin             VARCHAR(64) DEFAULT NULL,
+    km              INT DEFAULT 0,
+    notas           TEXT DEFAULT NULL,
+    date_creation   DATETIME NOT NULL,
+    tms             TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    fk_user_creat   INT NOT NULL,
+    entity          INT DEFAULT 1,
+    status          SMALLINT DEFAULT 1,
+    INDEX idx_taller_vehiculo_fk_soc (fk_soc),
+    INDEX idx_taller_vehiculo_matricula (matricula)
+) ENGINE=innodb;";
+$db->query($sql_veh_create);
+
+// Consultar clientes reales de la base de datos (llx_societe) con conteo de vehículos
+$sql = "SELECT s.rowid, s.nom as name, s.phone, s.email, s.address, s.siren as cif, ";
+$sql .= "COUNT(v.rowid) as nb_vehiculos ";
 $sql .= " FROM " . MAIN_DB_PREFIX . "societe as s";
+$sql .= " LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON (v.fk_soc = s.rowid AND v.status = 1)";
 $sql .= " WHERE s.client IN (1, 2, 3)";
 $sql .= " AND s.entity IN (" . getEntity('societe') . ")";
+$sql .= " GROUP BY s.rowid, s.nom, s.phone, s.email, s.address, s.siren";
 $sql .= " ORDER BY s.nom ASC";
 
 $resql = $db->query($sql);
@@ -390,7 +407,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<td style="font-weight: 500; color: #0f172a;"><?php echo dol_escape_htmltag($obj->name); ?></td>
 										<td><?php echo !empty($obj->phone) ? dol_escape_htmltag($obj->phone) : '<span style="color: #94a3b8;">—</span>'; ?></td>
 										<td><?php echo !empty($obj->email) ? dol_escape_htmltag($obj->email) : '<span style="color: #94a3b8;">—</span>'; ?></td>
-										<td><span class="tallerpro-badge-pill">0</span></td>
+										<td><span class="tallerpro-badge-pill"><?php echo (int) $obj->nb_vehiculos; ?></span></td>
 										<td>
 											<div class="tallerpro-actions">
 												<a href="<?php echo $view_url; ?>" class="tallerpro-action-btn" title="Ver detalles en Dolibarr">
