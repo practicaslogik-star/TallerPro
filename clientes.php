@@ -232,7 +232,7 @@ $num_rows = $resql ? $db->num_rows($resql) : 0;
 
 $css_file = __DIR__ . '/css/tallerpro.css';
 $js_file = __DIR__ . '/js/tallerpro.js';
-$css_version = (file_exists($css_file) ? filemtime($css_file) : dol_now());
+$css_version = (file_exists($css_file) ? filemtime($css_file) : dol_now()) . '_' . dol_now();
 $js_version = (file_exists($js_file) ? filemtime($js_file) : dol_now()) . '_' . dol_now();
 
 $css_url = dol_buildpath('/taller/css/tallerpro.css', 1) . '?v=' . $css_version;
@@ -242,7 +242,8 @@ $morehead = '<link rel="stylesheet" type="text/css" href="'.$css_url.'">'."\n";
 $morehead .= '<script src="'.$js_url.'"></script>'."\n";
 
 // Page Header
-llxHeader('', 'Clientes - TallerPro', '', '', 0, 0, array(), array(), $morehead, 'mod-taller page-tallerpro');
+llxHeader($morehead, 'Clientes - TallerPro', '', '', 0, 0, array(), array(), '', 'mod-taller page-tallerpro');
+
 
 $dolibarr_root_url = DOL_URL_ROOT . '/index.php';
 $setup_url = dol_buildpath('/taller/admin/setup.php', 1);
@@ -423,110 +424,357 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					$contact_str = !empty($contact_parts) ? implode(' · ', $contact_parts) : 'Sin contacto';
 					?>
 
-					<!-- Breadcrumb / Volver a clientes -->
-					<a href="<?php echo $clientes_url; ?>" class="tallerpro-back-to-list">
-						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<line x1="19" y1="12" x2="5" y2="12"></line>
-							<polyline points="12 19 5 12 12 5"></polyline>
-						</svg>
-						<span>Volver a clientes</span>
-					</a>
+					<style>
+					.tallerpro-detail-container {
+						max-width: 1040px;
+						margin: 0 auto;
+						width: 100%;
+						box-sizing: border-box;
+						padding: 4px 0 32px 0;
+					}
+					.tallerpro-back-to-list {
+						display: inline-flex;
+						align-items: center;
+						gap: 8px;
+						font-size: 14px;
+						font-weight: 500;
+						color: #64748b;
+						text-decoration: none !important;
+						margin-bottom: 22px;
+						transition: color 0.15s ease;
+					}
+					.tallerpro-back-to-list:hover {
+						color: #0f172a;
+					}
+					.tallerpro-back-to-list svg {
+						color: inherit;
+						transition: transform 0.15s ease;
+					}
+					.tallerpro-back-to-list:hover svg {
+						transform: translateX(-3px);
+					}
+					.tallerpro-client-card {
+						background: #ffffff;
+						border: 1px solid #e2e8f0;
+						border-radius: 12px;
+						padding: 24px 28px;
+						box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+						display: flex;
+						justify-content: space-between;
+						align-items: flex-start;
+						margin-bottom: 22px;
+						box-sizing: border-box;
+						gap: 32px;
+					}
+					.tallerpro-client-main-info {
+						display: flex;
+						flex-direction: column;
+						gap: 6px;
+						flex: 1;
+						min-width: 0;
+					}
+					.tallerpro-client-name {
+						font-size: 24px;
+						font-weight: 700;
+						color: #0f172a;
+						margin: 0;
+						letter-spacing: -0.02em;
+						line-height: 1.25;
+					}
+					.tallerpro-client-contact {
+						font-size: 13.5px;
+						color: #64748b;
+						margin: 0;
+						font-weight: 400;
+					}
+					.tallerpro-client-meta-group {
+						display: flex;
+						gap: 48px;
+						flex-shrink: 0;
+					}
+					.tallerpro-client-meta-item {
+						display: flex;
+						flex-direction: column;
+						gap: 4px;
+					}
+					.tallerpro-client-meta-label {
+						font-size: 11px;
+						font-weight: 600;
+						color: #64748b;
+						letter-spacing: 0.06em;
+						text-transform: uppercase;
+					}
+					.tallerpro-client-meta-value {
+						font-size: 13.5px;
+						font-weight: 500;
+						color: #0f172a;
+						max-width: 280px;
+						word-break: break-word;
+						line-height: 1.4;
+					}
+					.tallerpro-detail-section-card {
+						background: #ffffff;
+						border: 1px solid #e2e8f0;
+						border-radius: 12px;
+						padding: 20px 24px;
+						box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+						margin-bottom: 20px;
+						box-sizing: border-box;
+					}
+					.tallerpro-detail-section-header {
+						display: flex;
+						align-items: center;
+						justify-content: space-between;
+						margin-bottom: 16px;
+					}
+					.tallerpro-detail-section-title {
+						display: flex;
+						align-items: center;
+						gap: 10px;
+						font-size: 15px;
+						font-weight: 600;
+						color: #0f172a;
+					}
+					.tallerpro-detail-section-title svg {
+						color: #1e293b;
+						width: 18px;
+						height: 18px;
+						flex-shrink: 0;
+					}
+					.tallerpro-badge-pill {
+						display: inline-flex;
+						align-items: center;
+						justify-content: center;
+						min-width: 20px;
+						height: 22px;
+						padding: 0 9px;
+						background-color: #f1f5f9;
+						color: #475569;
+						border-radius: 9999px;
+						font-size: 12px;
+						font-weight: 600;
+					}
+					.tallerpro-detail-list {
+						display: flex;
+						flex-direction: column;
+						gap: 12px;
+					}
+					.tallerpro-detail-item {
+						background: #ffffff;
+						border: 1px solid #e2e8f0;
+						border-radius: 8px;
+						padding: 16px 20px;
+						display: flex;
+						justify-content: space-between;
+						align-items: center;
+						transition: border-color 0.15s ease, box-shadow 0.15s ease;
+					}
+					.tallerpro-detail-item:hover {
+						border-color: #cbd5e1;
+						box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+					}
+					.tallerpro-detail-item-main {
+						display: flex;
+						flex-direction: column;
+						gap: 3px;
+					}
+					.tallerpro-detail-item-title {
+						font-size: 14.5px;
+						font-weight: 700;
+						color: #0f172a;
+						letter-spacing: 0.01em;
+					}
+					.tallerpro-detail-item-sub {
+						font-size: 13px;
+						color: #64748b;
+					}
+					.tallerpro-detail-item-link {
+						display: inline-flex;
+						align-items: center;
+						gap: 6px;
+						font-size: 13px;
+						font-weight: 500;
+						color: #64748b;
+						text-decoration: none !important;
+						padding: 6px 10px;
+						border-radius: 6px;
+						transition: color 0.15s ease, background-color 0.15s ease;
+					}
+					.tallerpro-detail-item-link:hover {
+						color: #1d4ed8;
+						background-color: #f8fafc;
+					}
+					.tallerpro-detail-item-link svg {
+						color: inherit;
+					}
+					.tallerpro-detail-item-end {
+						display: flex;
+						flex-direction: column;
+						align-items: flex-end;
+						gap: 4px;
+					}
+					.tallerpro-detail-item-price {
+						font-size: 15px;
+						font-weight: 700;
+						color: #0f172a;
+					}
+					.tallerpro-badge-status-pagada {
+						display: inline-flex;
+						align-items: center;
+						justify-content: center;
+						padding: 2px 8px;
+						background-color: #eff6ff;
+						color: #0284c7;
+						border-radius: 4px;
+						font-size: 11.5px;
+						font-weight: 500;
+					}
+					.tallerpro-badge-status-pendiente {
+						display: inline-flex;
+						align-items: center;
+						justify-content: center;
+						padding: 2px 8px;
+						background-color: #fef3c7;
+						color: #b45309;
+						border-radius: 4px;
+						font-size: 11.5px;
+						font-weight: 500;
+					}
+					.tallerpro-empty-message {
+						color: #94a3b8;
+						font-size: 13px;
+						padding: 24px 0;
+						text-align: center;
+					}
+					@media (max-width: 768px) {
+						.tallerpro-client-card {
+							flex-direction: column;
+							gap: 16px;
+						}
+						.tallerpro-client-meta-group {
+							flex-direction: column;
+							gap: 12px;
+						}
+						.tallerpro-detail-item {
+							flex-direction: column;
+							align-items: flex-start;
+							gap: 10px;
+						}
+						.tallerpro-detail-item-end {
+							align-items: flex-start;
+						}
+					}
+					</style>
 
-					<!-- Tarjeta 1: Información del Cliente -->
-					<div class="tallerpro-client-card">
-						<div class="tallerpro-client-main-info">
-							<h1 class="tallerpro-client-name"><?php echo dol_escape_htmltag($client_detail->nom); ?></h1>
-							<p class="tallerpro-client-contact"><?php echo dol_escape_htmltag($contact_str); ?></p>
-						</div>
-						<div class="tallerpro-client-meta-group">
-							<div class="tallerpro-client-meta-item">
-								<span class="tallerpro-client-meta-label">DNI / CIF</span>
-								<span class="tallerpro-client-meta-value"><?php echo dol_escape_htmltag($cif); ?></span>
-							</div>
-							<div class="tallerpro-client-meta-item">
-								<span class="tallerpro-client-meta-label">DIRECCIÓN</span>
-								<span class="tallerpro-client-meta-value"><?php echo dol_escape_htmltag($address); ?></span>
-							</div>
-						</div>
-					</div>
+					<div class="tallerpro-detail-container">
+						<!-- Breadcrumb / Volver a clientes -->
+						<a href="<?php echo $clientes_url; ?>" class="tallerpro-back-to-list">
+							<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<line x1="19" y1="12" x2="5" y2="12"></line>
+								<polyline points="12 19 5 12 12 5"></polyline>
+							</svg>
+							<span>Volver a clientes</span>
+						</a>
 
-					<!-- Tarjeta 2: Vehículos del cliente -->
-					<div class="tallerpro-detail-section-card">
-						<div class="tallerpro-detail-section-header">
-							<div class="tallerpro-detail-section-title">
-								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-									<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 3.1C2 11.4 2 11.7 2 12v4c0 .6.4 1 1 1h2"></path>
-									<circle cx="7" cy="17" r="2"></circle>
-									<path d="M9 17h6"></path>
-									<circle cx="17" cy="17" r="2"></circle>
-								</svg>
-								<span>Vehículos del cliente</span>
+						<!-- Tarjeta 1: Información del Cliente -->
+						<div class="tallerpro-client-card">
+							<div class="tallerpro-client-main-info">
+								<h1 class="tallerpro-client-name"><?php echo dol_escape_htmltag($client_detail->nom); ?></h1>
+								<p class="tallerpro-client-contact"><?php echo dol_escape_htmltag($contact_str); ?></p>
 							</div>
-							<span class="tallerpro-badge-pill"><?php echo count($client_vehicles); ?></span>
+							<div class="tallerpro-client-meta-group">
+								<div class="tallerpro-client-meta-item">
+									<span class="tallerpro-client-meta-label">DNI / CIF</span>
+									<span class="tallerpro-client-meta-value"><?php echo dol_escape_htmltag($cif); ?></span>
+								</div>
+								<div class="tallerpro-client-meta-item">
+									<span class="tallerpro-client-meta-label">DIRECCIÓN</span>
+									<span class="tallerpro-client-meta-value"><?php echo dol_escape_htmltag($address); ?></span>
+								</div>
+							</div>
 						</div>
-						<div class="tallerpro-detail-list">
-							<?php if (!empty($client_vehicles)): ?>
-								<?php foreach ($client_vehicles as $v): ?>
-									<?php
-									$sub_desc = array_filter(array($v->marca, $v->modelo));
-									$sub_str = !empty($sub_desc) ? implode(' · ', $sub_desc) : 'Sin marca / modelo';
-									?>
-									<div class="tallerpro-detail-item">
-										<div class="tallerpro-detail-item-main">
-											<span class="tallerpro-detail-item-title"><?php echo dol_escape_htmltag($v->matricula); ?></span>
-											<span class="tallerpro-detail-item-sub"><?php echo dol_escape_htmltag($sub_str); ?></span>
-										</div>
-										<a href="<?php echo $vehiculos_url; ?>" class="tallerpro-detail-item-link" title="Ir a vehículos">
-											<span>Ver vehículo</span>
-											<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-												<polyline points="15 3 21 3 21 9"></polyline>
-												<line x1="10" y1="14" x2="21" y2="3"></line>
-											</svg>
-										</a>
-									</div>
-								<?php endforeach; ?>
-							<?php else: ?>
-								<div class="tallerpro-empty-message">Este cliente aún no tiene vehículos registrados.</div>
-							<?php endif; ?>
-						</div>
-					</div>
 
-					<!-- Tarjeta 3: Facturas del cliente -->
-					<div class="tallerpro-detail-section-card">
-						<div class="tallerpro-detail-section-header">
-							<div class="tallerpro-detail-section-title">
-								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-									<rect x="3" y="3" width="18" height="18" rx="2"></rect>
-									<line x1="12" y1="7" x2="12" y2="17"></line>
-									<path d="M9.5 9.5a1.5 1.5 0 0 1 1.5-1.5h2a1.5 1.5 0 0 1 1.5 1.5c0 1.5-3 1.5-3 3a1.5 1.5 0 0 0 1.5 1.5h2a1.5 1.5 0 0 0 1.5-1.5"></path>
-								</svg>
-								<span>Facturas del cliente</span>
+						<!-- Tarjeta 2: Vehículos del cliente -->
+						<div class="tallerpro-detail-section-card">
+							<div class="tallerpro-detail-section-header">
+								<div class="tallerpro-detail-section-title">
+									<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 3.1C2 11.4 2 11.7 2 12v4c0 .6.4 1 1 1h2"></path>
+										<circle cx="7" cy="17" r="2"></circle>
+										<path d="M9 17h6"></path>
+										<circle cx="17" cy="17" r="2"></circle>
+									</svg>
+									<span>Vehículos del cliente</span>
+								</div>
+								<span class="tallerpro-badge-pill"><?php echo count($client_vehicles); ?></span>
 							</div>
-							<span class="tallerpro-badge-pill"><?php echo count($client_invoices); ?></span>
+							<div class="tallerpro-detail-list">
+								<?php if (!empty($client_vehicles)): ?>
+									<?php foreach ($client_vehicles as $v): ?>
+										<?php
+										$sub_desc = array_filter(array($v->marca, $v->modelo));
+										$sub_str = !empty($sub_desc) ? implode(' · ', $sub_desc) : 'Sin marca / modelo';
+										?>
+										<div class="tallerpro-detail-item">
+											<div class="tallerpro-detail-item-main">
+												<span class="tallerpro-detail-item-title"><?php echo dol_escape_htmltag($v->matricula); ?></span>
+												<span class="tallerpro-detail-item-sub"><?php echo dol_escape_htmltag($sub_str); ?></span>
+											</div>
+											<a href="<?php echo $vehiculos_url . '?matricula=' . urlencode($v->matricula); ?>" class="tallerpro-detail-item-link" title="Ver vehículo">
+												<span>Ver vehículo</span>
+												<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+													<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+													<polyline points="15 3 21 3 21 9"></polyline>
+													<line x1="10" y1="14" x2="21" y2="3"></line>
+												</svg>
+											</a>
+										</div>
+									<?php endforeach; ?>
+								<?php else: ?>
+									<div class="tallerpro-empty-message">Este cliente aún no tiene vehículos registrados.</div>
+								<?php endif; ?>
+							</div>
 						</div>
-						<div class="tallerpro-detail-list">
-							<?php if (!empty($client_invoices)): ?>
-								<?php foreach ($client_invoices as $f): ?>
-									<?php
-									$is_paid = !empty($f->paye);
-									$status_label = $is_paid ? 'Pagada' : 'Pendiente';
-									$status_class = $is_paid ? 'pagada' : 'pendiente';
-									?>
-									<div class="tallerpro-detail-item">
-										<div class="tallerpro-detail-item-main">
-											<span class="tallerpro-detail-item-title"><?php echo dol_escape_htmltag($f->ref); ?></span>
-											<span class="tallerpro-detail-item-sub"><?php echo dol_print_date($db->jdate($f->datef), 'day'); ?></span>
+
+						<!-- Tarjeta 3: Facturas del cliente -->
+						<div class="tallerpro-detail-section-card">
+							<div class="tallerpro-detail-section-header">
+								<div class="tallerpro-detail-section-title">
+									<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+										<polyline points="14 2 14 8 20 8"></polyline>
+										<line x1="16" y1="13" x2="8" y2="13"></line>
+										<line x1="16" y1="17" x2="8" y2="17"></line>
+										<line x1="10" y1="9" x2="8" y2="9"></line>
+									</svg>
+									<span>Facturas del cliente</span>
+								</div>
+								<span class="tallerpro-badge-pill"><?php echo count($client_invoices); ?></span>
+							</div>
+							<div class="tallerpro-detail-list">
+								<?php if (!empty($client_invoices)): ?>
+									<?php foreach ($client_invoices as $f): ?>
+										<?php
+										$is_paid = !empty($f->paye);
+										$status_label = $is_paid ? 'Pagada' : 'Pendiente';
+										$status_class = $is_paid ? 'pagada' : 'pendiente';
+										$invoice_title = (stripos($f->ref, 'factura') === false) ? ('Factura ' . $f->ref) : $f->ref;
+										?>
+										<div class="tallerpro-detail-item">
+											<div class="tallerpro-detail-item-main">
+												<span class="tallerpro-detail-item-title"><?php echo dol_escape_htmltag($invoice_title); ?></span>
+												<span class="tallerpro-detail-item-sub"><?php echo dol_print_date($db->jdate($f->datef), 'day'); ?></span>
+											</div>
+											<div class="tallerpro-detail-item-end">
+												<span class="tallerpro-detail-item-price"><?php echo price($f->total_ttc, 0, $langs, 1, -1, -1, $conf->currency); ?></span>
+												<span class="tallerpro-badge-status-<?php echo $status_class; ?>"><?php echo $status_label; ?></span>
+											</div>
 										</div>
-										<div class="tallerpro-detail-item-end">
-											<span class="tallerpro-detail-item-price"><?php echo price($f->total_ttc, 0, $langs, 1, -1, -1, $conf->currency); ?></span>
-											<span class="tallerpro-badge-status-<?php echo $status_class; ?>"><?php echo $status_label; ?></span>
-										</div>
-									</div>
-								<?php endforeach; ?>
-							<?php else: ?>
-								<div class="tallerpro-empty-message">Este cliente aún no tiene facturas registradas.</div>
-							<?php endif; ?>
+									<?php endforeach; ?>
+								<?php else: ?>
+									<div class="tallerpro-empty-message">Este cliente aún no tiene facturas registradas.</div>
+								<?php endif; ?>
+							</div>
 						</div>
 					</div>
 
