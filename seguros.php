@@ -60,6 +60,225 @@ if (!isModEnabled('taller')) {
 	accessforbidden('Module not enabled');
 }
 
+$table_seguro = MAIN_DB_PREFIX . "taller_seguro";
+$table_vehiculo = MAIN_DB_PREFIX . "taller_vehiculo";
+
+// Ensure table exists
+$sql_create = "CREATE TABLE IF NOT EXISTS " . $table_seguro . " (
+    rowid           INT AUTO_INCREMENT PRIMARY KEY,
+    fk_vehiculo     INT DEFAULT NULL,
+    compania        VARCHAR(128) NOT NULL,
+    poliza          VARCHAR(64) DEFAULT NULL,
+    tipo            VARCHAR(64) DEFAULT NULL,
+    fecha_inicio    DATE DEFAULT NULL,
+    fecha_fin       DATE DEFAULT NULL,
+    telefono        VARCHAR(32) DEFAULT NULL,
+    notas           TEXT DEFAULT NULL,
+    date_creation   DATETIME NOT NULL,
+    tms             TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    fk_user_creat   INT NOT NULL,
+    entity          INT DEFAULT 1,
+    status          SMALLINT DEFAULT 1,
+    INDEX idx_taller_seguro_vehiculo (fk_vehiculo),
+    INDEX idx_taller_seguro_compania (compania)
+) ENGINE=innodb;";
+$db->query($sql_create);
+
+$action = GETPOST('action', 'alpha');
+if (empty($action) && !empty($_POST['action'])) {
+	$action = $_POST['action'];
+}
+
+// Acción: Crear Seguro
+if ($action == 'create_seguro' || $action == 'add_seguro') {
+	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
+	if (empty($fk_vehiculo) && !empty($_POST['fk_vehiculo'])) {
+		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
+	}
+
+	$compania = trim(GETPOST('compania', 'alphanohtml'));
+	if (empty($compania) && !empty($_POST['compania'])) {
+		$compania = trim($_POST['compania']);
+	}
+
+	$poliza = trim(GETPOST('poliza', 'alphanohtml'));
+	if (empty($poliza) && !empty($_POST['poliza'])) {
+		$poliza = trim($_POST['poliza']);
+	}
+
+	$tipo = trim(GETPOST('tipo', 'alphanohtml'));
+	if (empty($tipo) && !empty($_POST['tipo'])) {
+		$tipo = trim($_POST['tipo']);
+	}
+
+	$fecha_inicio = trim(GETPOST('fecha_inicio', 'alpha'));
+	if (empty($fecha_inicio) && !empty($_POST['fecha_inicio'])) {
+		$fecha_inicio = trim($_POST['fecha_inicio']);
+	}
+
+	$fecha_fin = trim(GETPOST('fecha_fin', 'alpha'));
+	if (empty($fecha_fin) && !empty($_POST['fecha_fin'])) {
+		$fecha_fin = trim($_POST['fecha_fin']);
+	}
+
+	$telefono = trim(GETPOST('telefono', 'alphanohtml'));
+	if (empty($telefono) && !empty($_POST['telefono'])) {
+		$telefono = trim($_POST['telefono']);
+	}
+
+	$notas = trim(GETPOST('notas', 'restricthtml'));
+	if (empty($notas) && !empty($_POST['notas'])) {
+		$notas = trim($_POST['notas']);
+	}
+
+	if (empty($compania)) {
+		setEventMessages($langs->trans("ErrorFieldRequired", "Compañía"), null, 'errors');
+	} else {
+		$sql_insert = "INSERT INTO " . $table_seguro . " (";
+		$sql_insert .= "fk_vehiculo, compania, poliza, tipo, fecha_inicio, fecha_fin, telefono, notas, date_creation, fk_user_creat, entity, status";
+		$sql_insert .= ") VALUES (";
+		$sql_insert .= ($fk_vehiculo > 0 ? ((int) $fk_vehiculo) : "NULL") . ", ";
+		$sql_insert .= "'" . $db->escape($compania) . "', ";
+		$sql_insert .= "'" . $db->escape($poliza) . "', ";
+		$sql_insert .= "'" . $db->escape($tipo) . "', ";
+		$sql_insert .= (!empty($fecha_inicio) ? "'" . $db->escape($fecha_inicio) . "'" : "NULL") . ", ";
+		$sql_insert .= (!empty($fecha_fin) ? "'" . $db->escape($fecha_fin) . "'" : "NULL") . ", ";
+		$sql_insert .= "'" . $db->escape($telefono) . "', ";
+		$sql_insert .= "'" . $db->escape($notas) . "', ";
+		$sql_insert .= "'" . $db->idate(dol_now()) . "', ";
+		$sql_insert .= ((int) $user->id) . ", ";
+		$sql_insert .= ((int) $conf->entity) . ", ";
+		$sql_insert .= "1";
+		$sql_insert .= ")";
+
+		$resql = $db->query($sql_insert);
+		if ($resql) {
+			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
+			header("Location: " . $_SERVER['PHP_SELF']);
+			exit;
+		} else {
+			setEventMessages("Error al guardar el seguro: " . $db->lasterror(), null, 'errors');
+		}
+	}
+}
+
+// Acción: Actualizar Seguro
+if ($action == 'update_seguro' || $action == 'edit_seguro') {
+	$rowid = GETPOSTINT('rowid');
+	if (empty($rowid) && !empty($_POST['rowid'])) {
+		$rowid = (int) $_POST['rowid'];
+	}
+
+	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
+	if (empty($fk_vehiculo) && !empty($_POST['fk_vehiculo'])) {
+		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
+	}
+
+	$compania = trim(GETPOST('compania', 'alphanohtml'));
+	if (empty($compania) && !empty($_POST['compania'])) {
+		$compania = trim($_POST['compania']);
+	}
+
+	$poliza = trim(GETPOST('poliza', 'alphanohtml'));
+	if (empty($poliza) && !empty($_POST['poliza'])) {
+		$poliza = trim($_POST['poliza']);
+	}
+
+	$tipo = trim(GETPOST('tipo', 'alphanohtml'));
+	if (empty($tipo) && !empty($_POST['tipo'])) {
+		$tipo = trim($_POST['tipo']);
+	}
+
+	$fecha_inicio = trim(GETPOST('fecha_inicio', 'alpha'));
+	if (empty($fecha_inicio) && !empty($_POST['fecha_inicio'])) {
+		$fecha_inicio = trim($_POST['fecha_inicio']);
+	}
+
+	$fecha_fin = trim(GETPOST('fecha_fin', 'alpha'));
+	if (empty($fecha_fin) && !empty($_POST['fecha_fin'])) {
+		$fecha_fin = trim($_POST['fecha_fin']);
+	}
+
+	$telefono = trim(GETPOST('telefono', 'alphanohtml'));
+	if (empty($telefono) && !empty($_POST['telefono'])) {
+		$telefono = trim($_POST['telefono']);
+	}
+
+	$notas = trim(GETPOST('notas', 'restricthtml'));
+	if (empty($notas) && !empty($_POST['notas'])) {
+		$notas = trim($_POST['notas']);
+	}
+
+	if (empty($compania)) {
+		setEventMessages($langs->trans("ErrorFieldRequired", "Compañía"), null, 'errors');
+	} elseif ($rowid <= 0) {
+		setEventMessages("Identificador de seguro no válido", null, 'errors');
+	} else {
+		$sql_update = "UPDATE " . $table_seguro . " SET ";
+		$sql_update .= "fk_vehiculo = " . ($fk_vehiculo > 0 ? ((int) $fk_vehiculo) : "NULL") . ", ";
+		$sql_update .= "compania = '" . $db->escape($compania) . "', ";
+		$sql_update .= "poliza = '" . $db->escape($poliza) . "', ";
+		$sql_update .= "tipo = '" . $db->escape($tipo) . "', ";
+		$sql_update .= "fecha_inicio = " . (!empty($fecha_inicio) ? "'" . $db->escape($fecha_inicio) . "'" : "NULL") . ", ";
+		$sql_update .= "fecha_fin = " . (!empty($fecha_fin) ? "'" . $db->escape($fecha_fin) . "'" : "NULL") . ", ";
+		$sql_update .= "telefono = '" . $db->escape($telefono) . "', ";
+		$sql_update .= "notas = '" . $db->escape($notas) . "' ";
+		$sql_update .= "WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_seguro') . ")";
+
+		$resql = $db->query($sql_update);
+		if ($resql) {
+			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
+			header("Location: " . $_SERVER['PHP_SELF']);
+			exit;
+		} else {
+			setEventMessages("Error al actualizar el seguro: " . $db->lasterror(), null, 'errors');
+		}
+	}
+}
+
+// Acción: Eliminar Seguro
+if ($action == 'delete_seguro' || $action == 'delete') {
+	$rowid = GETPOSTINT('rowid');
+	if ($rowid > 0) {
+		$sql_del = "UPDATE " . $table_seguro . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_seguro') . ")";
+		$resql = $db->query($sql_del);
+		if ($resql) {
+			setEventMessages($langs->trans("RecordDeleted"), null, 'mesgs');
+			header("Location: " . $_SERVER['PHP_SELF']);
+			exit;
+		} else {
+			setEventMessages("Error al eliminar el seguro: " . $db->lasterror(), null, 'errors');
+		}
+	}
+}
+
+// Consultar vehículos para el desplegable
+$vehicles_list = array();
+$sql_v = "SELECT rowid, matricula, marca, modelo FROM " . $table_vehiculo;
+$sql_v .= " WHERE status = 1 AND entity IN (" . getEntity('taller_vehiculo') . ") ORDER BY matricula ASC";
+$res_v = $db->query($sql_v);
+if ($res_v) {
+	while ($v = $db->fetch_object($res_v)) {
+		$vehicles_list[] = $v;
+	}
+}
+
+// Consultar seguros con JOIN a vehículos
+$seguros_list = array();
+$sql_s = "SELECT s.rowid, s.fk_vehiculo, s.compania, s.poliza, s.tipo, s.fecha_inicio, s.fecha_fin, s.telefono, s.notas, ";
+$sql_s .= "v.matricula as vehiculo_matricula, v.marca as vehiculo_marca, v.modelo as vehiculo_modelo ";
+$sql_s .= "FROM " . $table_seguro . " as s ";
+$sql_s .= "LEFT JOIN " . $table_vehiculo . " as v ON s.fk_vehiculo = v.rowid ";
+$sql_s .= "WHERE s.status = 1 AND s.entity IN (" . getEntity('taller_seguro') . ") ";
+$sql_s .= "ORDER BY s.rowid DESC";
+$res_s = $db->query($sql_s);
+if ($res_s) {
+	while ($s = $db->fetch_object($res_s)) {
+		$seguros_list[] = $s;
+	}
+}
+$total_seguros = count($seguros_list);
+
 $css_file = __DIR__ . '/css/tallerpro.css';
 $js_file = __DIR__ . '/js/tallerpro.js';
 $css_version = file_exists($css_file) ? filemtime($css_file) : dol_now();
@@ -236,10 +455,10 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				<div class="tallerpro-header-actions">
 					<div class="tallerpro-content-header" style="margin-bottom: 0;">
 						<h1 class="tallerpro-page-title"><?php echo $langs->trans("Seguros"); ?></h1>
-						<p class="tallerpro-page-subtitle">0 registro(s)</p>
+						<p class="tallerpro-page-subtitle"><?php echo $total_seguros; ?> registro(s)</p>
 					</div>
 					<div>
-						<button type="button" class="tallerpro-btn-primary">
+						<button type="button" class="tallerpro-btn-primary" id="tallerOpenModalBtn">
 							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
 								<line x1="12" y1="5" x2="12" y2="19"></line>
 								<line x1="5" y1="12" x2="19" y2="12"></line>
@@ -249,11 +468,181 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					</div>
 				</div>
 
-				<!-- Empty State Card -->
-				<div class="tallerpro-empty-card">
-					Aún no hay registros. Añade el primero.
-				</div>
+				<?php echo dol_htmloutput_events(); ?>
+
+				<?php if (empty($seguros_list)): ?>
+					<!-- Empty State Card -->
+					<div class="tallerpro-empty-card">
+						Aún no hay registros. Añade el primero.
+					</div>
+				<?php else: ?>
+					<!-- Table Card -->
+					<div class="tallerpro-table-card">
+						<table class="tallerpro-table">
+							<thead>
+								<tr>
+									<th>Vehículo</th>
+									<th>Compañía</th>
+									<th>Nº de póliza</th>
+									<th>Tipo</th>
+									<th>Vigencia</th>
+									<th>Teléfono</th>
+									<th style="width: 80px; text-align: right;"></th>
+								</tr>
+							</thead>
+							<tbody>
+								<?php foreach ($seguros_list as $seg): ?>
+									<tr>
+										<td style="font-weight: 600; color: #1e293b;">
+											<?php if (!empty($seg->fk_vehiculo)): ?>
+												<a href="<?php echo $vehiculos_url . '?id=' . ((int) $seg->fk_vehiculo); ?>" style="color: inherit; text-decoration: none;" title="Ver vehículo">
+													<?php echo dol_escape_htmltag($seg->vehiculo_matricula ?: '—'); ?>
+													<?php if (!empty($seg->vehiculo_marca) || !empty($seg->vehiculo_modelo)): ?>
+														<span style="font-weight: normal; color: #64748b; font-size: 0.82rem; display: block;">
+															<?php echo dol_escape_htmltag(trim($seg->vehiculo_marca . ' ' . $seg->vehiculo_modelo)); ?>
+														</span>
+													<?php endif; ?>
+												</a>
+											<?php else: ?>
+												<span style="color: #94a3b8; font-weight: normal;">—</span>
+											<?php endif; ?>
+										</td>
+										<td style="font-weight: 600; color: #1e293b;">
+											<?php echo dol_escape_htmltag($seg->compania); ?>
+										</td>
+										<td style="color: #334155;">
+											<?php echo !empty($seg->poliza) ? dol_escape_htmltag($seg->poliza) : '—'; ?>
+										</td>
+										<td>
+											<?php if (!empty($seg->tipo)): ?>
+												<span class="tallerpro-badge">
+													<?php echo dol_escape_htmltag($seg->tipo); ?>
+												</span>
+											<?php else: ?>
+												—
+											<?php endif; ?>
+										</td>
+										<td style="color: #334155; font-size: 0.85rem;">
+											<?php 
+											$has_ini = !empty($seg->fecha_inicio);
+											$has_fin = !empty($seg->fecha_fin);
+											if ($has_ini && $has_fin) {
+												echo dol_escape_htmltag($seg->fecha_inicio) . ' al ' . dol_escape_htmltag($seg->fecha_fin);
+											} elseif ($has_ini) {
+												echo 'Desde ' . dol_escape_htmltag($seg->fecha_inicio);
+											} elseif ($has_fin) {
+												echo 'Hasta ' . dol_escape_htmltag($seg->fecha_fin);
+											} else {
+												echo '—';
+											}
+											?>
+										</td>
+										<td style="color: #334155;">
+											<?php if (!empty($seg->telefono)): ?>
+												<a href="tel:<?php echo dol_escape_htmltag($seg->telefono); ?>" style="color: #2563eb; text-decoration: none;">
+													<?php echo dol_escape_htmltag($seg->telefono); ?>
+												</a>
+											<?php else: ?>
+												—
+											<?php endif; ?>
+										</td>
+										<td>
+											<div class="tallerpro-actions">
+												<button type="button" class="tallerpro-action-btn btn-edit-seguro" title="Editar"
+													data-id="<?php echo (int) $seg->rowid; ?>"
+													data-vehiculo="<?php echo (int) $seg->fk_vehiculo; ?>"
+													data-compania="<?php echo dol_escape_htmltag($seg->compania); ?>"
+													data-poliza="<?php echo dol_escape_htmltag($seg->poliza); ?>"
+													data-tipo="<?php echo dol_escape_htmltag($seg->tipo); ?>"
+													data-fechainicio="<?php echo dol_escape_htmltag($seg->fecha_inicio); ?>"
+													data-fechafin="<?php echo dol_escape_htmltag($seg->fecha_fin); ?>"
+													data-telefono="<?php echo dol_escape_htmltag($seg->telefono); ?>"
+													data-notas="<?php echo dol_escape_htmltag($seg->notas); ?>">
+													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+														<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+													</svg>
+												</button>
+												<a href="<?php echo $_SERVER['PHP_SELF']; ?>?action=delete_seguro&rowid=<?php echo (int) $seg->rowid; ?>&token=<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>"
+													class="tallerpro-action-btn"
+													title="Eliminar"
+													onclick="return confirm('¿Estás seguro de que deseas eliminar este seguro?');">
+													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+														<polyline points="3 6 5 6 21 6"></polyline>
+														<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+													</svg>
+												</a>
+											</div>
+										</td>
+									</tr>
+								<?php endforeach; ?>
+							</tbody>
+						</table>
+					</div>
+				<?php endif; ?>
 			</main>
+		</div>
+	</div>
+
+	<!-- Modal Registro Seguros -->
+	<div class="tallerpro-modal-backdrop" id="tallerSeguroModal">
+		<div class="tallerpro-modal-card">
+			<div class="tallerpro-modal-header">
+				<h2 class="tallerpro-modal-title" id="tallerSeguroModalTitle">Nuevo registro</h2>
+				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="Cerrar">
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+			</div>
+			<form class="tallerpro-modal-form" id="tallerSeguroForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
+				<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
+				<input type="hidden" name="action" id="seguroFormAction" value="create_seguro">
+				<input type="hidden" name="rowid" id="seguroFormRowid" value="0">
+
+				<div class="tallerpro-form-group">
+					<label class="tallerpro-form-label">Vehículo</label>
+					<select name="fk_vehiculo" id="seg_fk_vehiculo" class="tallerpro-form-select">
+						<option value="">— Seleccionar vehículo —</option>
+						<?php foreach ($vehicles_list as $veh): ?>
+							<option value="<?php echo (int) $veh->rowid; ?>">
+								<?php echo dol_escape_htmltag($veh->matricula . (!empty($veh->marca) ? ' - ' . $veh->marca : '') . (!empty($veh->modelo) ? ' ' . $veh->modelo : '')); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+				</div>
+				<div class="tallerpro-form-group">
+					<label class="tallerpro-form-label">Compañía <span class="tallerpro-required">*</span></label>
+					<input type="text" name="compania" id="seg_compania" class="tallerpro-form-input" required />
+				</div>
+				<div class="tallerpro-form-group">
+					<label class="tallerpro-form-label">Nº de póliza</label>
+					<input type="text" name="poliza" id="seg_poliza" class="tallerpro-form-input" />
+				</div>
+				<div class="tallerpro-form-group">
+					<label class="tallerpro-form-label">Tipo</label>
+					<input type="text" name="tipo" id="seg_tipo" class="tallerpro-form-input" placeholder="Todo riesgo, terceros..." />
+				</div>
+				<div class="tallerpro-form-group">
+					<label class="tallerpro-form-label">Inicio</label>
+					<input type="date" name="fecha_inicio" id="seg_fecha_inicio" class="tallerpro-form-input" />
+				</div>
+				<div class="tallerpro-form-group">
+					<label class="tallerpro-form-label">Fin</label>
+					<input type="date" name="fecha_fin" id="seg_fecha_fin" class="tallerpro-form-input" />
+				</div>
+				<div class="tallerpro-form-group">
+					<label class="tallerpro-form-label">Teléfono</label>
+					<input type="text" name="telefono" id="seg_telefono" class="tallerpro-form-input" />
+				</div>
+				<div class="tallerpro-form-group">
+					<label class="tallerpro-form-label">Notas</label>
+					<textarea name="notas" id="seg_notas" class="tallerpro-form-textarea" rows="3"></textarea>
+				</div>
+				<div class="tallerpro-modal-footer">
+					<button type="submit" class="tallerpro-btn-submit" id="tallerSaveModalBtn">Guardar</button>
+				</div>
+			</form>
 		</div>
 	</div>
 </div>

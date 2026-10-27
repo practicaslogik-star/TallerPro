@@ -793,6 +793,18 @@ a.tallerpro-nav-item.active {
     font-weight: 600;
 }
 
+.tallerpro-badge-status-pendiente {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 3px 10px;
+    background-color: #fff7ed;
+    color: #c2410c;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
 /* ==========================================================================
    Modal Dialogs
    ========================================================================== */
@@ -802,8 +814,8 @@ a.tallerpro-nav-item.active {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background-color: rgba(15, 23, 42, 0.45);
-    backdrop-filter: blur(2px);
+    background-color: rgba(15, 23, 42, 0.5);
+    backdrop-filter: blur(3px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -812,8 +824,9 @@ a.tallerpro-nav-item.active {
     visibility: hidden;
     pointer-events: none;
     transition: opacity 0.2s ease, visibility 0.2s ease;
-    padding: 20px;
+    padding: 24px 16px;
     box-sizing: border-box;
+    overflow-y: auto;
 }
 
 .tallerpro-modal-backdrop.active {
@@ -827,13 +840,14 @@ a.tallerpro-nav-item.active {
     border-radius: 16px;
     width: 100%;
     max-width: 480px;
-    max-height: 90vh;
+    max-height: calc(100vh - 48px);
     overflow-y: auto;
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
     padding: 24px 28px;
     box-sizing: border-box;
     transform: translateY(-8px) scale(0.98);
     transition: transform 0.2s ease;
+    margin: auto;
 }
 
 .tallerpro-modal-card::-webkit-scrollbar {
@@ -1337,6 +1351,954 @@ a.tallerpro-nav-item.active {
     }
     .tallerpro-detail-item-end {
         align-items: flex-start;
+    }
+}
+
+/* Vehicle Detail View & Tabs */
+.tallerpro-detail-container {
+    max-width: 1040px;
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 4px 0 32px 0;
+}
+
+.tallerpro-back-to-list {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    color: #64748b;
+    text-decoration: none !important;
+    margin-bottom: 22px;
+    transition: color 0.15s ease;
+}
+
+.tallerpro-back-to-list:hover {
+    color: #0f172a;
+}
+
+.tallerpro-back-to-list svg {
+    color: inherit;
+    transition: transform 0.15s ease;
+}
+
+.tallerpro-back-to-list:hover svg {
+    transform: translateX(-3px);
+}
+
+.tallerpro-vehicle-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 24px 28px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 22px;
+    box-sizing: border-box;
+    gap: 32px;
+}
+
+.tallerpro-vehicle-main-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.tallerpro-vehicle-plate {
+    font-size: 26px;
+    font-weight: 700;
+    color: #0f172a;
+    margin: 0;
+    letter-spacing: 0.02em;
+    line-height: 1.2;
+}
+
+.tallerpro-vehicle-model {
+    font-size: 14px;
+    color: #64748b;
+    margin: 0;
+    font-weight: 500;
+}
+
+.tallerpro-vehicle-meta-group {
+    display: flex;
+    gap: 48px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+}
+
+.tallerpro-vehicle-meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tallerpro-vehicle-meta-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.tallerpro-vehicle-meta-value {
+    font-size: 13.5px;
+    font-weight: 500;
+    color: #0f172a;
+    max-width: 260px;
+    word-break: break-word;
+    line-height: 1.4;
+}
+
+/* Tabs */
+.tallerpro-tabs-container {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+    padding-bottom: 2px;
+}
+
+.tallerpro-tab-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 16px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: #64748b;
+    background-color: #f1f5f9;
+    border: 1.5px solid transparent;
+    border-radius: 8px;
+    text-decoration: none !important;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+    user-select: none;
+    font-family: inherit;
+}
+
+.tallerpro-tab-btn svg {
+    width: 15px;
+    height: 15px;
+    color: #64748b;
+    transition: color 0.15s ease;
+    flex-shrink: 0;
+}
+
+.tallerpro-tab-btn:hover {
+    background-color: #e2e8f0;
+    color: #0f172a;
+}
+
+.tallerpro-tab-btn:hover svg {
+    color: #0f172a;
+}
+
+.tallerpro-tab-btn.active {
+    background-color: #ffffff;
+    border-color: #3b82f6;
+    color: #2563eb;
+    font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.tallerpro-tab-btn.active svg {
+    color: #2563eb;
+}
+
+/* Tab panes */
+.tallerpro-tab-pane {
+    display: none;
+}
+
+.tallerpro-tab-pane.active {
+    display: block;
+}
+
+.tallerpro-vehicle-detail-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 24px 28px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    box-sizing: border-box;
+    margin-bottom: 24px;
+}
+
+.tallerpro-vehicle-detail-card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #0f172a;
+    margin: 0 0 24px 0;
+}
+
+.tallerpro-vehicle-owner-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 48px;
+    row-gap: 22px;
+}
+
+.tallerpro-vehicle-owner-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tallerpro-vehicle-owner-label {
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+
+.tallerpro-vehicle-owner-value {
+    font-size: 14px;
+    font-weight: 500;
+    color: #0f172a;
+    line-height: 1.4;
+}
+
+@media (max-width: 768px) {
+    .tallerpro-vehicle-card {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 16px;
+    }
+    .tallerpro-vehicle-meta-group {
+        flex-direction: column;
+        gap: 12px;
+    }
+    .tallerpro-vehicle-owner-grid {
+        grid-template-columns: 1fr;
+        row-gap: 16px;
+    }
+}
+
+/* Badge & Seguros helper classes */
+.tallerpro-badge {
+    display: inline-block;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 0.78rem;
+    font-weight: 500;
+    padding: 3px 8px;
+    border-radius: 6px;
+    line-height: 1.2;
+}
+
+.tallerpro-badge-primary {
+    background: #eff6ff;
+    color: #1d4ed8;
+}
+
+.tallerpro-seguro-item {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.tallerpro-seguro-item:last-child {
+    margin-bottom: 0;
+}
+
+.tallerpro-seguro-main {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.tallerpro-seguro-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.tallerpro-seguro-company {
+    font-size: 15px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.tallerpro-seguro-details {
+    font-size: 13px;
+    color: #64748b;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.tallerpro-seguro-notes {
+    font-size: 12.5px;
+    color: #475569;
+    margin-top: 4px;
+    background: #ffffff;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+}
+
+/* ==========================================================================
+   Detalle de Factura (Modal Extendido)
+   ========================================================================== */
+.tallerpro-modal-card-lg {
+    max-width: 900px !important;
+    width: 96% !important;
+    max-height: 90vh;
+    overflow: hidden !important;
+    display: flex;
+    flex-direction: column;
+    padding: 0 !important;
+}
+
+.tallerpro-modal-card-lg .tallerpro-modal-header {
+    padding: 18px 24px;
+    margin: 0;
+    border-bottom: 1px solid #e2e8f0;
+    background: #ffffff;
+    flex-shrink: 0;
+}
+
+.tallerpro-modal-body {
+    padding: 20px 24px 24px;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-sizing: border-box;
+}
+
+.tallerpro-modal-body::-webkit-scrollbar {
+    width: 6px;
+}
+.tallerpro-modal-body::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 4px;
+}
+
+.tallerpro-form-input:read-only,
+.tallerpro-form-input[readonly] {
+    background-color: #f1f5f9;
+    color: #1e293b;
+    font-weight: 600;
+    cursor: default;
+    border-color: #cbd5e1;
+}
+
+.tallerpro-invoice-section {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.tallerpro-invoice-section-title {
+    font-size: 14.5px;
+    font-weight: 700;
+    color: #0f172a;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0;
+}
+
+.tallerpro-grid-mat-row1 {
+    display: grid;
+    grid-template-columns: 2fr 1fr 2.5fr;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.tallerpro-grid-mat-row2 {
+    display: grid;
+    grid-template-columns: 85px 110px 95px 120px auto auto;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.tallerpro-grid-rep-row1 {
+    display: grid;
+    grid-template-columns: 2.8fr 1fr 1fr 1.2fr;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.tallerpro-grid-rep-row2 {
+    display: flex;
+    gap: 16px;
+    align-items: flex-end;
+}
+
+.tallerpro-grid-rep-row2 .tallerpro-form-group:first-child {
+    flex: 1;
+}
+
+.tallerpro-grid-rep-row2 .tallerpro-form-group:last-child {
+    flex: 0 0 auto;
+}
+
+.tallerpro-invoice-empty-box {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 14px 16px;
+    text-align: center;
+    color: #64748b;
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+.tallerpro-invoice-lines-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 6px;
+    width: 100%;
+    overflow-x: auto;
+}
+
+.tallerpro-invoice-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13.5px;
+}
+
+.tallerpro-invoice-table thead th {
+    color: #64748b;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 8px 10px;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+    white-space: nowrap;
+}
+
+.tallerpro-invoice-table tbody td {
+    padding: 9px 10px;
+    color: #1e293b;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+    font-size: 13px;
+}
+
+.tallerpro-invoice-table tbody tr:hover {
+    background-color: #f8fafc;
+}
+
+.tallerpro-invoice-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.tallerpro-invoice-line-item {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.tallerpro-invoice-line-main {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+}
+
+.tallerpro-invoice-line-title {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.tallerpro-invoice-line-meta {
+    font-size: 12px;
+    color: #64748b;
+}
+
+.tallerpro-invoice-line-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.tallerpro-invoice-line-price {
+    font-size: 14px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.tallerpro-invoice-totals-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 18px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.tallerpro-invoice-totals-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 1.4fr;
+    gap: 32px;
+    align-items: flex-start;
+}
+
+.tallerpro-totals-inputs {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.tallerpro-totals-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    font-size: 13.5px;
+    color: #475569;
+}
+
+.tallerpro-totals-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.tallerpro-totals-divider {
+    height: 1px;
+    background: #e2e8f0;
+    margin: 3px 0;
+}
+
+.tallerpro-totals-final {
+    font-weight: 800;
+    color: #0f172a;
+    font-size: 16px;
+    margin-top: 4px;
+}
+
+.tallerpro-btn-save-totals {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    background: #1d4ed8;
+    color: #ffffff;
+    padding: 11px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13.5px;
+    border: none;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.tallerpro-btn-save-totals:hover {
+    background: #1e40af;
+}
+
+.tallerpro-checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 12.5px;
+    color: #475569;
+    cursor: pointer;
+    white-space: nowrap;
+    user-select: none;
+    height: 38px;
+    margin: 0;
+}
+
+.tallerpro-btn-add-line {
+    background: #1d4ed8;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    white-space: nowrap;
+    height: 38px;
+    box-sizing: border-box;
+    transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.tallerpro-btn-add-line:hover:not(:disabled) {
+    background: #1e40af;
+    transform: translateY(-1px);
+}
+
+.tallerpro-btn-add-line:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+.tallerpro-btn-add-line-secondary {
+    background: #64748b;
+    color: #ffffff;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: 7px;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    transition: background 0.15s ease;
+}
+
+.tallerpro-btn-add-line-secondary:hover {
+    background: #475569;
+}
+
+@media (max-width: 768px) {
+    .tallerpro-grid-mat-row1,
+    .tallerpro-grid-mat-row2,
+    .tallerpro-grid-rep-row1,
+    .tallerpro-invoice-totals-grid,
+    .tallerpro-invoice-cards-grid {
+        grid-template-columns: 1fr;
+    }
+    .tallerpro-grid-rep-row2 {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .tallerpro-invoice-modal-footer-actions {
+        flex-direction: column;
+    }
+}
+
+/* ==========================================================================
+   Vista Detalle Documental de Factura
+   ========================================================================== */
+.tallerpro-invoice-view-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+}
+
+.tallerpro-invoice-view-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.tallerpro-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #475569;
+    text-decoration: none;
+    transition: color 0.15s ease;
+}
+
+.tallerpro-back-link:hover {
+    color: #0f172a;
+}
+
+.tallerpro-invoice-view-top-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tallerpro-btn-edit-lines {
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #334155;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.15s ease;
+}
+
+.tallerpro-btn-edit-lines:hover {
+    background: #f8fafc;
+    border-color: #94a3b8;
+    color: #0f172a;
+}
+
+.tallerpro-invoice-doc-header {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-bottom: 2px;
+}
+
+.tallerpro-invoice-doc-label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #64748b;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    text-transform: uppercase;
+}
+
+.tallerpro-invoice-doc-num {
+    font-size: 32px;
+    font-weight: 800;
+    color: #0f172a;
+    line-height: 1.1;
+    margin: 0;
+    letter-spacing: -0.02em;
+}
+
+.tallerpro-invoice-doc-date {
+    font-size: 13.5px;
+    color: #64748b;
+    font-weight: 500;
+}
+
+.tallerpro-invoice-cards-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.tallerpro-invoice-info-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.tallerpro-info-card-tag {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #64748b;
+    text-transform: uppercase;
+    margin-bottom: 2px;
+}
+
+.tallerpro-info-card-title {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.tallerpro-info-card-line {
+    font-size: 13px;
+    color: #334155;
+    line-height: 1.4;
+}
+
+.tallerpro-info-card-sub {
+    font-size: 12.5px;
+    color: #64748b;
+    margin-top: 2px;
+}
+
+.tallerpro-invoice-view-section {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.tallerpro-invoice-summary-card {
+    padding: 18px 24px;
+}
+
+.tallerpro-invoice-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    margin-top: 4px;
+}
+
+.tallerpro-invoice-table th {
+    background-color: transparent;
+    padding: 10px 12px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #64748b;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+}
+
+.tallerpro-invoice-table td {
+    padding: 12px 12px;
+    font-size: 13.5px;
+    color: #334155;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+}
+
+.tallerpro-invoice-table tr:last-child td {
+    border-bottom: none;
+}
+
+.tallerpro-invoice-table tr:hover td {
+    background-color: #f8fafc;
+}
+
+.tallerpro-badge-status-pagada {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 14px;
+    background-color: #e0f2fe;
+    color: #0284c7;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.tallerpro-badge-status-pendiente {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px 14px;
+    background-color: #fef3c7;
+    color: #b45309;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.tallerpro-btn-pdf {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background-color: #0f3ba8;
+    color: #ffffff !important;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    text-decoration: none !important;
+    transition: background-color 0.15s ease, transform 0.1s ease;
+    box-shadow: 0 1px 2px rgba(15, 59, 168, 0.25);
+}
+
+.tallerpro-btn-pdf:hover {
+    background-color: #0d318e;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(15, 59, 168, 0.35);
+}
+
+.tallerpro-invoice-modal-footer-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 12px;
+    width: 100%;
+    margin-top: 10px;
+}
+
+.tallerpro-btn-modal-listo {
+    background: #0f3ba8;
+    color: #ffffff;
+    padding: 9px 24px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 13.5px;
+    border: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    white-space: nowrap;
+    transition: background 0.15s ease, transform 0.1s ease;
+    box-shadow: 0 1px 2px rgba(15, 59, 168, 0.2);
+}
+
+.tallerpro-btn-modal-listo:hover {
+    background: #0d318e;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(15, 59, 168, 0.3);
+}
+
+.tallerpro-spin {
+    animation: tallerpro-spin 1s linear infinite;
+}
+
+@keyframes tallerpro-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+@media print {
+    .tallerpro-sidebar,
+    .tallerpro-topbar,
+    .tallerpro-invoice-view-topbar,
+    .tallerpro-modal-backdrop,
+    .tallerpro-collapse-btn {
+        display: none !important;
+    }
+    .tallerpro-layout,
+    .tallerpro-main,
+    .tallerpro-content-wrapper,
+    .tallerpro-content {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        background: #ffffff !important;
+    }
+    .tallerpro-invoice-view-wrapper {
+        gap: 20px !important;
+    }
+    .tallerpro-invoice-info-card,
+    .tallerpro-invoice-view-section {
+        border-color: #cbd5e1 !important;
+        box-shadow: none !important;
     }
 }
 

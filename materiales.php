@@ -60,6 +60,195 @@ if (!isModEnabled('taller')) {
 	accessforbidden('Module not enabled');
 }
 
+$table_material = MAIN_DB_PREFIX . "taller_material";
+
+// Ensure table exists
+$sql_create = "CREATE TABLE IF NOT EXISTS " . $table_material . " (
+    rowid           INT AUTO_INCREMENT PRIMARY KEY,
+    nombre          VARCHAR(255) NOT NULL,
+    ref             VARCHAR(128) DEFAULT NULL,
+    proveedor       VARCHAR(255) DEFAULT NULL,
+    stock           DOUBLE DEFAULT 0,
+    precio          DOUBLE(24,8) DEFAULT 0,
+    notas           TEXT DEFAULT NULL,
+    date_creation   DATETIME NOT NULL,
+    tms             TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    fk_user_creat   INT NOT NULL,
+    entity          INT DEFAULT 1,
+    status          SMALLINT DEFAULT 1,
+    INDEX idx_taller_material_ref (ref),
+    INDEX idx_taller_material_nombre (nombre)
+) ENGINE=innodb;";
+$db->query($sql_create);
+
+$action = GETPOST('action', 'alpha');
+if (empty($action) && !empty($_POST['action'])) {
+	$action = $_POST['action'];
+}
+
+// Acción: Crear Material
+if ($action == 'create_material' || $action == 'add_material') {
+	$nombre = trim(GETPOST('nombre', 'alphanohtml'));
+	if (empty($nombre) && !empty($_POST['nombre'])) {
+		$nombre = trim($_POST['nombre']);
+	}
+
+	$ref = trim(GETPOST('ref', 'alphanohtml'));
+	if (empty($ref) && !empty($_POST['ref'])) {
+		$ref = trim($_POST['ref']);
+	}
+
+	$proveedor = trim(GETPOST('proveedor', 'alphanohtml'));
+	if (empty($proveedor) && !empty($_POST['proveedor'])) {
+		$proveedor = trim($_POST['proveedor']);
+	}
+
+	$stock = GETPOSTFLOAT('stock');
+	if ($stock === null || $stock === '') {
+		$stock = isset($_POST['stock']) ? (float) $_POST['stock'] : 0;
+	}
+
+	$precio = GETPOSTFLOAT('precio');
+	if ($precio === null || $precio === '') {
+		$precio = isset($_POST['precio']) ? (float) $_POST['precio'] : 0;
+	}
+
+	$notas = trim(GETPOST('notas', 'restricthtml'));
+	if (empty($notas) && !empty($_POST['notas'])) {
+		$notas = trim($_POST['notas']);
+	}
+
+	if (empty($nombre)) {
+		setEventMessages($langs->trans("ErrorFieldRequired", "Nombre"), null, 'errors');
+	} else {
+		$sql_insert = "INSERT INTO " . $table_material . " (";
+		$sql_insert .= "nombre, ref, proveedor, stock, precio, notas, date_creation, fk_user_creat, entity, status";
+		$sql_insert .= ") VALUES (";
+		$sql_insert .= "'" . $db->escape($nombre) . "', ";
+		$sql_insert .= "'" . $db->escape($ref) . "', ";
+		$sql_insert .= "'" . $db->escape($proveedor) . "', ";
+		$sql_insert .= ((float) $stock) . ", ";
+		$sql_insert .= ((float) $precio) . ", ";
+		$sql_insert .= "'" . $db->escape($notas) . "', ";
+		$sql_insert .= "'" . $db->idate(dol_now()) . "', ";
+		$sql_insert .= ((int) $user->id) . ", ";
+		$sql_insert .= ((int) $conf->entity) . ", ";
+		$sql_insert .= "1";
+		$sql_insert .= ")";
+
+		$resql = $db->query($sql_insert);
+		if ($resql) {
+			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
+			header("Location: " . $_SERVER['PHP_SELF']);
+			exit;
+		} else {
+			setEventMessages("Error al guardar el material: " . $db->lasterror(), null, 'errors');
+		}
+	}
+}
+
+// Acción: Actualizar Material
+if ($action == 'update_material' || $action == 'edit_material') {
+	$rowid = GETPOSTINT('rowid');
+	if (empty($rowid) && !empty($_POST['rowid'])) {
+		$rowid = (int) $_POST['rowid'];
+	}
+
+	$nombre = trim(GETPOST('nombre', 'alphanohtml'));
+	if (empty($nombre) && !empty($_POST['nombre'])) {
+		$nombre = trim($_POST['nombre']);
+	}
+
+	$ref = trim(GETPOST('ref', 'alphanohtml'));
+	if (empty($ref) && !empty($_POST['ref'])) {
+		$ref = trim($_POST['ref']);
+	}
+
+	$proveedor = trim(GETPOST('proveedor', 'alphanohtml'));
+	if (empty($proveedor) && !empty($_POST['proveedor'])) {
+		$proveedor = trim($_POST['proveedor']);
+	}
+
+	$stock = GETPOSTFLOAT('stock');
+	if ($stock === null || $stock === '') {
+		$stock = isset($_POST['stock']) ? (float) $_POST['stock'] : 0;
+	}
+
+	$precio = GETPOSTFLOAT('precio');
+	if ($precio === null || $precio === '') {
+		$precio = isset($_POST['precio']) ? (float) $_POST['precio'] : 0;
+	}
+
+	$notas = trim(GETPOST('notas', 'restricthtml'));
+	if (empty($notas) && !empty($_POST['notas'])) {
+		$notas = trim($_POST['notas']);
+	}
+
+	if (empty($nombre)) {
+		setEventMessages($langs->trans("ErrorFieldRequired", "Nombre"), null, 'errors');
+	} elseif ($rowid <= 0) {
+		setEventMessages("Identificador de material no válido", null, 'errors');
+	} else {
+		$sql_update = "UPDATE " . $table_material . " SET ";
+		$sql_update .= "nombre = '" . $db->escape($nombre) . "', ";
+		$sql_update .= "ref = '" . $db->escape($ref) . "', ";
+		$sql_update .= "proveedor = '" . $db->escape($proveedor) . "', ";
+		$sql_update .= "stock = " . ((float) $stock) . ", ";
+		$sql_update .= "precio = " . ((float) $precio) . ", ";
+		$sql_update .= "notas = '" . $db->escape($notas) . "' ";
+		$sql_update .= "WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_material') . ")";
+
+		$resql = $db->query($sql_update);
+		if ($resql) {
+			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
+			header("Location: " . $_SERVER['PHP_SELF']);
+			exit;
+		} else {
+			setEventMessages("Error al actualizar el material: " . $db->lasterror(), null, 'errors');
+		}
+	}
+}
+
+// Acción: Eliminar Material
+if ($action == 'delete_material' || $action == 'delete') {
+	$rowid = GETPOSTINT('rowid');
+	if ($rowid > 0) {
+		$sql_del = "UPDATE " . $table_material . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_material') . ")";
+		$resql = $db->query($sql_del);
+		if ($resql) {
+			setEventMessages($langs->trans("RecordDeleted"), null, 'mesgs');
+			header("Location: " . $_SERVER['PHP_SELF']);
+			exit;
+		} else {
+			setEventMessages("Error al eliminar el material: " . $db->lasterror(), null, 'errors');
+		}
+	}
+}
+
+// Consultar proveedores de Dolibarr para sugerencias en el formulario
+$suppliers_list = array();
+$sql_s = "SELECT DISTINCT nom FROM " . MAIN_DB_PREFIX . "societe WHERE fournisseur = 1 AND entity IN (" . getEntity('societe') . ") ORDER BY nom ASC";
+$res_s = $db->query($sql_s);
+if ($res_s) {
+	while ($s = $db->fetch_object($res_s)) {
+		if (!empty($s->nom)) {
+			$suppliers_list[] = $s->nom;
+		}
+	}
+}
+
+// Consultar materiales
+$materials_list = array();
+$sql_m = "SELECT rowid, nombre, ref, proveedor, stock, precio, notas FROM " . $table_material;
+$sql_m .= " WHERE status = 1 AND entity IN (" . getEntity('taller_material') . ") ORDER BY rowid DESC";
+$res_m = $db->query($sql_m);
+if ($res_m) {
+	while ($m = $db->fetch_object($res_m)) {
+		$materials_list[] = $m;
+	}
+}
+$total_materials = count($materials_list);
+
 $css_file = __DIR__ . '/css/tallerpro.css';
 $js_file = __DIR__ . '/js/tallerpro.js';
 $css_version = file_exists($css_file) ? filemtime($css_file) : dol_now();
@@ -236,7 +425,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				<div class="tallerpro-header-actions">
 					<div class="tallerpro-content-header" style="margin-bottom: 0;">
 						<h1 class="tallerpro-page-title"><?php echo $langs->trans("Materiales"); ?></h1>
-						<p class="tallerpro-page-subtitle">19 registro(s)</p>
+						<p class="tallerpro-page-subtitle"><?php echo $total_materials; ?> registro(s)</p>
 					</div>
 					<div>
 						<button type="button" class="tallerpro-btn-primary" id="tallerOpenModalBtn">
@@ -263,149 +452,48 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							</tr>
 						</thead>
 						<tbody>
-							<!-- Row 1 -->
-							<tr>
-								<td style="color: #1e293b; font-weight: 500;">Filtro polen origen Hyundai</td>
-								<td style="color: #64748b;">—</td>
-								<td style="color: #64748b;">—</td>
-								<td style="color: #1e293b;">0</td>
-								<td style="color: #1e293b; font-weight: 500;">24.55</td>
-								<td>
-									<div class="tallerpro-actions">
-										<button type="button" class="tallerpro-action-btn" title="Editar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-											</svg>
-										</button>
-										<button type="button" class="tallerpro-action-btn" title="Eliminar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<polyline points="3 6 5 6 21 6"></polyline>
-												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-											</svg>
-										</button>
-									</div>
-								</td>
-							</tr>
-
-							<!-- Row 2 -->
-							<tr>
-								<td style="color: #1e293b; font-weight: 500;">Filtro aire origen Hyundai</td>
-								<td style="color: #64748b;">—</td>
-								<td style="color: #64748b;">—</td>
-								<td style="color: #1e293b;">0</td>
-								<td style="color: #1e293b; font-weight: 500;">28.55</td>
-								<td>
-									<div class="tallerpro-actions">
-										<button type="button" class="tallerpro-action-btn" title="Editar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-											</svg>
-										</button>
-										<button type="button" class="tallerpro-action-btn" title="Eliminar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<polyline points="3 6 5 6 21 6"></polyline>
-												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-											</svg>
-										</button>
-									</div>
-								</td>
-							</tr>
-
-							<!-- Row 3 -->
-							<tr>
-								<td style="color: #1e293b; font-weight: 500;">Filtro aceite origen Hyundai</td>
-								<td style="color: #64748b;">—</td>
-								<td style="color: #64748b;">—</td>
-								<td style="color: #1e293b;">0</td>
-								<td style="color: #1e293b; font-weight: 500;">25.95</td>
-								<td>
-									<div class="tallerpro-actions">
-										<button type="button" class="tallerpro-action-btn" title="Editar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-											</svg>
-										</button>
-										<button type="button" class="tallerpro-action-btn" title="Eliminar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<polyline points="3 6 5 6 21 6"></polyline>
-												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-											</svg>
-										</button>
-									</div>
-								</td>
-							</tr>
-
-							<!-- Row 4 -->
-							<tr>
-								<td style="color: #1e293b; font-weight: 500;">Aceite Shell Helix Ultra Hyundai 0w30 ECT AH C2, C3</td>
-								<td style="color: #64748b;">—</td>
-								<td style="color: #64748b;">—</td>
-								<td style="color: #1e293b;">0</td>
-								<td style="color: #1e293b; font-weight: 500;">19.36</td>
-								<td>
-									<div class="tallerpro-actions">
-										<button type="button" class="tallerpro-action-btn" title="Editar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-											</svg>
-										</button>
-										<button type="button" class="tallerpro-action-btn" title="Eliminar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<polyline points="3 6 5 6 21 6"></polyline>
-												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-											</svg>
-										</button>
-									</div>
-								</td>
-							</tr>
-
-							<!-- Row 5 -->
-							<tr>
-								<td style="color: #1e293b; font-weight: 500;">Lámparas</td>
-								<td style="color: #64748b;">—</td>
-								<td style="color: #64748b;">—</td>
-								<td style="color: #1e293b;">0</td>
-								<td style="color: #1e293b; font-weight: 500;">5</td>
-								<td>
-									<div class="tallerpro-actions">
-										<button type="button" class="tallerpro-action-btn" title="Editar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-											</svg>
-										</button>
-										<button type="button" class="tallerpro-action-btn" title="Eliminar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<polyline points="3 6 5 6 21 6"></polyline>
-												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-											</svg>
-										</button>
-									</div>
-								</td>
-							</tr>
-
-							<!-- Row 6 -->
-							<tr>
-								<td style="color: #1e293b; font-weight: 500;">Placa matrícula</td>
-								<td style="color: #64748b;">—</td>
-								<td style="color: #64748b;">—</td>
-								<td style="color: #1e293b;">0</td>
-								<td style="color: #1e293b; font-weight: 500;">10</td>
-								<td>
-									<div class="tallerpro-actions">
-										<button type="button" class="tallerpro-action-btn" title="Editar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-											</svg>
-										</button>
-										<button type="button" class="tallerpro-action-btn" title="Eliminar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<polyline points="3 6 5 6 21 6"></polyline>
-												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-											</svg>
-										</button>
-									</div>
-								</td>
-							</tr>
+							<?php if (empty($materials_list)): ?>
+								<tr>
+									<td colspan="6" style="text-align: center; color: #64748b; padding: 32px 16px;">
+										No hay materiales registrados aún. Haz clic en <strong>«Añadir»</strong> para registrar uno nuevo.
+									</td>
+								</tr>
+							<?php else: ?>
+								<?php foreach ($materials_list as $mat): ?>
+									<tr>
+										<td style="color: #1e293b; font-weight: 500;"><?php echo dol_escape_htmltag($mat->nombre); ?></td>
+										<td style="color: #64748b;"><?php echo !empty($mat->ref) ? dol_escape_htmltag($mat->ref) : '—'; ?></td>
+										<td style="color: #64748b;"><?php echo !empty($mat->proveedor) ? dol_escape_htmltag($mat->proveedor) : '—'; ?></td>
+										<td style="color: #1e293b;"><?php echo (float) $mat->stock; ?></td>
+										<td style="color: #1e293b; font-weight: 500;"><?php echo number_format((float) $mat->precio, 2, '.', ''); ?></td>
+										<td>
+											<div class="tallerpro-actions">
+												<button type="button" class="tallerpro-action-btn btn-edit-material" title="Editar"
+													data-id="<?php echo (int) $mat->rowid; ?>"
+													data-nombre="<?php echo dol_escape_htmltag($mat->nombre); ?>"
+													data-ref="<?php echo dol_escape_htmltag($mat->ref); ?>"
+													data-proveedor="<?php echo dol_escape_htmltag($mat->proveedor); ?>"
+													data-stock="<?php echo (float) $mat->stock; ?>"
+													data-precio="<?php echo number_format((float) $mat->precio, 2, '.', ''); ?>"
+													data-notas="<?php echo dol_escape_htmltag($mat->notas); ?>">
+													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+														<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+													</svg>
+												</button>
+												<a href="<?php echo $_SERVER['PHP_SELF']; ?>?action=delete_material&rowid=<?php echo (int) $mat->rowid; ?>&token=<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>"
+													class="tallerpro-action-btn"
+													title="Eliminar"
+													onclick="return confirm('¿Estás seguro de que deseas eliminar este material?');">
+													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+														<polyline points="3 6 5 6 21 6"></polyline>
+														<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+													</svg>
+												</a>
+											</div>
+										</td>
+									</tr>
+								<?php endforeach; ?>
+							<?php endif; ?>
 						</tbody>
 					</table>
 				</div>
@@ -417,7 +505,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 	<div class="tallerpro-modal-backdrop" id="tallerMaterialModal">
 		<div class="tallerpro-modal-card">
 			<div class="tallerpro-modal-header">
-				<h2 class="tallerpro-modal-title">Nuevo registro</h2>
+				<h2 class="tallerpro-modal-title" id="tallerMaterialModalTitle">Nuevo registro</h2>
 				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="Cerrar">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<line x1="18" y1="6" x2="6" y2="18"></line>
@@ -425,33 +513,44 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					</svg>
 				</button>
 			</div>
-			<form class="tallerpro-modal-form" onsubmit="event.preventDefault();">
+			<form class="tallerpro-modal-form" id="tallerMaterialForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
+				<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
+				<input type="hidden" name="action" id="materialFormAction" value="create_material">
+				<input type="hidden" name="rowid" id="materialFormRowid" value="0">
+
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Nombre <span class="tallerpro-required">*</span></label>
-					<input type="text" class="tallerpro-form-input" />
+					<input type="text" name="nombre" id="mat_nombre" class="tallerpro-form-input" required autocomplete="off" />
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Referencia</label>
-					<input type="text" class="tallerpro-form-input" />
+					<input type="text" name="ref" id="mat_ref" class="tallerpro-form-input" autocomplete="off" />
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Proveedor</label>
-					<input type="text" class="tallerpro-form-input" />
+					<input type="text" name="proveedor" id="mat_proveedor" list="proveedores_datalist" class="tallerpro-form-input" autocomplete="off" />
+					<?php if (!empty($suppliers_list)): ?>
+						<datalist id="proveedores_datalist">
+							<?php foreach ($suppliers_list as $sup_name): ?>
+								<option value="<?php echo dol_escape_htmltag($sup_name); ?>"></option>
+							<?php endforeach; ?>
+						</datalist>
+					<?php endif; ?>
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Stock</label>
-					<input type="text" class="tallerpro-form-input" />
+					<input type="number" step="any" name="stock" id="mat_stock" class="tallerpro-form-input" value="0" />
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Precio (€)</label>
-					<input type="text" class="tallerpro-form-input" />
+					<input type="number" step="0.01" name="precio" id="mat_precio" class="tallerpro-form-input" value="0.00" />
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Notas</label>
-					<textarea class="tallerpro-form-textarea" rows="3"></textarea>
+					<textarea name="notas" id="mat_notas" class="tallerpro-form-textarea" rows="3"></textarea>
 				</div>
 				<div class="tallerpro-modal-footer">
-					<button type="button" class="tallerpro-btn-submit" id="tallerSaveModalBtn">Guardar</button>
+					<button type="submit" class="tallerpro-btn-submit" id="tallerSaveModalBtn">Guardar</button>
 				</div>
 			</form>
 		</div>

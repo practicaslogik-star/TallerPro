@@ -60,6 +60,193 @@ if (!isModEnabled('taller')) {
 	accessforbidden('Module not enabled');
 }
 
+$table_reparacion = MAIN_DB_PREFIX . "taller_reparacion";
+$table_vehiculo = MAIN_DB_PREFIX . "taller_vehiculo";
+
+// Ensure table exists
+$sql_create = "CREATE TABLE IF NOT EXISTS " . $table_reparacion . " (
+    rowid           INT AUTO_INCREMENT PRIMARY KEY,
+    fk_vehiculo     INT NOT NULL,
+    fecha           DATE NOT NULL,
+    ref_factura     VARCHAR(64) DEFAULT NULL,
+    descripcion     TEXT DEFAULT NULL,
+    coste_mo        DOUBLE(24,8) DEFAULT 0,
+    notas           TEXT DEFAULT NULL,
+    date_creation   DATETIME NOT NULL,
+    tms             TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    fk_user_creat   INT NOT NULL,
+    entity          INT DEFAULT 1,
+    status          SMALLINT DEFAULT 1,
+    INDEX idx_taller_rep_fk_vehiculo (fk_vehiculo),
+    INDEX idx_taller_rep_fecha (fecha)
+) ENGINE=innodb;";
+$db->query($sql_create);
+
+$action = GETPOST('action', 'alpha');
+if (empty($action) && !empty($_POST['action'])) {
+	$action = $_POST['action'];
+}
+
+// Acción: Crear Reparación
+if ($action == 'create_reparacion' || $action == 'add_reparacion') {
+	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
+	if (empty($fk_vehiculo) && !empty($_POST['fk_vehiculo'])) {
+		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
+	}
+
+	$fecha = trim(GETPOST('fecha', 'alpha'));
+	if (empty($fecha) && !empty($_POST['fecha'])) {
+		$fecha = trim($_POST['fecha']);
+	}
+	if (empty($fecha)) {
+		$fecha = date('Y-m-d');
+	}
+
+	$descripcion = trim(GETPOST('descripcion', 'restricthtml'));
+	if (empty($descripcion) && !empty($_POST['descripcion'])) {
+		$descripcion = trim($_POST['descripcion']);
+	}
+
+	$coste_mo = GETPOSTFLOAT('coste_mo');
+	if ($coste_mo === null || $coste_mo === '') {
+		$coste_mo = isset($_POST['coste_mo']) ? (float) $_POST['coste_mo'] : 0;
+	}
+
+	$notas = trim(GETPOST('notas', 'restricthtml'));
+	if (empty($notas) && !empty($_POST['notas'])) {
+		$notas = trim($_POST['notas']);
+	}
+
+	if ($fk_vehiculo <= 0) {
+		setEventMessages($langs->trans("ErrorFieldRequired", "Vehículo"), null, 'errors');
+	} else {
+		$sql_insert = "INSERT INTO " . $table_reparacion . " (";
+		$sql_insert .= "fk_vehiculo, fecha, descripcion, coste_mo, notas, date_creation, fk_user_creat, entity, status";
+		$sql_insert .= ") VALUES (";
+		$sql_insert .= ((int) $fk_vehiculo) . ", ";
+		$sql_insert .= "'" . $db->escape($fecha) . "', ";
+		$sql_insert .= "'" . $db->escape($descripcion) . "', ";
+		$sql_insert .= ((float) $coste_mo) . ", ";
+		$sql_insert .= "'" . $db->escape($notas) . "', ";
+		$sql_insert .= "'" . $db->idate(dol_now()) . "', ";
+		$sql_insert .= ((int) $user->id) . ", ";
+		$sql_insert .= ((int) $conf->entity) . ", ";
+		$sql_insert .= "1";
+		$sql_insert .= ")";
+
+		$resql = $db->query($sql_insert);
+		if ($resql) {
+			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
+			header("Location: " . $_SERVER['PHP_SELF']);
+			exit;
+		} else {
+			setEventMessages("Error al guardar la reparación: " . $db->lasterror(), null, 'errors');
+		}
+	}
+}
+
+// Acción: Actualizar Reparación
+if ($action == 'update_reparacion' || $action == 'edit_reparacion') {
+	$rowid = GETPOSTINT('rowid');
+	if (empty($rowid) && !empty($_POST['rowid'])) {
+		$rowid = (int) $_POST['rowid'];
+	}
+
+	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
+	if (empty($fk_vehiculo) && !empty($_POST['fk_vehiculo'])) {
+		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
+	}
+
+	$fecha = trim(GETPOST('fecha', 'alpha'));
+	if (empty($fecha) && !empty($_POST['fecha'])) {
+		$fecha = trim($_POST['fecha']);
+	}
+	if (empty($fecha)) {
+		$fecha = date('Y-m-d');
+	}
+
+	$descripcion = trim(GETPOST('descripcion', 'restricthtml'));
+	if (empty($descripcion) && !empty($_POST['descripcion'])) {
+		$descripcion = trim($_POST['descripcion']);
+	}
+
+	$coste_mo = GETPOSTFLOAT('coste_mo');
+	if ($coste_mo === null || $coste_mo === '') {
+		$coste_mo = isset($_POST['coste_mo']) ? (float) $_POST['coste_mo'] : 0;
+	}
+
+	$notas = trim(GETPOST('notas', 'restricthtml'));
+	if (empty($notas) && !empty($_POST['notas'])) {
+		$notas = trim($_POST['notas']);
+	}
+
+	if ($fk_vehiculo <= 0) {
+		setEventMessages($langs->trans("ErrorFieldRequired", "Vehículo"), null, 'errors');
+	} elseif ($rowid <= 0) {
+		setEventMessages("Identificador de reparación no válido", null, 'errors');
+	} else {
+		$sql_update = "UPDATE " . $table_reparacion . " SET ";
+		$sql_update .= "fk_vehiculo = " . ((int) $fk_vehiculo) . ", ";
+		$sql_update .= "fecha = '" . $db->escape($fecha) . "', ";
+		$sql_update .= "descripcion = '" . $db->escape($descripcion) . "', ";
+		$sql_update .= "coste_mo = " . ((float) $coste_mo) . ", ";
+		$sql_update .= "notas = '" . $db->escape($notas) . "' ";
+		$sql_update .= "WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_reparacion') . ")";
+
+		$resql = $db->query($sql_update);
+		if ($resql) {
+			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
+			header("Location: " . $_SERVER['PHP_SELF']);
+			exit;
+		} else {
+			setEventMessages("Error al actualizar la reparación: " . $db->lasterror(), null, 'errors');
+		}
+	}
+}
+
+// Acción: Eliminar Reparación
+if ($action == 'delete_reparacion' || $action == 'delete') {
+	$rowid = GETPOSTINT('rowid');
+	if ($rowid > 0) {
+		$sql_del = "UPDATE " . $table_reparacion . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_reparacion') . ")";
+		$resql = $db->query($sql_del);
+		if ($resql) {
+			setEventMessages($langs->trans("RecordDeleted"), null, 'mesgs');
+			header("Location: " . $_SERVER['PHP_SELF']);
+			exit;
+		} else {
+			setEventMessages("Error al eliminar la reparación: " . $db->lasterror(), null, 'errors');
+		}
+	}
+}
+
+// Consultar vehículos para el desplegable
+$vehicles_list = array();
+$sql_v = "SELECT rowid, matricula, marca, modelo FROM " . $table_vehiculo;
+$sql_v .= " WHERE status = 1 AND entity IN (" . getEntity('taller_vehiculo') . ") ORDER BY matricula ASC";
+$res_v = $db->query($sql_v);
+if ($res_v) {
+	while ($v = $db->fetch_object($res_v)) {
+		$vehicles_list[] = $v;
+	}
+}
+
+// Consultar reparaciones con JOIN a vehículos
+$reparaciones_list = array();
+$sql_r = "SELECT r.rowid, r.fk_vehiculo, r.fecha, r.ref_factura, r.descripcion, r.coste_mo, r.notas, ";
+$sql_r .= "v.matricula as vehiculo_matricula, v.marca as vehiculo_marca, v.modelo as vehiculo_modelo ";
+$sql_r .= "FROM " . $table_reparacion . " as r ";
+$sql_r .= "LEFT JOIN " . $table_vehiculo . " as v ON r.fk_vehiculo = v.rowid ";
+$sql_r .= "WHERE r.status = 1 AND r.entity IN (" . getEntity('taller_reparacion') . ") ";
+$sql_r .= "ORDER BY r.fecha DESC, r.rowid DESC";
+$res_r = $db->query($sql_r);
+if ($res_r) {
+	while ($r = $db->fetch_object($res_r)) {
+		$reparaciones_list[] = $r;
+	}
+}
+$total_reparaciones = count($reparaciones_list);
+
 $css_file = __DIR__ . '/css/tallerpro.css';
 $js_file = __DIR__ . '/js/tallerpro.js';
 $css_version = file_exists($css_file) ? filemtime($css_file) : dol_now();
@@ -236,7 +423,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				<div class="tallerpro-header-actions">
 					<div class="tallerpro-content-header" style="margin-bottom: 0;">
 						<h1 class="tallerpro-page-title"><?php echo $langs->trans("Reparaciones"); ?></h1>
-						<p class="tallerpro-page-subtitle">13 registro(s)</p>
+						<p class="tallerpro-page-subtitle"><?php echo $total_reparaciones; ?> registro(s)</p>
 					</div>
 					<div>
 						<button type="button" class="tallerpro-btn-primary" id="tallerOpenModalBtn">
@@ -262,135 +449,59 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							</tr>
 						</thead>
 						<tbody>
-							<!-- Row 1 -->
-							<tr>
-								<td>
-									<div style="font-weight: 500; color: #1e293b;">2024-04-23</div>
-									<div style="font-size: 0.8rem; color: #94a3b8; margin-top: 3px;">Fact. 0157/24</div>
-								</td>
-								<td style="font-weight: 600; color: #1e293b;">3260 KJD</td>
-								<td style="color: #334155;">Total mano de obra</td>
-								<td style="font-weight: 500; color: #1e293b;">37.00 €</td>
-								<td>
-									<div class="tallerpro-actions">
-										<button type="button" class="tallerpro-action-btn" title="Editar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-											</svg>
-										</button>
-										<button type="button" class="tallerpro-action-btn" title="Eliminar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<polyline points="3 6 5 6 21 6"></polyline>
-												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-											</svg>
-										</button>
-									</div>
-								</td>
-							</tr>
-
-							<!-- Row 2 -->
-							<tr>
-								<td>
-									<div style="font-weight: 500; color: #1e293b;">2024-04-25</div>
-									<div style="font-size: 0.8rem; color: #94a3b8; margin-top: 3px;">Fact. 0159/24</div>
-								</td>
-								<td style="font-weight: 600; color: #1e293b;">3569 JPB</td>
-								<td style="color: #334155;">Total mano de obra</td>
-								<td style="font-weight: 500; color: #1e293b;">140.00 €</td>
-								<td>
-									<div class="tallerpro-actions">
-										<button type="button" class="tallerpro-action-btn" title="Editar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-											</svg>
-										</button>
-										<button type="button" class="tallerpro-action-btn" title="Eliminar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<polyline points="3 6 5 6 21 6"></polyline>
-												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-											</svg>
-										</button>
-									</div>
-								</td>
-							</tr>
-
-							<!-- Row 3 -->
-							<tr>
-								<td>
-									<div style="font-weight: 500; color: #1e293b;">2024-05-09</div>
-									<div style="font-size: 0.8rem; color: #94a3b8; margin-top: 3px;">Fact. 0162/24</div>
-								</td>
-								<td style="font-weight: 600; color: #1e293b;">3569 JPB</td>
-								<td style="color: #334155;">Pulir carrocería</td>
-								<td style="font-weight: 500; color: #1e293b;">45.00 €</td>
-								<td>
-									<div class="tallerpro-actions">
-										<button type="button" class="tallerpro-action-btn" title="Editar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-											</svg>
-										</button>
-										<button type="button" class="tallerpro-action-btn" title="Eliminar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<polyline points="3 6 5 6 21 6"></polyline>
-												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-											</svg>
-										</button>
-									</div>
-								</td>
-							</tr>
-
-							<!-- Row 4 -->
-							<tr>
-								<td>
-									<div style="font-weight: 500; color: #1e293b;">2024-05-09</div>
-									<div style="font-size: 0.8rem; color: #94a3b8; margin-top: 3px;">Fact. 0162/24</div>
-								</td>
-								<td style="font-weight: 600; color: #1e293b;">3569 JPB</td>
-								<td style="color: #334155;">Reparar defensa trasera y sustituir revisores</td>
-								<td style="font-weight: 500; color: #1e293b;">55.00 €</td>
-								<td>
-									<div class="tallerpro-actions">
-										<button type="button" class="tallerpro-action-btn" title="Editar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-											</svg>
-										</button>
-										<button type="button" class="tallerpro-action-btn" title="Eliminar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<polyline points="3 6 5 6 21 6"></polyline>
-												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-											</svg>
-										</button>
-									</div>
-								</td>
-							</tr>
-
-							<!-- Row 5 -->
-							<tr>
-								<td>
-									<div style="font-weight: 500; color: #1e293b;">2024-05-09</div>
-									<div style="font-size: 0.8rem; color: #94a3b8; margin-top: 3px;">Fact. 0162/24</div>
-								</td>
-								<td style="font-weight: 600; color: #1e293b;">3569 JPB</td>
-								<td style="color: #334155;">Reparar, sanear y pintar piso maletero con aplicación de imprimación anti...</td>
-								<td style="font-weight: 500; color: #1e293b;">95.00 €</td>
-								<td>
-									<div class="tallerpro-actions">
-										<button type="button" class="tallerpro-action-btn" title="Editar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
-											</svg>
-										</button>
-										<button type="button" class="tallerpro-action-btn" title="Eliminar">
-											<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-												<polyline points="3 6 5 6 21 6"></polyline>
-												<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-											</svg>
-										</button>
-									</div>
-								</td>
-							</tr>
+							<?php if (empty($reparaciones_list)): ?>
+								<tr>
+									<td colspan="5" style="text-align: center; color: #64748b; padding: 32px 16px;">
+										No hay reparaciones registradas aún. Haz clic en <strong>«Añadir»</strong> para registrar una nueva.
+									</td>
+								</tr>
+							<?php else: ?>
+								<?php foreach ($reparaciones_list as $rep): ?>
+									<tr>
+										<td>
+											<div style="font-weight: 500; color: #1e293b;"><?php echo dol_escape_htmltag($rep->fecha); ?></div>
+											<?php if (!empty($rep->ref_factura)): ?>
+												<div style="font-size: 0.8rem; color: #94a3b8; margin-top: 3px;"><?php echo dol_escape_htmltag($rep->ref_factura); ?></div>
+											<?php endif; ?>
+										</td>
+										<td style="font-weight: 600; color: #1e293b;">
+											<?php if (!empty($rep->fk_vehiculo)): ?>
+												<a href="<?php echo $vehiculos_url . '?id=' . ((int) $rep->fk_vehiculo); ?>" style="color: inherit; text-decoration: none;" title="Ver vehículo">
+													<?php echo dol_escape_htmltag($rep->vehiculo_matricula ?: '—'); ?>
+												</a>
+											<?php else: ?>
+												<?php echo dol_escape_htmltag($rep->vehiculo_matricula ?: '—'); ?>
+											<?php endif; ?>
+										</td>
+										<td style="color: #334155;"><?php echo !empty($rep->descripcion) ? dol_escape_htmltag($rep->descripcion) : '—'; ?></td>
+										<td style="font-weight: 500; color: #1e293b;"><?php echo number_format((float) $rep->coste_mo, 2, '.', '') . ' €'; ?></td>
+										<td>
+											<div class="tallerpro-actions">
+												<button type="button" class="tallerpro-action-btn btn-edit-reparacion" title="Editar"
+													data-id="<?php echo (int) $rep->rowid; ?>"
+													data-vehiculo="<?php echo (int) $rep->fk_vehiculo; ?>"
+													data-fecha="<?php echo dol_escape_htmltag($rep->fecha); ?>"
+													data-descripcion="<?php echo dol_escape_htmltag($rep->descripcion); ?>"
+													data-coste="<?php echo number_format((float) $rep->coste_mo, 2, '.', ''); ?>"
+													data-notas="<?php echo dol_escape_htmltag($rep->notas); ?>">
+													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+														<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+													</svg>
+												</button>
+												<a href="<?php echo $_SERVER['PHP_SELF']; ?>?action=delete_reparacion&rowid=<?php echo (int) $rep->rowid; ?>&token=<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>"
+													class="tallerpro-action-btn"
+													title="Eliminar"
+													onclick="return confirm('¿Estás seguro de que deseas eliminar esta reparación?');">
+													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+														<polyline points="3 6 5 6 21 6"></polyline>
+														<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+													</svg>
+												</a>
+											</div>
+										</td>
+									</tr>
+								<?php endforeach; ?>
+							<?php endif; ?>
 						</tbody>
 					</table>
 				</div>
@@ -402,7 +513,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 	<div class="tallerpro-modal-backdrop" id="tallerReparacionModal">
 		<div class="tallerpro-modal-card">
 			<div class="tallerpro-modal-header">
-				<h2 class="tallerpro-modal-title">Nuevo registro</h2>
+				<h2 class="tallerpro-modal-title" id="tallerReparacionModalTitle">Nuevo registro</h2>
 				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="Cerrar">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<line x1="18" y1="6" x2="6" y2="18"></line>
@@ -410,44 +521,40 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					</svg>
 				</button>
 			</div>
-			<form class="tallerpro-modal-form" onsubmit="event.preventDefault();">
+			<form class="tallerpro-modal-form" id="tallerReparacionForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
+				<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
+				<input type="hidden" name="action" id="reparacionFormAction" value="create_reparacion">
+				<input type="hidden" name="rowid" id="reparacionFormRowid" value="0">
+
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Vehículo <span class="tallerpro-required">*</span></label>
-					<select class="tallerpro-form-select">
-						<option value="">— Selecciona —</option>
-						<option value="3260 KJD">3260 KJD</option>
-						<option value="3569 JPB">3569 JPB</option>
-						<option value="6721 HPB">6721 HPB</option>
+					<select name="fk_vehiculo" id="rep_fk_vehiculo" class="tallerpro-form-select" required>
+						<option value="">— Selecciona un vehículo —</option>
+						<?php foreach ($vehicles_list as $veh): ?>
+							<option value="<?php echo (int) $veh->rowid; ?>">
+								<?php echo dol_escape_htmltag($veh->matricula . (!empty($veh->marca) ? ' - ' . $veh->marca : '') . (!empty($veh->modelo) ? ' ' . $veh->modelo : '')); ?>
+							</option>
+						<?php endforeach; ?>
 					</select>
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Fecha</label>
-					<div class="tallerpro-input-with-icon">
-						<input type="text" class="tallerpro-form-input" placeholder="dd/mm/aaaa" />
-						<span class="tallerpro-input-icon">
-							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-								<rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-								<line x1="16" y1="2" x2="16" y2="6"></line>
-								<line x1="8" y1="2" x2="8" y2="6"></line>
-								<line x1="3" y1="10" x2="21" y2="10"></line>
-							</svg>
-						</span>
-					</div>
+					<input type="date" name="fecha" id="rep_fecha" class="tallerpro-form-input" value="<?php echo date('Y-m-d'); ?>" required />
 				</div>
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Descripción <span class="tallerpro-required">*</span></label>
-					<textarea class="tallerpro-form-textarea" rows="3"></textarea>
+					<label class="tallerpro-form-label">Descripción</label>
+					<textarea name="descripcion" id="rep_descripcion" class="tallerpro-form-textarea" rows="3"></textarea>
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Coste mano de obra (€)</label>
-					<input type="text" class="tallerpro-form-input" />
+					<input type="number" step="0.01" name="coste_mo" id="rep_coste_mo" class="tallerpro-form-input" value="0.00" />
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Notas</label>
-					<textarea class="tallerpro-form-textarea" rows="3"></textarea>
+					<textarea name="notas" id="rep_notas" class="tallerpro-form-textarea" rows="3"></textarea>
 				</div>
 				<div class="tallerpro-modal-footer">
-					<button type="button" class="tallerpro-btn-submit" id="tallerSaveModalBtn">Guardar</button>
+					<button type="submit" class="tallerpro-btn-submit" id="tallerSaveModalBtn">Guardar</button>
 				</div>
 			</form>
 		</div>

@@ -720,7 +720,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 												<span class="tallerpro-detail-item-title"><?php echo dol_escape_htmltag($v->matricula); ?></span>
 												<span class="tallerpro-detail-item-sub"><?php echo dol_escape_htmltag($sub_str); ?></span>
 											</div>
-											<a href="<?php echo $vehiculos_url . '?matricula=' . urlencode($v->matricula); ?>" class="tallerpro-detail-item-link" title="Ver vehículo">
+											<a href="<?php echo $vehiculos_url . '?id=' . $v->rowid; ?>" class="tallerpro-detail-item-link" title="Ver vehículo">
 												<span>Ver vehículo</span>
 												<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 													<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
