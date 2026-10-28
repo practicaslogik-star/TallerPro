@@ -884,7 +884,7 @@ if (window.__tallerProLoaded) {
             }
         });
 
-/* REPARACIONES VIEW (TallerPro)  */
+        /* REPARACIONES VIEW (TallerPro)  */
 
         // Global Reusable Toast Notification
         window.showTallerToast = function (message, type = 'success', duration = 3800) {
@@ -969,7 +969,11 @@ if (window.__tallerProLoaded) {
                 if (titleEl) titleEl.textContent = 'Orden de Reparación';
 
                 const fechaInput = document.getElementById('orderFecha');
-                if (fechaInput) fechaInput.value = new Date().toISOString().split('T')[0];
+                if (fechaInput) {
+                    const today = new Date().toISOString().split('T')[0];
+                    fechaInput.value = today;
+                    fechaInput.min = today; // Bloquea fechas anteriores a hoy
+                }
 
                 repModal.classList.add('active');
             });
@@ -1267,7 +1271,10 @@ if (window.__tallerProLoaded) {
             if (vehSelect && vehiculo) vehSelect.value = vehiculo;
 
             const fechaInput = document.getElementById('orderFecha');
-            if (fechaInput && fecha) fechaInput.value = fecha;
+            if (fechaInput) {
+                fechaInput.removeAttribute('min'); // Permite editar reparaciones que se abrieron días atrás
+                if (fecha) fechaInput.value = fecha;
+            }
 
             const estadoSelect = document.getElementById('orderEstadoSelect');
             if (estadoSelect && estado) estadoSelect.value = estado;

@@ -832,8 +832,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<div class="tallerpro-form-group">
 						<label class="tallerpro-form-label">Fecha de Recepción</label>
 						<div class="tallerpro-input-with-icon">
-							<input type="date" class="tallerpro-form-input" id="orderFecha" name="fecha" value="<?php echo date('Y-m-d'); ?>" required />
-						</div>
+							<input type="date" class="tallerpro-form-input" id="orderFecha" name="fecha" value="<?php echo date('Y-m-d'); ?>" min="<?php echo date('Y-m-d'); ?>" required />						</div>
 					</div>
 					<div class="tallerpro-form-group">
 						<label class="tallerpro-form-label">Estado de la Reparación</label>
