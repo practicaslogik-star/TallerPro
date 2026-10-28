@@ -603,6 +603,159 @@ a.tallerpro-nav-item.active {
     font-weight: 400;
 }
 
+/* Activity Items List */
+.tallerpro-activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.tallerpro-activity-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 12px;
+    border-radius: 8px;
+    background-color: #f8fafc;
+    border: 1px solid #f1f5f9;
+    text-decoration: none !important;
+    color: inherit;
+    transition: all 0.15s ease;
+}
+
+.tallerpro-activity-item:hover {
+    background-color: #f1f5f9;
+    border-color: #cbd5e1;
+    transform: translateX(2px);
+}
+
+.tallerpro-activity-item-left {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
+}
+
+.tallerpro-activity-item-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tallerpro-activity-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: #0f172a;
+    background: #e2e8f0;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    font-family: monospace, sans-serif;
+    flex-shrink: 0;
+}
+
+.tallerpro-activity-item-desc {
+    font-size: 12px;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tallerpro-activity-item-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    text-align: right;
+    margin-left: 12px;
+}
+
+.tallerpro-activity-cost {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.tallerpro-activity-arrow {
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+}
+
+/* Global Search Dropdown */
+.tallerpro-search-container {
+    position: relative;
+    width: 100%;
+}
+
+.tallerpro-search-dropdown {
+    position: absolute;
+    top: calc(100% - 10px);
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+    z-index: 1000;
+    max-height: 380px;
+    overflow-y: auto;
+    padding: 8px 0;
+    display: none;
+}
+
+.tallerpro-search-dropdown.active {
+    display: block;
+}
+
+.tallerpro-search-group-title {
+    padding: 8px 16px 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.tallerpro-search-result-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    text-decoration: none !important;
+    color: inherit;
+    transition: background-color 0.12s ease;
+}
+
+.tallerpro-search-result-item:hover {
+    background-color: #f1f5f9;
+}
+
+.tallerpro-search-result-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.tallerpro-search-result-sub {
+    font-size: 12px;
+    color: #64748b;
+}
+
 /* Empty Card Container for Empty Views */
 .tallerpro-empty-card {
     background: #ffffff;

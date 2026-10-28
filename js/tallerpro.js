@@ -959,11 +959,94 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && detalleModal && detalleModal.classList.contains('active')) {
-            detalleModal.classList.remove('active');
-        }
-    });
+    // Dashboard Global Search
+    const searchInput = document.getElementById('tallerGlobalSearchInput');
+    const searchDropdown = document.getElementById('tallerSearchDropdown');
+
+    if (searchInput && searchDropdown) {
+        let debounceTimer = null;
+        searchInput.addEventListener('input', function () {
+            const query = searchInput.value.trim();
+            clearTimeout(debounceTimer);
+            if (query.length < 2) {
+                searchDropdown.innerHTML = '';
+                searchDropdown.classList.remove('active');
+                return;
+            }
+            debounceTimer = setTimeout(function () {
+                fetch('tallerindex.php?action=search_all&q=' + encodeURIComponent(query))
+                    .then(function (res) { return res.json(); })
+                    .then(function (data) {
+                        let html = '';
+                        let hasResults = false;
+
+                        if (data.vehiculos && data.vehiculos.length > 0) {
+                            hasResults = true;
+                            html += '<div class="tallerpro-search-group-title">Vehículos</div>';
+                            data.vehiculos.forEach(function (v) {
+                                html += '<a href="' + v.url + '" class="tallerpro-search-result-item">' +
+                                    '<div><div class="tallerpro-search-result-title">' + v.title + '</div>' +
+                                    '<div class="tallerpro-search-result-sub">' + v.subtitle + '</div></div>' +
+                                    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>' +
+                                    '</a>';
+                            });
+                        }
+
+                        if (data.clientes && data.clientes.length > 0) {
+                            hasResults = true;
+                            html += '<div class="tallerpro-search-group-title">Clientes</div>';
+                            data.clientes.forEach(function (c) {
+                                html += '<a href="' + c.url + '" class="tallerpro-search-result-item">' +
+                                    '<div><div class="tallerpro-search-result-title">' + c.title + '</div>' +
+                                    '<div class="tallerpro-search-result-sub">' + c.subtitle + '</div></div>' +
+                                    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>' +
+                                    '</a>';
+                            });
+                        }
+
+                        if (data.materiales && data.materiales.length > 0) {
+                            hasResults = true;
+                            html += '<div class="tallerpro-search-group-title">Materiales</div>';
+                            data.materiales.forEach(function (m) {
+                                html += '<a href="' + m.url + '" class="tallerpro-search-result-item">' +
+                                    '<div><div class="tallerpro-search-result-title">' + m.title + '</div>' +
+                                    '<div class="tallerpro-search-result-sub">' + m.subtitle + '</div></div>' +
+                                    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>' +
+                                    '</a>';
+                        });
+                        }
+
+                        if (data.facturas && data.facturas.length > 0) {
+                            hasResults = true;
+                            html += '<div class="tallerpro-search-group-title">Facturas</div>';
+                            data.facturas.forEach(function (f) {
+                                html += '<a href="' + f.url + '" class="tallerpro-search-result-item">' +
+                                    '<div><div class="tallerpro-search-result-title">' + f.title + '</div>' +
+                                    '<div class="tallerpro-search-result-sub">' + f.subtitle + '</div></div>' +
+                                    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>' +
+                                    '</a>';
+                            });
+                        }
+
+                        if (!hasResults) {
+                            html = '<div style="padding: 12px 16px; font-size: 13px; color: #94a3b8; text-align: center;">No se encontraron resultados</div>';
+                        }
+
+                        searchDropdown.innerHTML = html;
+                        searchDropdown.classList.add('active');
+                    })
+                    .catch(function () {
+                        searchDropdown.classList.remove('active');
+                    });
+            }, 250);
+        });
+
+        document.addEventListener('click', function (e) {
+            if (!searchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
+                searchDropdown.classList.remove('active');
+            }
+        });
+    }
 });
 }
 
