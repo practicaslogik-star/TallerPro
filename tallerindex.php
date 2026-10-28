@@ -168,22 +168,6 @@ if ($resql_mat && ($obj_mat = $db->fetch_object($resql_mat))) {
 	$nb_materiales = (int) $obj_mat->total;
 }
 
-// 5. Contador real de seguros
-$nb_seguros = 0;
-$sql_seg = "SELECT COUNT(rowid) as total FROM " . MAIN_DB_PREFIX . "taller_seguro WHERE status = 1 AND entity IN (" . getEntity('taller_seguro') . ")";
-$resql_seg = $db->query($sql_seg);
-if ($resql_seg && ($obj_seg = $db->fetch_object($resql_seg))) {
-	$nb_seguros = (int) $obj_seg->total;
-}
-
-// 6. Contador real de facturas
-$nb_facturas = 0;
-$sql_fac = "SELECT COUNT(rowid) as total FROM " . MAIN_DB_PREFIX . "taller_factura WHERE status = 1 AND entity IN (" . getEntity('taller_factura') . ")";
-$resql_fac = $db->query($sql_fac);
-if ($resql_fac && ($obj_fac = $db->fetch_object($resql_fac))) {
-	$nb_facturas = (int) $obj_fac->total;
-}
-
 // 7. Consultar últimas 5 reparaciones con JOIN de vehículo
 $ultimas_reparaciones = array();
 $sql_ult_rep = "SELECT r.rowid, r.fecha, r.descripcion, r.coste_mo, v.rowid as vehiculo_id, v.matricula, v.marca, v.modelo ";
@@ -477,8 +461,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				<!-- Card 5: Seguros -->
 				<a href="<?php echo $seguros_url; ?>" class="tallerpro-kpi-card">
 					<div class="tallerpro-kpi-info">
-						<div class="tallerpro-kpi-value"><?php echo $nb_seguros; ?></div>
-						<div class="tallerpro-kpi-label"><?php echo $langs->trans("Seguros"); ?></div>
+						<div class="tallerpro-kpi-label" style="font-size: 13.5px;"><?php echo $langs->trans("Seguros"); ?></div>
 					</div>
 					<div class="tallerpro-kpi-icon tallerpro-icon-seguros">
 						<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -490,8 +473,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				<!-- Card 6: Facturas -->
 				<a href="<?php echo $facturas_url; ?>" class="tallerpro-kpi-card">
 					<div class="tallerpro-kpi-info">
-						<div class="tallerpro-kpi-value"><?php echo $nb_facturas; ?></div>
-						<div class="tallerpro-kpi-label"><?php echo $langs->trans("Facturas"); ?></div>
+						<div class="tallerpro-kpi-label" style="font-size: 13.5px;"><?php echo $langs->trans("Facturas"); ?></div>
 					</div>
 					<div class="tallerpro-kpi-icon tallerpro-icon-facturas">
 						<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
