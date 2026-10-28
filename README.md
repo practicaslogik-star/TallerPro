@@ -1,96 +1,93 @@
-# TALLER FOR [DOLIBARR ERP & CRM](https://www.dolibarr.org)
+# TallerPro - Módulo de Taller para [Dolibarr ERP & CRM](https://www.dolibarr.org)
 
-## Features
+**TallerPro** es un módulo integral y moderno para la gestión de talleres mecánicos y de automoción en Dolibarr ERP/CRM. Ofrece una interfaz visual optimizada para gestionar el flujo de trabajo diario: clientes, vehículos, reparaciones, materiales, aseguradoras y facturación.
 
-Description of the module...
+---
 
-<!--
-![Screenshot taller](img/screenshot_taller.png?raw=true "Taller"){imgmd}
--->
+## Características principales
 
-Other external modules are available on [Dolistore.com](https://www.dolistore.com).
+- **Gestión de Clientes**: Registro completo de clientes particulares y empresas, vinculados automáticamente con terceros de Dolibarr.
+- **Control de Vehículos**: Fichas técnicas completas con matrícula, marca, modelo, año, kilometraje, número de bastidor (VIN) y cliente propietario.
+- **Órdenes de Reparación y Mano de Obra**: Registro y seguimiento del estado de reparaciones (pendiente, en proceso, terminada, facturada), tiempos y descripción de averías.
+- **Catálogo de Materiales y Recambios**: Base de datos de piezas con referencia, descripción y precios unitarios. Integración directa al agregar líneas en facturas o reparaciones.
+- **Gestión de Aseguradoras**: Control de pólizas de seguros, números de póliza y entidades aseguradoras asociadas a los vehículos.
+- **Facturación Profesional de Taller**:
+  - Numeración correlativa y automática anual bajo el estándar `NNNN/YY` (ej. `0001/26`), protegida contra modificaciones accidentales.
+  - Vista documental detallada con secciones independientes para materiales, mano de obra y desglose de totales (subtotal, descuentos, base imponible e IVA).
+  - Generación e impresión directa en formato PDF.
+  - Notas de factura visibles de forma permanente.
 
-## Translations
+---
 
-Translations can be completed manually by editing files in the module directories under `langs`.
+## Requisitos previos
 
-<!--
-This module contains also a sample configuration for Transifex, under the hidden directory [.tx](.tx), so it is possible to manage translation using this service.
+- **Dolibarr ERP & CRM**: Versión 16.0 o superior (compatible con Dolibarr 20, 21 y 22).
+- **PHP**: 7.4 o superior (incluyendo PHP 8.1, 8.2 y 8.3).
+- **Base de datos**: MySQL 5.7+ o MariaDB 10.3+.
 
-For more information, see the [translator's documentation](https://wiki.dolibarr.org/index.php/Translator_documentation).
+---
 
-There is a [Transifex project](https://transifex.com/projects/p/dolibarr-module-template) for this module.
--->
+## Instalación
 
+### Opción 1: Clonar el repositorio con Git
 
-## Installation
+1. Accede al directorio `custom` de tu instalación de Dolibarr:
+   ```bash
+   cd /ruta/a/dolibarr/htdocs/custom
+   ```
+2. Clona el repositorio dentro de la carpeta `taller`:
+   ```bash
+   git clone https://github.com/practicaslogik-star/TallerPro.git taller
+   ```
 
-Prerequisites: You must have Dolibarr ERP & CRM software installed. You can download it from [Dolistore.org](https://www.dolibarr.org).
-You can also get a ready-to-use instance in the cloud from https://saas.dolibarr.org
+### Opción 2: Instalación manual (ZIP)
 
+1. Descarga el código del módulo.
+2. Copia la carpeta del módulo dentro del directorio `htdocs/custom/` de Dolibarr asegurándote de que la ruta final sea:
+   ```text
+   htdocs/custom/taller/
+   ```
 
-### From the ZIP file and GUI interface
+> **Nota**: Si el directorio `custom` no está habilitado, asegúrate de tener las siguientes líneas descomentadas en tu archivo `htdocs/conf/conf.php`:
+> ```php
+> $dolibarr_main_url_root_alt = '/custom';
+> $dolibarr_main_document_root_alt = '/ruta/a/dolibarr/htdocs/custom';
+> ```
 
-If the module is a ready-to-deploy zip file, so with a name `module_xxx-version.zip` (e.g., when downloading it from a marketplace like [Dolistore](https://www.dolistore.com)),
-go to menu `Home> Setup> Modules> Deploy external module` and upload the zip file.
+---
 
-<!--
+## Activación del módulo
 
-Note: If this screen tells you that there is no "custom" directory, check that your setup is correct:
+1. Inicia sesión en Dolibarr como usuario administrador.
+2. Dirígete a **Inicio > Configuración > Módulos/Aplicaciones**.
+3. En la pestaña de módulos o buscando por "Taller", localiza el módulo **TallerPro**.
+4. Haz clic en el interruptor para **Activar**.
+5. Se creará automáticamente la entrada en el menú principal para acceder a **TallerPro**.
 
-- In your Dolibarr installation directory, edit the `htdocs/conf/conf.php` file and check that following lines are not commented:
+---
 
-    ```php
-    //$dolibarr_main_url_root_alt ...
-    //$dolibarr_main_document_root_alt ...
-    ```
+## Estructura del proyecto
 
-- Uncomment them if necessary (delete the leading `//`) and assign the proper value according to your Dolibarr installation
-
-    For example :
-
-    - UNIX:
-        ```php
-        $dolibarr_main_url_root_alt = '/custom';
-        $dolibarr_main_document_root_alt = '/var/www/Dolibarr/htdocs/custom';
-        ```
-
-    - Windows:
-        ```php
-        $dolibarr_main_url_root_alt = '/custom';
-        $dolibarr_main_document_root_alt = 'C:/My Web Sites/Dolibarr/htdocs/custom';
-        ```
--->
-
-<!--
-
-### From a GIT repository
-
-Clone the repository in `$dolibarr_main_document_root_alt/taller`
-
-```shell
-cd ....../custom
-git clone git@github.com:gitlogin/taller.git taller
+```text
+custom/taller/
+├── admin/                  # Páginas de configuración del módulo
+├── core/modules/           # Descriptor del módulo Dolibarr (modTaller.class.php)
+├── css/                    # Hojas de estilo personalizadas (tallerpro.css)
+├── js/                     # Scripts interactivos y lógica AJAX (tallerpro.js)
+├── langs/                  # Archivos de idiomas y traducciones
+├── sql/                    # Scripts SQL de creación y migración de tablas
+├── clientes.php            # Vista y gestión de clientes
+├── vehiculos.php           # Vista y gestión de vehículos
+├── reparaciones.php        # Vista y gestión de órdenes de trabajo
+├── materiales.php          # Catálogo de materiales y recambios
+├── seguros.php             # Control de pólizas y aseguradoras
+├── facturas.php            # Facturación y vista documental
+└── tallerindex.php         # Panel de inicio / Dashboard de TallerPro
 ```
 
--->
+---
 
-### Final steps
+## Licencia
 
-Using your browser:
-
-  - Log into Dolibarr as a super-administrator
-  - Go to "Setup"> "Modules"
-  - You should now be able to find and enable the module
-
-
-
-## Licenses
-
-### Main code
-
-GPLv3 or (at your option) any later version. See file COPYING for more information.
-
-### Documentation
-
-All texts and readme's are licensed under [GFDL](https://www.gnu.org/licenses/fdl-1.3.en.html).
+- **Código fuente**: Publicado bajo licencia [GPLv3](https://www.gnu.org/licenses/gpl-3.0.html) o cualquier versión posterior.
+- **Documentación**: Licencia [GFDL](https://www.gnu.org/licenses/fdl-1.3.html).

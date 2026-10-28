@@ -408,6 +408,24 @@ if (!function_exists('recalcFacturaTotal')) {
 	}
 }
 
+// Generar documento PDF de la factura según diseño de referencia
+if ($action == 'pdf' || $action == 'download_pdf') {
+	$fac_id = GETPOSTINT('id');
+	if (empty($fac_id) && !empty($_GET['id'])) {
+		$fac_id = (int) $_GET['id'];
+	}
+	if (empty($fac_id)) {
+		$fac_id = GETPOSTINT('fk_factura');
+	}
+	if ($fac_id > 0) {
+		require_once __DIR__ . '/lib/pdf_factura.lib.php';
+		$download = GETPOSTINT('download');
+		$mode = ($download == 1) ? 'D' : 'I';
+		tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $mode);
+		exit;
+	}
+}
+
 // AJAX: Obtener líneas y datos completos de una factura
 if ($action == 'get_factura_lineas') {
 	$fk_factura = GETPOSTINT('fk_factura');
@@ -1185,15 +1203,15 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<span class="tallerpro-invoice-badge-status" style="<?php echo $badge_style; ?>">
 									<?php echo dol_escape_htmltag($factura_single->estado ?: 'Pendiente'); ?>
 								</span>
-								<button type="button" class="tallerpro-btn-pdf" onclick="window.print();"
-									style="display: inline-flex !important; align-items: center !important; gap: 7px !important; background-color: #0f2b5c !important; color: #ffffff !important; font-size: 13px !important; font-weight: 600 !important; padding: 8px 16px !important; border-radius: 8px !important; border: none !important; cursor: pointer !important; box-shadow: 0 1px 2px rgba(15, 43, 92, 0.2) !important;">
+								<a href="<?php echo $facturas_url . '?action=pdf&id=' . ((int) $factura_single->rowid); ?>" target="_blank" class="tallerpro-btn-pdf"
+									style="display: inline-flex !important; align-items: center !important; gap: 7px !important; background-color: #0f2b5c !important; color: #ffffff !important; font-size: 13px !important; font-weight: 600 !important; padding: 8px 16px !important; border-radius: 8px !important; border: none !important; cursor: pointer !important; text-decoration: none !important; box-shadow: 0 1px 2px rgba(15, 43, 92, 0.2) !important;">
 									<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 										<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
 										<polyline points="7 10 12 15 17 10"></polyline>
 										<line x1="12" y1="15" x2="12" y2="3"></line>
 									</svg>
 									<span>Descargar PDF</span>
-								</button>
+								</a>
 							</div>
 						</div>
 
@@ -1446,6 +1464,14 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															<line x1="10" y1="14" x2="21" y2="3"></line>
 														</svg>
 														<span>Ver</span>
+													</a>
+													<a href="<?php echo $facturas_url . '?action=pdf&id=' . ((int) $f->rowid); ?>" target="_blank" class="tallerpro-btn-table-secondary" title="Descargar PDF">
+														<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+															<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+															<polyline points="7 10 12 15 17 10"></polyline>
+															<line x1="12" y1="15" x2="12" y2="3"></line>
+														</svg>
+														<span>PDF</span>
 													</a>
 													<button type="button" class="tallerpro-btn-table-secondary btn-detalle-factura" title="Ver detalle"
 														data-id="<?php echo (int) $f->rowid; ?>"
