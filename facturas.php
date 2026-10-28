@@ -157,22 +157,83 @@ if ($res_ce) {
 	}
 }
 
+// Función para obtener el siguiente número correlativo de factura (Formato anual NNNN/YY, ej: 0001/26)
+if (!function_exists('getNextFacturaNumero')) {
+	function getNextFacturaNumero($db, $year_or_date = '', $entity = 1) {
+		$table_factura = MAIN_DB_PREFIX . "taller_factura";
+
+		if (empty($year_or_date)) {
+			$year_or_date = date('Y-m-d');
+		}
+
+		if (preg_match('/^(\d{4})/', $year_or_date, $m)) {
+			$year_2d = substr($m[1], -2);
+		} elseif (is_numeric($year_or_date) && strlen($year_or_date) == 2) {
+			$year_2d = sprintf('%02d', (int) $year_or_date);
+		} else {
+			$year_2d = date('y');
+		}
+
+		$suffix = '/' . $year_2d;
+		$entity_filter = ($entity > 0) ? " AND entity IN (" . ((int) $entity) . ")" : "";
+
+		// Consultar el registro con el número más alto en ese año para esa entidad
+		$sql = "SELECT numero_factura FROM " . $table_factura . " ";
+		$sql .= "WHERE 1=1 " . $entity_filter . " ";
+		$sql .= "AND numero_factura LIKE '%" . $db->escape($suffix) . "' ";
+		$sql .= "ORDER BY rowid DESC";
+
+		$max_num = 0;
+		$resql = $db->query($sql);
+		if ($resql) {
+			while ($obj = $db->fetch_object($resql)) {
+				$num_str = trim($obj->numero_factura);
+				if (preg_match('/^(\d+)\/' . preg_quote($year_2d, '/') . '$/', $num_str, $matches)) {
+					$val = (int) $matches[1];
+					if ($val > $max_num) {
+						$max_num = $val;
+					}
+				}
+			}
+		}
+
+		$next_seq = $max_num + 1;
+		return sprintf('%04d/%s', $next_seq, $year_2d);
+	}
+}
+
 $action = GETPOST('action', 'alpha');
 if (empty($action) && !empty($_POST['action'])) {
 	$action = $_POST['action'];
 }
 
+// AJAX: Obtener siguiente número de factura automático
+if ($action == 'get_next_factura_numero') {
+	$fecha = trim(GETPOST('fecha', 'alpha'));
+	if (empty($fecha) && !empty($_GET['fecha'])) {
+		$fecha = trim($_GET['fecha']);
+	}
+	if (empty($fecha)) {
+		$fecha = date('Y-m-d');
+	}
+	$next_num = getNextFacturaNumero($db, $fecha, $conf->entity);
+	header('Content-Type: application/json');
+	echo json_encode(array('status' => 'ok', 'numero' => $next_num));
+	exit;
+}
+
 // Acción: Crear Factura
 if ($action == 'create_factura' || $action == 'add_factura') {
-	$numero_factura = trim(GETPOST('numero_factura', 'alphanohtml'));
-	if (empty($numero_factura) && !empty($_POST['numero_factura'])) {
-		$numero_factura = trim($_POST['numero_factura']);
-	}
-
 	$fecha = trim(GETPOST('fecha', 'alpha'));
 	if (empty($fecha) && !empty($_POST['fecha'])) {
 		$fecha = trim($_POST['fecha']);
 	}
+	if (empty($fecha)) {
+		$fecha = date('Y-m-d');
+	}
+
+	// El código se genera automáticamente y no puede ser alterado por el usuario
+	$numero_factura = getNextFacturaNumero($db, $fecha, $conf->entity);
 
 	$fk_soc = GETPOSTINT('fk_soc');
 	if (empty($fk_soc) && !empty($_POST['fk_soc'])) {
@@ -203,33 +264,29 @@ if ($action == 'create_factura' || $action == 'add_factura') {
 		$notas = trim($_POST['notas']);
 	}
 
-	if (empty($numero_factura)) {
-		setEventMessages($langs->trans("ErrorFieldRequired", "Nº factura"), null, 'errors');
-	} else {
-		$sql_insert = "INSERT INTO " . $table_factura . " (";
-		$sql_insert .= "numero_factura, fecha, fk_soc, fk_vehiculo, total, estado, notas, date_creation, fk_user_creat, entity, status";
-		$sql_insert .= ") VALUES (";
-		$sql_insert .= "'" . $db->escape($numero_factura) . "', ";
-		$sql_insert .= (!empty($fecha) ? "'" . $db->escape($fecha) . "'" : "NULL") . ", ";
-		$sql_insert .= ($fk_soc > 0 ? ((int) $fk_soc) : "NULL") . ", ";
-		$sql_insert .= ($fk_vehiculo > 0 ? ((int) $fk_vehiculo) : "NULL") . ", ";
-		$sql_insert .= ((float) $total) . ", ";
-		$sql_insert .= "'" . $db->escape($estado) . "', ";
-		$sql_insert .= "'" . $db->escape($notas) . "', ";
-		$sql_insert .= "'" . $db->idate(dol_now()) . "', ";
-		$sql_insert .= ((int) $user->id) . ", ";
-		$sql_insert .= ((int) $conf->entity) . ", ";
-		$sql_insert .= "1";
-		$sql_insert .= ")";
+	$sql_insert = "INSERT INTO " . $table_factura . " (";
+	$sql_insert .= "numero_factura, fecha, fk_soc, fk_vehiculo, total, estado, notas, date_creation, fk_user_creat, entity, status";
+	$sql_insert .= ") VALUES (";
+	$sql_insert .= "'" . $db->escape($numero_factura) . "', ";
+	$sql_insert .= (!empty($fecha) ? "'" . $db->escape($fecha) . "'" : "NULL") . ", ";
+	$sql_insert .= ($fk_soc > 0 ? ((int) $fk_soc) : "NULL") . ", ";
+	$sql_insert .= ($fk_vehiculo > 0 ? ((int) $fk_vehiculo) : "NULL") . ", ";
+	$sql_insert .= ((float) $total) . ", ";
+	$sql_insert .= "'" . $db->escape($estado) . "', ";
+	$sql_insert .= "'" . $db->escape($notas) . "', ";
+	$sql_insert .= "'" . $db->idate(dol_now()) . "', ";
+	$sql_insert .= ((int) $user->id) . ", ";
+	$sql_insert .= ((int) $conf->entity) . ", ";
+	$sql_insert .= "1";
+	$sql_insert .= ")";
 
-		$resql = $db->query($sql_insert);
-		if ($resql) {
-			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
-			header("Location: " . $_SERVER['PHP_SELF']);
-			exit;
-		} else {
-			setEventMessages("Error al guardar la factura: " . $db->lasterror(), null, 'errors');
-		}
+	$resql = $db->query($sql_insert);
+	if ($resql) {
+		setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
+		header("Location: " . $_SERVER['PHP_SELF']);
+		exit;
+	} else {
+		setEventMessages("Error al guardar la factura: " . $db->lasterror(), null, 'errors');
 	}
 }
 
@@ -240,11 +297,6 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 		$rowid = (int) $_POST['rowid'];
 	}
 
-	$numero_factura = trim(GETPOST('numero_factura', 'alphanohtml'));
-	if (empty($numero_factura) && !empty($_POST['numero_factura'])) {
-		$numero_factura = trim($_POST['numero_factura']);
-	}
-
 	$fecha = trim(GETPOST('fecha', 'alpha'));
 	if (empty($fecha) && !empty($_POST['fecha'])) {
 		$fecha = trim($_POST['fecha']);
@@ -279,13 +331,11 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 		$notas = trim($_POST['notas']);
 	}
 
-	if (empty($numero_factura)) {
-		setEventMessages($langs->trans("ErrorFieldRequired", "Nº factura"), null, 'errors');
-	} elseif ($rowid <= 0) {
+	if ($rowid <= 0) {
 		setEventMessages("Identificador de factura no válido", null, 'errors');
 	} else {
 		$sql_update = "UPDATE " . $table_factura . " SET ";
-		$sql_update .= "numero_factura = '" . $db->escape($numero_factura) . "', ";
+		// El número de factura es inmutable por el usuario
 		$sql_update .= "fecha = " . (!empty($fecha) ? "'" . $db->escape($fecha) . "'" : "NULL") . ", ";
 		$sql_update .= "fk_soc = " . ($fk_soc > 0 ? ((int) $fk_soc) : "NULL") . ", ";
 		$sql_update .= "fk_vehiculo = " . ($fk_vehiculo > 0 ? ((int) $fk_vehiculo) : "NULL") . ", ";
@@ -640,6 +690,9 @@ $total_facturas = count($facturas_list);
 
 // Vista individual de una factura (Documental)
 $view_id = GETPOSTINT('id');
+if (empty($view_id) && !empty($_GET['id'])) {
+	$view_id = (int) $_GET['id'];
+}
 $factura_single = null;
 $single_materiales = array();
 $single_reparaciones = array();
@@ -652,7 +705,7 @@ $single_total = 0.0;
 
 if ($view_id > 0) {
 	$sql_single = "SELECT f.*, ";
-	$sql_single .= "s.nom as cliente_nombre, COALESCE(NULLIF(s.siren, ''), s.idprof1) as cliente_cif, COALESCE(NULLIF(s.town, ''), s.address) as cliente_ciudad, s.phone as cliente_telefono, s.email as cliente_email, ";
+	$sql_single .= "s.nom as cliente_nombre, COALESCE(NULLIF(s.siren, ''), NULLIF(s.siret, ''), s.tva_intra) as cliente_cif, COALESCE(NULLIF(s.town, ''), s.address) as cliente_ciudad, s.phone as cliente_telefono, s.email as cliente_email, ";
 	$sql_single .= "v.matricula as vehiculo_matricula, v.marca as vehiculo_marca, v.modelo as vehiculo_modelo, v.anio as vehiculo_anio ";
 	$sql_single .= "FROM " . $table_factura . " as f ";
 	$sql_single .= "LEFT JOIN " . $table_soc . " as s ON f.fk_soc = s.rowid ";
@@ -860,6 +913,248 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 		<div class="tallerpro-content-wrapper">
 			<main class="tallerpro-content">
 				<?php if ($view_id > 0 && $factura_single): ?>
+					<style>
+						.tallerpro-invoice-view-wrapper {
+							max-width: 1080px;
+							margin: 0 auto;
+							display: flex;
+							flex-direction: column;
+							gap: 20px;
+						}
+						.tallerpro-invoice-view-topbar {
+							display: flex;
+							align-items: center;
+							justify-content: space-between;
+							gap: 16px;
+						}
+						.tallerpro-back-link {
+							display: inline-flex;
+							align-items: center;
+							gap: 8px;
+							color: #475569;
+							font-size: 13.5px;
+							font-weight: 500;
+							text-decoration: none;
+							transition: color 0.15s ease;
+						}
+						.tallerpro-back-link:hover {
+							color: #1d4ed8;
+						}
+						.tallerpro-invoice-view-top-actions {
+							display: flex;
+							align-items: center;
+							gap: 12px;
+						}
+						.tallerpro-btn-edit-lines {
+							display: inline-flex;
+							align-items: center;
+							gap: 6px;
+							background: #ffffff;
+							color: #334155;
+							border: 1px solid #e2e8f0;
+							font-size: 13px;
+							font-weight: 500;
+							padding: 8px 16px;
+							border-radius: 8px;
+							cursor: pointer;
+							box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+							transition: background-color 0.15s ease;
+						}
+						.tallerpro-btn-edit-lines:hover {
+							background-color: #f8fafc;
+							border-color: #cbd5e1;
+						}
+						.tallerpro-invoice-badge-status {
+							display: inline-flex !important;
+							align-items: center !important;
+							justify-content: center !important;
+							padding: 4px 14px !important;
+							border-radius: 9999px !important;
+							font-size: 12px !important;
+							font-weight: 500 !important;
+							line-height: 1.3 !important;
+						}
+						.tallerpro-invoice-doc-header {
+							display: flex;
+							flex-direction: column;
+							gap: 4px;
+						}
+						.tallerpro-invoice-doc-label {
+							display: inline-flex;
+							align-items: center;
+							gap: 5px;
+							font-size: 11px;
+							font-weight: 700;
+							color: #64748b;
+							letter-spacing: 0.05em;
+							text-transform: uppercase;
+						}
+						.tallerpro-invoice-doc-num {
+							font-size: 28px;
+							font-weight: 700;
+							color: #0f172a;
+							margin: 2px 0 0 0;
+							letter-spacing: -0.02em;
+							line-height: 1.1;
+						}
+						.tallerpro-invoice-doc-date {
+							font-size: 13.5px;
+							color: #64748b;
+						}
+						.tallerpro-invoice-cards-grid {
+							display: grid;
+							grid-template-columns: 1fr 1fr;
+							gap: 16px;
+						}
+						.tallerpro-invoice-info-card {
+							background: #ffffff !important;
+							border: 1px solid #e2e8f0 !important;
+							border-radius: 12px !important;
+							padding: 20px 24px !important;
+							box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+							display: flex !important;
+							flex-direction: column !important;
+							gap: 4px !important;
+						}
+						.tallerpro-info-card-tag {
+							font-size: 11px !important;
+							font-weight: 700 !important;
+							color: #64748b !important;
+							letter-spacing: 0.05em !important;
+							text-transform: uppercase !important;
+						}
+						.tallerpro-info-card-title {
+							font-size: 15px !important;
+							font-weight: 700 !important;
+							color: #0f172a !important;
+							margin-top: 2px !important;
+						}
+						.tallerpro-info-card-line {
+							font-size: 13px !important;
+							color: #64748b !important;
+						}
+						.tallerpro-info-card-sub {
+							font-size: 12.5px !important;
+							color: #64748b !important;
+						}
+						.tallerpro-invoice-totals-card-view {
+							background: #ffffff !important;
+							border: 1px solid #e2e8f0 !important;
+							border-radius: 12px !important;
+							padding: 22px 28px !important;
+							box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;
+							display: flex !important;
+							justify-content: flex-end !important;
+							width: 100% !important;
+							box-sizing: border-box !important;
+							margin-top: 16px !important;
+						}
+						.tallerpro-totals-summary-box {
+							width: 320px !important;
+							max-width: 100% !important;
+							margin-left: auto !important;
+							margin-right: 0 !important;
+							display: flex !important;
+							flex-direction: column !important;
+							gap: 8px !important;
+						}
+						.tallerpro-totals-row {
+							display: flex !important;
+							justify-content: space-between !important;
+							align-items: center !important;
+							width: 100% !important;
+							font-size: 13.5px !important;
+							color: #64748b !important;
+						}
+						.tallerpro-totals-row span:first-child {
+							color: #64748b !important;
+							font-size: 13.5px !important;
+							font-weight: 400 !important;
+							text-align: left !important;
+						}
+						.tallerpro-totals-row span:last-child {
+							color: #0f172a !important;
+							font-size: 13.5px !important;
+							font-weight: 500 !important;
+							text-align: right !important;
+						}
+						.tallerpro-totals-divider {
+							height: 1px !important;
+							background-color: #f1f5f9 !important;
+							margin: 4px 0 !important;
+							border: none !important;
+							width: 100% !important;
+						}
+						.tallerpro-totals-final {
+							margin-top: 3px !important;
+							display: flex !important;
+							justify-content: space-between !important;
+							align-items: center !important;
+							width: 100% !important;
+						}
+						.tallerpro-totals-final span:first-child {
+							font-size: 15px !important;
+							font-weight: 700 !important;
+							color: #0f172a !important;
+							letter-spacing: 0.02em !important;
+						}
+						.tallerpro-totals-final span:last-child {
+							font-size: 16px !important;
+							font-weight: 700 !important;
+							color: #0f172a !important;
+							text-align: right !important;
+						}
+						.tallerpro-invoice-section-block {
+							display: flex;
+							flex-direction: column;
+							gap: 8px;
+							width: 100%;
+							margin-top: 4px;
+						}
+						.tallerpro-invoice-section-heading {
+							display: flex;
+							align-items: center;
+							gap: 8px;
+							font-size: 15px;
+							font-weight: 600;
+							color: #0f172a;
+						}
+						.tallerpro-invoice-table-card {
+							background: #ffffff;
+							border: 1px solid #e2e8f0;
+							border-radius: 12px;
+							overflow: hidden;
+							box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+						}
+						.tallerpro-invoice-table {
+							width: 100%;
+							border-collapse: collapse;
+							text-align: left;
+						}
+						.tallerpro-invoice-table th {
+							background-color: #ffffff;
+							padding: 12px 18px;
+							font-size: 12.5px;
+							font-weight: 500;
+							color: #64748b;
+							border-bottom: 1px solid #e2e8f0;
+							white-space: nowrap;
+						}
+						.tallerpro-invoice-table td {
+							padding: 14px 18px;
+							font-size: 13.5px;
+							color: #334155;
+							border-bottom: 1px solid #f1f5f9;
+							vertical-align: middle;
+						}
+						.tallerpro-invoice-table tr:last-child td {
+							border-bottom: none;
+						}
+						.tallerpro-invoice-table tr:hover td {
+							background-color: #fafbfd;
+						}
+					</style>
+
 					<!-- Vista Detalle Completa de Factura (según diseño de referencia) -->
 					<div class="tallerpro-invoice-view-wrapper">
 						<!-- Top Action Bar -->
@@ -874,19 +1169,24 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<div class="tallerpro-invoice-view-top-actions">
 								<button type="button" class="tallerpro-btn-edit-lines btn-detalle-factura"
 									data-id="<?php echo (int) $factura_single->rowid; ?>"
-									data-numero="<?php echo dol_escape_htmltag($factura_single->numero_factura); ?>">
+									data-numero="<?php echo dol_escape_htmltag($factura_single->numero_factura); ?>"
+									style="display: inline-flex !important; align-items: center !important; gap: 6px !important; background: #ffffff !important; color: #334155 !important; border: 1px solid #e2e8f0 !important; font-size: 13px !important; font-weight: 500 !important; padding: 8px 16px !important; border-radius: 8px !important; cursor: pointer !important;">
 									<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 										<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
 									</svg>
 									<span>Editar líneas</span>
 								</button>
 								<?php
-								$badge_class = (strtolower(trim($factura_single->estado)) == 'pagada') ? 'tallerpro-badge-status-pagada' : 'tallerpro-badge-status-pendiente';
+								$is_pagada = (strtolower(trim($factura_single->estado)) == 'pagada');
+								$badge_style = $is_pagada
+									? 'background-color: #ecfdf5 !important; color: #047857 !important; border: 1px solid #a7f3d0 !important;'
+									: 'background-color: #f1f5f9 !important; color: #475569 !important; border: 1px solid #e2e8f0 !important;';
 								?>
-								<span class="<?php echo $badge_class; ?>">
+								<span class="tallerpro-invoice-badge-status" style="<?php echo $badge_style; ?>">
 									<?php echo dol_escape_htmltag($factura_single->estado ?: 'Pendiente'); ?>
 								</span>
-								<button type="button" class="tallerpro-btn-pdf" onclick="window.print();">
+								<button type="button" class="tallerpro-btn-pdf" onclick="window.print();"
+									style="display: inline-flex !important; align-items: center !important; gap: 7px !important; background-color: #0f2b5c !important; color: #ffffff !important; font-size: 13px !important; font-weight: 600 !important; padding: 8px 16px !important; border-radius: 8px !important; border: none !important; cursor: pointer !important; box-shadow: 0 1px 2px rgba(15, 43, 92, 0.2) !important;">
 									<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 										<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
 										<polyline points="7 10 12 15 17 10"></polyline>
@@ -942,12 +1242,18 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							</div>
 						</div>
 
-						<!-- Sección 1: Materiales -->
-						<div class="tallerpro-invoice-view-section">
-							<h3 class="tallerpro-invoice-section-title"><span>📦</span> Materiales</h3>
-							<?php if (empty($single_materiales)): ?>
-								<div class="tallerpro-invoice-empty-box">Sin materiales todavía.</div>
-							<?php else: ?>
+						<?php if (!empty($single_materiales)): ?>
+						<!-- Sección 1: Materiales (solo si contiene materiales) -->
+						<div class="tallerpro-invoice-section-block">
+							<div class="tallerpro-invoice-section-heading">
+								<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
+									<polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+									<line x1="12" y1="22.08" x2="12" y2="12"></line>
+								</svg>
+								<span>Materiales</span>
+							</div>
+							<div class="tallerpro-invoice-table-card">
 								<table class="tallerpro-invoice-table">
 									<thead>
 										<tr>
@@ -962,25 +1268,30 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									<tbody>
 										<?php foreach ($single_materiales as $mat): ?>
 											<tr>
-												<td><?php echo !empty($mat->codigo) ? dol_escape_htmltag($mat->codigo) : '—'; ?></td>
-												<td><?php echo dol_escape_htmltag($mat->descripcion); ?></td>
-												<td style="text-align: center;"><?php echo number_format((float) $mat->cantidad, 0); ?></td>
-												<td style="text-align: right;"><?php echo number_format((float) $mat->precio, 2, '.', '') . ' €'; ?></td>
-												<td style="text-align: center;"><?php echo number_format((float) $mat->descuento, 0) . '%'; ?></td>
+												<td style="color: #64748b;"><?php echo !empty($mat->codigo) ? dol_escape_htmltag($mat->codigo) : '—'; ?></td>
+												<td style="font-weight: 500; color: #0f172a;"><?php echo dol_escape_htmltag($mat->descripcion); ?></td>
+												<td style="text-align: center; color: #334155;"><?php echo number_format((float) $mat->cantidad, 0); ?></td>
+												<td style="text-align: right; color: #334155;"><?php echo number_format((float) $mat->precio, 2, '.', '') . ' €'; ?></td>
+												<td style="text-align: center; color: #334155;"><?php echo number_format((float) $mat->descuento, 0) . '%'; ?></td>
 												<td style="text-align: right; font-weight: 700; color: #0f172a;"><?php echo number_format((float) $mat->total_neto, 2, '.', '') . ' €'; ?></td>
 											</tr>
 										<?php endforeach; ?>
 									</tbody>
 								</table>
-							<?php endif; ?>
+							</div>
 						</div>
+						<?php endif; ?>
 
-						<!-- Sección 2: Reparaciones / Mano de obra -->
-						<div class="tallerpro-invoice-view-section">
-							<h3 class="tallerpro-invoice-section-title"><span>🔧</span> Reparaciones / Mano de obra</h3>
-							<?php if (empty($single_reparaciones)): ?>
-								<div class="tallerpro-invoice-empty-box">Sin reparaciones todavía.</div>
-							<?php else: ?>
+						<?php if (!empty($single_reparaciones)): ?>
+						<!-- Sección 2: Reparaciones / Mano de obra (solo si contiene reparaciones) -->
+						<div class="tallerpro-invoice-section-block">
+							<div class="tallerpro-invoice-section-heading">
+								<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+								</svg>
+								<span>Reparaciones / Mano de obra</span>
+							</div>
+							<div class="tallerpro-invoice-table-card">
 								<table class="tallerpro-invoice-table">
 									<thead>
 										<tr>
@@ -994,53 +1305,56 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<?php foreach ($single_reparaciones as $rep): ?>
 											<tr>
 												<td>
-													<span><?php echo dol_escape_htmltag($rep->descripcion); ?></span>
+													<span style="font-weight: 500; color: #0f172a;"><?php echo dol_escape_htmltag($rep->descripcion); ?></span>
 													<?php if (!empty($rep->notas)): ?>
 														<div style="font-size: 11.5px; color: #64748b; margin-top: 2px;"><?php echo dol_escape_htmltag($rep->notas); ?></div>
 													<?php endif; ?>
 												</td>
-												<td style="text-align: right;"><?php echo number_format((float) $rep->precio, 2, '.', '') . ' €'; ?></td>
-												<td style="text-align: center;"><?php echo number_format((float) $rep->descuento, 0) . '%'; ?></td>
+												<td style="text-align: right; color: #334155;"><?php echo number_format((float) $rep->precio, 2, '.', '') . ' €'; ?></td>
+												<td style="text-align: center; color: #334155;"><?php echo number_format((float) $rep->descuento, 0) . '%'; ?></td>
 												<td style="text-align: right; font-weight: 700; color: #0f172a;"><?php echo number_format((float) $rep->total_neto, 2, '.', '') . ' €'; ?></td>
 											</tr>
 										<?php endforeach; ?>
 									</tbody>
 								</table>
-							<?php endif; ?>
+							</div>
 						</div>
+						<?php endif; ?>
 
 						<!-- Sección 3: Totales Card -->
-						<div class="tallerpro-invoice-view-section tallerpro-invoice-summary-card">
-							<div class="tallerpro-totals-summary" style="max-width: 380px; margin-left: auto;">
-								<div class="tallerpro-totals-row">
-									<span>Subtotal</span>
-									<span><?php echo number_format((float) $single_subtotal, 2, '.', '') . ' €'; ?></span>
+						<div class="tallerpro-invoice-totals-card-view" style="background: #ffffff !important; border: 1px solid #e2e8f0 !important; border-radius: 12px !important; padding: 22px 28px !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important; display: flex !important; justify-content: flex-end !important; width: 100% !important; box-sizing: border-box !important; margin-top: 16px !important; margin-bottom: 16px !important;">
+							<div class="tallerpro-totals-summary-box" style="width: 320px !important; max-width: 100% !important; margin-left: auto !important; margin-right: 0 !important; display: flex !important; flex-direction: column !important; gap: 8px !important;">
+								<div class="tallerpro-totals-row" style="display: flex !important; justify-content: space-between !important; align-items: center !important; font-size: 13.5px !important; color: #64748b !important; width: 100% !important;">
+									<span style="color: #64748b !important; font-weight: 400 !important; font-size: 13.5px !important;">Subtotal</span>
+									<span style="color: #0f172a !important; font-weight: 500 !important; font-size: 13.5px !important; text-align: right !important;"><?php echo number_format((float) $single_subtotal, 2, '.', '') . ' €'; ?></span>
 								</div>
-								<div class="tallerpro-totals-row">
-									<span>Descuento</span>
-									<span>- <?php echo number_format((float) $single_desc, 2, '.', '') . ' €'; ?></span>
+								<div class="tallerpro-totals-row" style="display: flex !important; justify-content: space-between !important; align-items: center !important; font-size: 13.5px !important; color: #64748b !important; width: 100% !important;">
+									<span style="color: #64748b !important; font-weight: 400 !important; font-size: 13.5px !important;">Descuento</span>
+									<span style="color: #0f172a !important; font-weight: 500 !important; font-size: 13.5px !important; text-align: right !important;">- <?php echo number_format((float) $single_desc, 2, '.', '') . ' €'; ?></span>
 								</div>
-								<div class="tallerpro-totals-divider"></div>
-								<div class="tallerpro-totals-row">
-									<span>Base imponible</span>
-									<span><?php echo number_format((float) $single_base, 2, '.', '') . ' €'; ?></span>
+								<div class="tallerpro-totals-divider" style="height: 1px !important; background-color: #f1f5f9 !important; margin: 4px 0 !important; border: none !important; width: 100% !important;"></div>
+								<div class="tallerpro-totals-row" style="display: flex !important; justify-content: space-between !important; align-items: center !important; font-size: 13.5px !important; color: #64748b !important; width: 100% !important;">
+									<span style="color: #64748b !important; font-weight: 400 !important; font-size: 13.5px !important;">Base imponible</span>
+									<span style="color: #0f172a !important; font-weight: 500 !important; font-size: 13.5px !important; text-align: right !important;"><?php echo number_format((float) $single_base, 2, '.', '') . ' €'; ?></span>
 								</div>
-								<div class="tallerpro-totals-row">
-									<span>IVA (<?php echo (int) $single_iva_pct; ?>%)</span>
-									<span><?php echo number_format((float) $single_iva_amt, 2, '.', '') . ' €'; ?></span>
+								<div class="tallerpro-totals-row" style="display: flex !important; justify-content: space-between !important; align-items: center !important; font-size: 13.5px !important; color: #64748b !important; width: 100% !important;">
+									<span style="color: #64748b !important; font-weight: 400 !important; font-size: 13.5px !important;">IVA (<?php echo (int) $single_iva_pct; ?>%)</span>
+									<span style="color: #0f172a !important; font-weight: 500 !important; font-size: 13.5px !important; text-align: right !important;"><?php echo number_format((float) $single_iva_amt, 2, '.', '') . ' €'; ?></span>
 								</div>
-								<div class="tallerpro-totals-divider"></div>
-								<div class="tallerpro-totals-row tallerpro-totals-final">
-									<span>TOTAL</span>
-									<span><?php echo number_format((float) $single_total, 2, '.', '') . ' €'; ?></span>
+								<div class="tallerpro-totals-divider" style="height: 1px !important; background-color: #f1f5f9 !important; margin: 4px 0 !important; border: none !important; width: 100% !important;"></div>
+								<div class="tallerpro-totals-row tallerpro-totals-final" style="display: flex !important; justify-content: space-between !important; align-items: center !important; width: 100% !important; margin-top: 3px !important;">
+									<span style="font-size: 15px !important; font-weight: 700 !important; color: #0f172a !important; letter-spacing: 0.02em !important;">TOTAL</span>
+									<span style="font-size: 16px !important; font-weight: 700 !important; color: #0f172a !important; text-align: right !important;"><?php echo number_format((float) $single_total, 2, '.', '') . ' €'; ?></span>
 								</div>
 							</div>
 						</div>
 
-						<!-- Sección 4: Notas -->
-						<div class="tallerpro-invoice-info-card" style="margin-top: 4px;">
-							<div class="tallerpro-info-card-tag">NOTAS</div>
-							<div class="tallerpro-info-card-line" style="margin-top: 4px;"><?php echo !empty($factura_single->notas) ? nl2br(dol_escape_htmltag($factura_single->notas)) : 'Sin notas'; ?></div>
+						<!-- Sección 4: Notas (visibles en todo momento) -->
+						<div class="tallerpro-invoice-info-card" style="background: #ffffff !important; border: 1px solid #e2e8f0 !important; border-radius: 12px !important; padding: 20px 24px !important; margin-top: 16px !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important;">
+							<div class="tallerpro-info-card-tag" style="font-size: 11px !important; font-weight: 700 !important; color: #64748b !important; letter-spacing: 0.05em !important; text-transform: uppercase !important;">NOTAS</div>
+							<div class="tallerpro-info-card-line" style="margin-top: 6px !important; font-size: 13.5px !important; color: #0f172a !important; line-height: 1.5 !important;">
+								<?php echo !empty(trim((string) $factura_single->notas)) ? nl2br(dol_escape_htmltag($factura_single->notas)) : '<span style="color: #94a3b8;">Sin notas</span>'; ?>
+							</div>
 						</div>
 					</div>
 				<?php else: ?>
@@ -1184,6 +1498,9 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 		</div>
 	</div>
 
+	<?php
+	$next_factura_numero = getNextFacturaNumero($db, date('Y-m-d'), $conf->entity);
+	?>
 	<!-- Modal Nuevo Registro Facturas -->
 	<div class="tallerpro-modal-backdrop" id="tallerFacturaModal">
 		<div class="tallerpro-modal-card">
@@ -1203,7 +1520,14 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Nº factura <span class="tallerpro-required">*</span></label>
-					<input type="text" name="numero_factura" id="fac_numero" class="tallerpro-form-input" required />
+					<input type="text" name="numero_factura" id="fac_numero" class="tallerpro-form-input tallerpro-input-readonly" value="<?php echo dol_escape_htmltag($next_factura_numero); ?>" data-next-numero="<?php echo dol_escape_htmltag($next_factura_numero); ?>" readonly required />
+					<span class="tallerpro-form-help-text">
+						<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -1px; margin-right: 3px;">
+							<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+							<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+						</svg>
+						Generado automáticamente por el sistema
+					</span>
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Fecha</label>

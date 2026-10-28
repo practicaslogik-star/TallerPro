@@ -266,6 +266,35 @@ document.addEventListener('DOMContentLoaded', function () {
     const facFormAction = document.getElementById('facturaFormAction');
     const facFormRowid = document.getElementById('facturaFormRowid');
     const addFacBtn = document.getElementById('tallerOpenModalBtn');
+    const facNumero = document.getElementById('fac_numero');
+    const facFecha = document.getElementById('fac_fecha');
+
+    function updateNextInvoiceNumber(fechaStr) {
+        if (!facNumero) return;
+        if (facNumero.dataset && facNumero.dataset.nextNumero && (!fechaStr || fechaStr.substring(0, 4) === String(new Date().getFullYear()))) {
+            facNumero.value = facNumero.dataset.nextNumero;
+        }
+
+        const url = (window.location.pathname || 'facturas.php') + '?action=get_next_factura_numero&fecha=' + encodeURIComponent(fechaStr || '');
+        fetch(url)
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (data && data.status === 'ok' && data.numero) {
+                    facNumero.value = data.numero;
+                }
+            })
+            .catch(function (err) {
+                console.error('Error al obtener siguiente número de factura:', err);
+            });
+    }
+
+    if (facFecha) {
+        facFecha.addEventListener('change', function () {
+            if (facFormAction && facFormAction.value === 'create_factura') {
+                updateNextInvoiceNumber(facFecha.value);
+            }
+        });
+    }
 
     if (addFacBtn && facForm) {
         addFacBtn.addEventListener('click', function () {
@@ -273,13 +302,17 @@ document.addEventListener('DOMContentLoaded', function () {
             if (facModalTitle) facModalTitle.textContent = 'Nuevo registro';
             if (facFormAction) facFormAction.value = 'create_factura';
             if (facFormRowid) facFormRowid.value = '0';
-            const facFecha = document.getElementById('fac_fecha');
+            const todayStr = new Date().toISOString().split('T')[0];
             if (facFecha) {
-                facFecha.value = new Date().toISOString().split('T')[0];
+                facFecha.value = todayStr;
             }
             const facEstado = document.getElementById('fac_estado');
             if (facEstado) {
                 facEstado.value = 'Pendiente';
+            }
+            if (facNumero) {
+                facNumero.readOnly = true;
+                updateNextInvoiceNumber(todayStr);
             }
         });
     }
@@ -294,15 +327,16 @@ document.addEventListener('DOMContentLoaded', function () {
             if (facFormAction) facFormAction.value = 'update_factura';
             if (facFormRowid) facFormRowid.value = btn.dataset.id || '0';
 
-            const facNumero = document.getElementById('fac_numero');
-            const facFecha = document.getElementById('fac_fecha');
             const facSoc = document.getElementById('fac_fk_soc');
             const facVehiculo = document.getElementById('fac_fk_vehiculo');
             const facTotal = document.getElementById('fac_total');
             const facEstado = document.getElementById('fac_estado');
             const facNotas = document.getElementById('fac_notas');
 
-            if (facNumero) facNumero.value = btn.dataset.numero || '';
+            if (facNumero) {
+                facNumero.value = btn.dataset.numero || '';
+                facNumero.readOnly = true;
+            }
             if (facFecha) facFecha.value = btn.dataset.fecha || '';
             if (facSoc) facSoc.value = btn.dataset.soc || '';
             if (facVehiculo) facVehiculo.value = btn.dataset.vehiculo || '';
@@ -311,7 +345,7 @@ document.addEventListener('DOMContentLoaded', function () {
             if (facNotas) facNotas.value = btn.dataset.notas || '';
 
             facModal.classList.add('active');
-            if (facNumero) facNumero.focus();
+            if (facFecha) facFecha.focus();
         });
     });
 
@@ -319,6 +353,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const verFacBtns = document.querySelectorAll('.btn-ver-factura');
     verFacBtns.forEach(function (btn) {
         btn.addEventListener('click', function (e) {
+            e.preventDefault();
             const href = btn.getAttribute('href');
             if (href && href !== '#' && href !== 'javascript:void(0);') {
                 window.location.href = href;
