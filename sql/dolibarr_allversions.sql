@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS llx_taller_vehiculo (
     INDEX idx_taller_vehiculo_matricula (matricula)
 ) ENGINE=innodb;
 
+
 CREATE TABLE IF NOT EXISTS llx_taller_material (
     rowid           INT AUTO_INCREMENT PRIMARY KEY,
     nombre          VARCHAR(255) NOT NULL,

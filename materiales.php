@@ -264,7 +264,7 @@ $morehead .= '<script src="'.$js_url.'"></script>'."\n";
 llxHeader('', 'Materiales - TallerPro', '', '', 0, 0, array(), array(), $morehead, 'mod-taller page-tallerpro');
 
 $dolibarr_root_url = DOL_URL_ROOT . '/index.php';
-$setup_url = dol_buildpath('/taller/admin/setup.php', 1);
+$setup_url = dol_buildpath('/taller/configuracion.php', 1);
 $index_url = dol_buildpath('/taller/tallerindex.php', 1);
 $clientes_url = dol_buildpath('/taller/clientes.php', 1);
 $vehiculos_url = dol_buildpath('/taller/vehiculos.php', 1);
@@ -406,12 +406,17 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 		<!-- Top Bar -->
 		<header class="tallerpro-topbar">
 			<div class="tallerpro-topbar-left">
-				<span class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="Alternar menú">
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<button type="button" class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="Alternar menú" aria-label="Alternar menú">
+					<svg class="tallerpro-toggle-icon-desktop" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
 						<line x1="9" y1="3" x2="9" y2="21"></line>
 					</svg>
-				</span>
+					<svg class="tallerpro-toggle-icon-mobile" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="3" y1="6" x2="21" y2="6"></line>
+						<line x1="3" y1="12" x2="21" y2="12"></line>
+						<line x1="3" y1="18" x2="21" y2="18"></line>
+					</svg>
+				</button>
 				<span class="tallerpro-topbar-dot">•</span>
 				<span class="tallerpro-topbar-title">TallerPro</span>
 			</div>
@@ -481,9 +486,8 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 													</svg>
 												</button>
 												<a href="<?php echo $_SERVER['PHP_SELF']; ?>?action=delete_material&rowid=<?php echo (int) $mat->rowid; ?>&token=<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>"
-													class="tallerpro-action-btn"
-													title="Eliminar"
-													onclick="return confirm('¿Estás seguro de que deseas eliminar este material?');">
+													class="tallerpro-action-btn btn-delete-action"
+													title="Eliminar">
 													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 														<polyline points="3 6 5 6 21 6"></polyline>
 														<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -514,7 +518,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				</button>
 			</div>
 			
-			
+
 			<form class="tallerpro-modal-form" id="tallerMaterialForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
 				<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
 				<input type="hidden" name="action" id="materialFormAction" value="create_material">
@@ -557,6 +561,31 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<textarea name="notas" id="mat_notas" class="tallerpro-form-textarea" rows="3" placeholder="Ej: Válido para motores 1.9 TDI y 2.0 HDI, ubicación estante B-3..."></textarea>
 				</div>
 			</form>
+		</div>
+	</div>
+
+	<!-- Modal Confirmación de Eliminación -->
+	<div class="tallerpro-modal-backdrop" id="deleteConfirmModal">
+		<div class="tallerpro-modal-card" style="max-width: 440px; padding: 28px 24px; text-align: center;">
+			<div style="width: 52px; height: 52px; border-radius: 50%; background-color: #fee2e2; color: #ef4444; display: inline-flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
+				<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<polyline points="3 6 5 6 21 6"></polyline>
+					<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+					<line x1="10" y1="11" x2="10" y2="17"></line>
+					<line x1="14" y1="11" x2="14" y2="17"></line>
+				</svg>
+			</div>
+			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">¿Estás seguro de que deseas borrar?</h3>
+			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;">Este material dejará de mostrarse en la lista activa, pero sus datos se conservarán en el sistema.</p>
+
+			<div style="display: flex; gap: 12px; justify-content: center;">
+				<button type="button" id="btnCancelDelete" style="flex: 1; padding: 10px 16px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px;">
+					Rechazar
+				</button>
+				<button type="button" id="btnConfirmDelete" style="flex: 1; padding: 10px 16px; border: none; background: #ef4444; color: #ffffff; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);">
+					Confirmar
+				</button>
+			</div>
 		</div>
 	</div>
 </div>

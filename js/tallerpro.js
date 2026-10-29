@@ -13,17 +13,53 @@ if (window.__tallerProLoaded) {
         const topbarToggle = document.getElementById('tallerTopbarToggle');
         const navItems = document.querySelectorAll('.tallerpro-nav-item');
 
-        // Restore sidebar state from localStorage
-        if (localStorage.getItem('tallerpro_sidebar_collapsed') === 'true') {
+        // Restore sidebar state from localStorage only on desktop (> 1024px)
+        if (window.innerWidth > 1024 && localStorage.getItem('tallerpro_sidebar_collapsed') === 'true') {
             sidebar?.classList.add('collapsed');
         }
 
-        // Toggle sidebar collapse
+        // Mobile/Tablet Sidebar Control
+        function closeMobileSidebar() {
+            if (!sidebar) return;
+            sidebar.classList.remove('mobile-open');
+            document.getElementById('tallerSidebarOverlay')?.classList.remove('active');
+            if (window.innerWidth > 1024 && localStorage.getItem('tallerpro_sidebar_collapsed') === 'true') {
+                sidebar.classList.add('collapsed');
+            }
+        }
+
+        function openMobileSidebar() {
+            if (!sidebar) return;
+            sidebar.classList.remove('collapsed'); // Always show full texts in drawer
+            sidebar.classList.add('mobile-open');
+            const layout = document.querySelector('.tallerpro-layout') || document.body;
+            let overlay = document.getElementById('tallerSidebarOverlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'tallerSidebarOverlay';
+                overlay.className = 'tallerpro-sidebar-overlay';
+                layout.appendChild(overlay);
+                overlay.addEventListener('click', closeMobileSidebar);
+            } else if (overlay.parentElement !== layout) {
+                layout.appendChild(overlay);
+            }
+            overlay.classList.add('active');
+        }
+
+        // Toggle sidebar collapse (Desktop: collapse; Mobile/Tablet: slide drawer)
         function toggleSidebar() {
             if (!sidebar) return;
-            sidebar.classList.toggle('collapsed');
-            const isCollapsed = sidebar.classList.contains('collapsed');
-            localStorage.setItem('tallerpro_sidebar_collapsed', isCollapsed ? 'true' : 'false');
+            if (window.innerWidth <= 1024) {
+                if (sidebar.classList.contains('mobile-open')) {
+                    closeMobileSidebar();
+                } else {
+                    openMobileSidebar();
+                }
+            } else {
+                sidebar.classList.toggle('collapsed');
+                const isCollapsed = sidebar.classList.contains('collapsed');
+                localStorage.setItem('tallerpro_sidebar_collapsed', isCollapsed ? 'true' : 'false');
+            }
         }
 
         collapseBtn?.addEventListener('click', function (e) {
@@ -36,10 +72,60 @@ if (window.__tallerProLoaded) {
             toggleSidebar();
         });
 
-        // Only handle active state for placeholder items with hash links (#...)
+        // Ensure hamburger icon exists for mobile/tablet in topbar toggle
+        if (topbarToggle && !topbarToggle.querySelector('.tallerpro-toggle-icon-mobile')) {
+            const firstSvg = topbarToggle.querySelector('svg');
+            if (firstSvg) {
+                firstSvg.classList.add('tallerpro-toggle-icon-desktop');
+            }
+            const mobileBurgerSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            mobileBurgerSvg.setAttribute('class', 'tallerpro-toggle-icon-mobile');
+            mobileBurgerSvg.setAttribute('width', '20');
+            mobileBurgerSvg.setAttribute('height', '20');
+            mobileBurgerSvg.setAttribute('viewBox', '0 0 24 24');
+            mobileBurgerSvg.setAttribute('fill', 'none');
+            mobileBurgerSvg.setAttribute('stroke', 'currentColor');
+            mobileBurgerSvg.setAttribute('stroke-width', '2.2');
+            mobileBurgerSvg.setAttribute('stroke-linecap', 'round');
+            mobileBurgerSvg.setAttribute('stroke-linejoin', 'round');
+            mobileBurgerSvg.innerHTML = `
+                <line x1="3" y1="6" x2="21" y2="6"></line>
+                <line x1="3" y1="12" x2="21" y2="12"></line>
+                <line x1="3" y1="18" x2="21" y2="18"></line>
+            `;
+            topbarToggle.appendChild(mobileBurgerSvg);
+        }
+
+        // Ensure close button exists in sidebar for mobile/tablet
+        if (sidebar && !sidebar.querySelector('.tallerpro-sidebar-close')) {
+            const brand = sidebar.querySelector('.tallerpro-brand');
+            if (brand) {
+                const closeBtn = document.createElement('button');
+                closeBtn.type = 'button';
+                closeBtn.className = 'tallerpro-sidebar-close';
+                closeBtn.title = 'Cerrar menú';
+                closeBtn.innerHTML = `
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                `;
+                closeBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    closeMobileSidebar();
+                });
+                brand.appendChild(closeBtn);
+            }
+        }
+
+        // Close mobile drawer on navigation click
         navItems.forEach(function (item) {
             item.addEventListener('click', function (e) {
                 const href = item.getAttribute('href');
+                if (window.innerWidth <= 1024) {
+                    closeMobileSidebar();
+                }
                 if (!href || href.startsWith('#')) {
                     e.preventDefault();
                     navItems.forEach(function (el) { el.classList.remove('active'); });
@@ -47,6 +133,83 @@ if (window.__tallerProLoaded) {
                 }
             });
         });
+
+        // =========================================================================
+        // Transformación Responsiva: Tablas -> Tarjetas (Mobile / Tablet)
+        // Lee los encabezados <th> y los asigna automáticamente como data-label
+        // =========================================================================
+        function initResponsiveTables() {
+            const tables = document.querySelectorAll('.tallerpro-table');
+            tables.forEach(function (table) {
+                // Obtener los títulos de las columnas de la cabecera
+                const thElements = Array.from(table.querySelectorAll('thead th'));
+                const headers = thElements.map(function (th) {
+                    return th.textContent.trim();
+                });
+
+                // Recorrer las filas del cuerpo
+                const rows = table.querySelectorAll('tbody tr');
+                rows.forEach(function (row) {
+                    // Si es una fila de mensaje vacío (colspan), marcarla
+                    if (row.querySelector('td[colspan]')) {
+                        row.classList.add('tallerpro-empty-row');
+                        return;
+                    }
+
+                    const cells = Array.from(row.children).filter(function (child) {
+                        return child.tagName.toLowerCase() === 'td';
+                    });
+
+                    cells.forEach(function (td, idx) {
+                        const headerText = headers[idx] || '';
+                        const hasActions = td.querySelector('.tallerpro-actions') || 
+                                           (!headerText && idx === cells.length - 1);
+
+                        if (idx === 0) {
+                            td.classList.add('tallerpro-card-header-cell');
+                            if (headerText && !td.getAttribute('data-label')) {
+                                td.setAttribute('data-label', headerText);
+                            }
+                        } else if (hasActions) {
+                            td.classList.add('tallerpro-actions-cell');
+                            // Add clear text labels for action buttons on mobile cards
+                            td.querySelectorAll('.tallerpro-action-btn').forEach(function (btn) {
+                                if (!btn.querySelector('.tallerpro-action-text, span')) {
+                                    const title = (btn.getAttribute('title') || '').toLowerCase();
+                                    let label = '';
+                                    if (title.includes('eliminar') || title.includes('borrar')) {
+                                        label = 'Eliminar';
+                                        btn.classList.add('tallerpro-btn-delete');
+                                    } else if (title.includes('editar') || title.includes('edit')) {
+                                        label = 'Editar';
+                                        btn.classList.add('tallerpro-btn-edit');
+                                    } else if (title.includes('ver') || title.includes('detalle') || title.includes('view') || title.includes('descargar') || title.includes('pdf')) {
+                                        label = title.includes('pdf') ? 'PDF' : 'Ver';
+                                        btn.classList.add('tallerpro-btn-view');
+                                    }
+
+                                    if (label) {
+                                        const span = document.createElement('span');
+                                        span.className = 'tallerpro-action-text';
+                                        span.textContent = label;
+                                        btn.appendChild(span);
+                                    }
+                                }
+                            });
+                        } else {
+                            td.classList.add('tallerpro-card-field-cell');
+                            if (headerText && !td.getAttribute('data-label')) {
+                                td.setAttribute('data-label', headerText);
+                            }
+                        }
+                    });
+                });
+            });
+        }
+
+        // Ejecutar transformación en carga inicial
+        initResponsiveTables();
+        window.tallerInitResponsiveTables = initResponsiveTables;
 
         // Generic Modal logic (works for any view with .tallerpro-modal-backdrop)
         const openModalBtns = document.querySelectorAll('#tallerOpenModalBtn, .tallerpro-btn-primary');
@@ -996,73 +1159,97 @@ if (window.__tallerProLoaded) {
             });
         }
 
-        // Modal Confirmación de Eliminación
+        // Modal Confirmación de Eliminación Global (Reparaciones, Clientes, Vehículos, Materiales)
+        let pendingDeleteUrl = null;
         let pendingDeleteRow = null;
         let pendingDeleteRowId = null;
-        const deleteModal = document.getElementById('deleteConfirmModal');
-        const btnCancelDelete = document.getElementById('btnCancelDelete');
-        const btnConfirmDelete = document.getElementById('btnConfirmDelete');
 
         document.addEventListener('click', function (e) {
-            const delBtn = e.target.closest('.btn-delete-reparacion');
-            if (!delBtn) return;
-            e.preventDefault();
+            // Caso 1: Reparaciones AJAX delete
+            const delRepBtn = e.target.closest('.btn-delete-reparacion');
+            if (delRepBtn) {
+                e.preventDefault();
+                pendingDeleteRow = delRepBtn.closest('.rep-row');
+                pendingDeleteRowId = delRepBtn.getAttribute('data-id');
+                pendingDeleteUrl = null;
+                const modal = document.getElementById('deleteConfirmModal');
+                if (modal) modal.classList.add('active');
+                return;
+            }
 
-            pendingDeleteRow = delBtn.closest('.rep-row');
-            pendingDeleteRowId = delBtn.getAttribute('data-id');
-
-            if (deleteModal) {
-                deleteModal.classList.add('active');
+            // Caso 2: Enlace/botón de eliminación en Clientes, Vehículos, Materiales
+            const delActionBtn = e.target.closest('.btn-delete-action, a[href*="delete_client"], a[href*="delete_vehiculo"], a[href*="delete_material"]');
+            if (delActionBtn) {
+                e.preventDefault();
+                pendingDeleteUrl = delActionBtn.getAttribute('data-delete-url') || delActionBtn.getAttribute('href');
+                pendingDeleteRow = delActionBtn.closest('tr');
+                pendingDeleteRowId = null;
+                const modal = document.getElementById('deleteConfirmModal');
+                if (modal) {
+                    modal.classList.add('active');
+                }
             }
         });
 
-        if (btnCancelDelete && deleteModal) {
-            btnCancelDelete.addEventListener('click', function () {
-                deleteModal.classList.remove('active');
+        document.addEventListener('click', function (e) {
+            const cancelBtn = e.target.closest('#btnCancelDelete');
+            const modal = document.getElementById('deleteConfirmModal');
+            if (cancelBtn && modal) {
+                modal.classList.remove('active');
+                pendingDeleteUrl = null;
                 pendingDeleteRow = null;
                 pendingDeleteRowId = null;
-            });
-        }
+            } else if (modal && e.target === modal) {
+                modal.classList.remove('active');
+                pendingDeleteUrl = null;
+                pendingDeleteRow = null;
+                pendingDeleteRowId = null;
+            }
+        });
 
-        if (deleteModal) {
-            deleteModal.addEventListener('click', function (e) {
-                if (e.target === deleteModal) {
-                    deleteModal.classList.remove('active');
-                    pendingDeleteRow = null;
-                    pendingDeleteRowId = null;
-                }
-            });
-        }
+        document.addEventListener('click', function (e) {
+            const confirmBtn = e.target.closest('#btnConfirmDelete');
+            const modal = document.getElementById('deleteConfirmModal');
+            if (!confirmBtn || !modal) return;
+            e.preventDefault();
 
-        if (btnConfirmDelete && deleteModal) {
-            btnConfirmDelete.addEventListener('click', function () {
-                deleteModal.classList.remove('active');
+            modal.classList.remove('active');
 
-                const row = pendingDeleteRow;
-                const rowid = pendingDeleteRowId;
-                const token = document.getElementById('reparacionFormToken')?.value || '';
+            // Si es eliminación por URL (Clientes, Vehículos, Materiales)
+            if (pendingDeleteUrl) {
+                window.location.href = pendingDeleteUrl;
+                return;
+            }
 
-                if (rowid && !isNaN(rowid) && parseInt(rowid) > 0) {
-                    fetch('reparaciones.php?action=delete_reparacion&ajax=1&rowid=' + rowid + '&token=' + encodeURIComponent(token), {
-                        method: 'POST'
-                    }).catch(console.error);
-                }
+            // Si es eliminación por AJAX (Reparaciones)
+            const row = pendingDeleteRow;
+            const rowid = pendingDeleteRowId;
+            const token = document.getElementById('reparacionFormToken')?.value || '';
 
-                if (row) {
-                    row.style.transition = 'all 0.25s ease';
-                    row.style.opacity = '0';
-                    row.style.transform = 'translateX(20px)';
-                    setTimeout(function () {
-                        row.remove();
+            if (rowid && !isNaN(rowid) && parseInt(rowid) > 0) {
+                fetch('reparaciones.php?action=delete_reparacion&ajax=1&rowid=' + rowid + '&token=' + encodeURIComponent(token), {
+                    method: 'POST'
+                }).catch(console.error);
+            }
+
+            if (row) {
+                row.style.transition = 'all 0.25s ease';
+                row.style.opacity = '0';
+                row.style.transform = 'translateX(20px)';
+                setTimeout(function () {
+                    row.remove();
+                    if (typeof filterReparaciones === 'function') {
                         filterReparaciones();
-                    }, 250);
-                }
+                    }
+                }, 250);
+            }
 
+            if (typeof window.showTallerToast === 'function') {
                 window.showTallerToast('Reparación eliminada correctamente');
-                pendingDeleteRow = null;
-                pendingDeleteRowId = null;
-            });
-        }
+            }
+            pendingDeleteRow = null;
+            pendingDeleteRowId = null;
+        });
 
         // Filter & Search table
         const searchInput = document.getElementById('tallerSearchReparaciones');

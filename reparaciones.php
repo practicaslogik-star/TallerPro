@@ -326,7 +326,7 @@ $morehead .= '<script src="' . $js_url . '"></script>' . "\n";
 llxHeader('', 'Reparaciones - TallerPro', '', '', 0, 0, array(), array(), $morehead, 'mod-taller page-tallerpro');
 
 $dolibarr_root_url = DOL_URL_ROOT . '/index.php';
-$setup_url = dol_buildpath('/taller/admin/setup.php', 1);
+$setup_url = dol_buildpath('/taller/configuracion.php', 1);
 $index_url = dol_buildpath('/taller/tallerindex.php', 1);
 $clientes_url = dol_buildpath('/taller/clientes.php', 1);
 $vehiculos_url = dol_buildpath('/taller/vehiculos.php', 1);
@@ -468,12 +468,17 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 		<!-- Top Bar -->
 		<header class="tallerpro-topbar">
 			<div class="tallerpro-topbar-left">
-				<span class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="Alternar menú">
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<button type="button" class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="Alternar menú" aria-label="Alternar menú">
+					<svg class="tallerpro-toggle-icon-desktop" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
 						<line x1="9" y1="3" x2="9" y2="21"></line>
 					</svg>
-				</span>
+					<svg class="tallerpro-toggle-icon-mobile" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="3" y1="6" x2="21" y2="6"></line>
+						<line x1="3" y1="12" x2="21" y2="12"></line>
+						<line x1="3" y1="18" x2="21" y2="18"></line>
+					</svg>
+				</button>
 				<span class="tallerpro-topbar-dot">•</span>
 				<div class="tallerpro-topbar-breadcrumb">
 					<a href="<?php echo $index_url; ?>" class="tallerpro-topbar-breadcrumb-parent">TallerPro</a>
@@ -530,12 +535,13 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<tr>
 								<th style="width: 14%;">FECHA / REF</th>
 								<th style="width: 20%;">VEHÍCULO &amp; CLIENTE</th>
-								<th style="width: 28%;">INTERVENCIÓN PRINCIPAL</th>
+								<th style="width: 15%;">INTERVENCIÓN PRINCIPAL</th>
 								<th style="width: 12%;">ESTADO</th>
 								<th style="width: 10%;">COSTE EST.</th>
-								<th style="width: 16%; text-align: right;">ACCIONES</th>
+								<th style="width: 19%; text-align: right;">ACCIONES</th>
 							</tr>
 						</thead>
+
 						<tbody id="reparacionesTableBody">
 							<?php if (!empty($reparaciones_list)): ?>
 								<?php foreach ($reparaciones_list as $rep): ?>
@@ -558,9 +564,13 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 												<?php echo dol_escape_htmltag(trim(($rep->vehiculo_marca ?: '') . ' ' . ($rep->vehiculo_modelo ?: '')) ?: 'Cliente'); ?>
 											</div>
 										</td>
-										<td style="color: #334155; font-size: 13.5px; min-width:150px max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<?php echo dol_escape_htmltag($rep->descripcion ?: ''); ?>">
-											<?php echo dol_escape_htmltag($rep->descripcion ?: '—'); ?>
+										
+										<td style="color: #334155; font-size: 13.5px;" title="<?php echo dol_escape_htmltag($rep->descripcion ?: ''); ?>">
+											<div class="tallerpro-truncate">
+												<?php echo dol_escape_htmltag($rep->descripcion ?: '—'); ?>
+											</div>
 										</td>
+
 										<td>
 											<select class="tallerpro-status-select status-<?php echo $is_finalizada ? 'finalizada' : 'en_curso'; ?>" data-id="<?php echo (int) $rep->rowid; ?>" title="Cambiar estado de reparación">
 												<option value="en_curso" <?php echo !$is_finalizada ? 'selected' : ''; ?>>En curso</option>
@@ -569,9 +579,11 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										</td>
 										<td style="font-weight: 600; color: #1e293b;"><?php echo number_format((float) $rep->coste_mo, 2, '.', '') . ' €'; ?></td>
 										<td>
+
+
 											<div class="tallerpro-actions">
 												<?php if ($is_finalizada): ?>
-													<button type="button" class="tallerpro-btn-facturar-action" title="Emitir Factura (sin funcionalidad)">
+													<button type="button"  id="btn_facturar" class="tallerpro-btn-facturar-action" title="Emitir Factura (sin funcionalidad)">
 														<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 															<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
 															<polyline points="14 2 14 8 20 8"></polyline>
