@@ -665,6 +665,7 @@ a.tallerpro-nav-item.active {
     width: 100%;
     border-collapse: collapse;
     text-align: left;
+    table-layout: fixed;
 }
 
 .tallerpro-table th {
@@ -930,6 +931,8 @@ a.tallerpro-nav-item.active {
     font-family: inherit;
     box-sizing: border-box;
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    height: 38px !important;
+    line-height: normal;
 }
 
 .tallerpro-form-select {
@@ -2859,28 +2862,92 @@ a.tallerpro-nav-item.active {
     box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
 }
 
-/* Botón de la papelera: tamaño fijo y centrado constante */
-.btn-delete-reparacion {
-    width: 26px;
-    height: 26px;
-    padding: 0;
+/* ========================================================
+   Action Buttons Global Consistency (TallerPro)
+   Aplica el mismo estilo y hover a Vehículos, Clientes, Materiales, Reparaciones, etc.
+   ======================================================== */
+.tallerpro-action-btn,
+.btn-edit-reparacion,
+.btn-delete-reparacion,
+.btn-edit-material,
+.btn-edit-seguro,
+.btn-edit-factura {
+    width: 28px;
+    height: 28px;
+    padding: 5px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border-radius: 6px;
     background-color: transparent;
-    transition: background-color 0.2s ease, transform 0.15s ease;
+    border: none;
+    cursor: pointer;
+    box-sizing: border-box;
+    transition: background-color 0.15s ease, transform 0.15s ease;
+    text-decoration: none !important;
 }
 
-/* Al pasar el ratón: fondo rojo suave o sólido sin alterar el espacio */
-.btn-delete-reparacion:hover {
-    background-color: #ef4444;
-    /* Fondo rojo */
-    transform: scale(1.1);
-    /* Opcional: escala suave sin mover los vecinos */
+.tallerpro-action-btn svg,
+.btn-edit-reparacion svg,
+.btn-delete-reparacion svg,
+.btn-edit-material svg,
+.btn-edit-seguro svg,
+.btn-edit-factura svg {
+    display: block;
+    stroke: #94a3b8 !important;
+    transition: stroke 0.15s ease;
 }
 
-/* El icono cambia a blanco limpio */
-.btn-delete-reparacion:hover svg {
+/* Espacio uniforme entre botones de acción */
+.tallerpro-actions {
+    gap: 6px !important;
+}
+
+/* 1. Botones de EDITAR: Fondo azul e icono blanco en hover */
+.btn-edit-reparacion:hover,
+.btn-edit-material:hover,
+.btn-edit-seguro:hover,
+.btn-edit-factura:hover,
+.tallerpro-action-btn[title*="Editar"]:hover,
+.tallerpro-action-btn[title*="editar"]:hover {
+    background-color: #2563eb !important;
+}
+
+.btn-edit-reparacion:hover svg,
+.btn-edit-material:hover svg,
+.btn-edit-seguro:hover svg,
+.btn-edit-factura:hover svg,
+.tallerpro-action-btn[title*="Editar"]:hover svg,
+.tallerpro-action-btn[title*="editar"]:hover svg {
     stroke: #ffffff !important;
+}
+
+/* 2. Botones de ELIMINAR / BORRAR: Fondo rojo e icono blanco en hover */
+.btn-delete-reparacion:hover,
+.tallerpro-action-btn[title*="Eliminar"]:hover,
+.tallerpro-action-btn[title*="eliminar"]:hover,
+.tallerpro-action-btn[title*="Borrar"]:hover,
+.tallerpro-action-btn[title*="borrar"]:hover,
+.tallerpro-action-btn[href*="delete"]:hover {
+    background-color: #ef4444 !important;
+}
+
+.btn-delete-reparacion:hover svg,
+.tallerpro-action-btn[title*="Eliminar"]:hover svg,
+.tallerpro-action-btn[title*="eliminar"]:hover svg,
+.tallerpro-action-btn[title*="Borrar"]:hover svg,
+.tallerpro-action-btn[title*="borrar"]:hover svg,
+.tallerpro-action-btn[href*="delete"]:hover svg {
+    stroke: #ffffff !important;
+}
+
+/* 3. Botones de VER DETALLES: Fondo gris suave e icono oscuro */
+.tallerpro-action-btn[title*="Ver"]:hover,
+.tallerpro-action-btn[title*="ver"]:hover {
+    background-color: #e2e8f0 !important;
+}
+
+.tallerpro-action-btn[title*="Ver"]:hover svg,
+.tallerpro-action-btn[title*="ver"]:hover svg {
+    stroke: #0f172a !important;
 }

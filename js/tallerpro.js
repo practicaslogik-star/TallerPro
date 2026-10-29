@@ -1217,22 +1217,23 @@ if (window.__tallerProLoaded) {
         const btnAddMaterial = document.getElementById('btnAddMaterialRow');
         if (btnAddMaterial && materialsBody) {
             btnAddMaterial.addEventListener('click', function () {
+                const firstSelect = document.querySelector('.mat-select');
+                const optionsHtml = firstSelect ? firstSelect.innerHTML : '<option value="0.00">Sin materiales</option>';
+                const firstOpt = firstSelect ? firstSelect.options[firstSelect.selectedIndex >= 0 ? firstSelect.selectedIndex : 0] : null;
+                const defaultPrice = firstOpt ? (parseFloat(firstOpt.value) || 0).toFixed(2) : '0.00';
+
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                <td>
-                    <select class="tallerpro-order-select mat-select">
-                        <option value="28.55">Filtro aire origen Hyundai (Ref. H-28113)</option>
-                        <option value="120.00">Kit Embrague Valeo (Ref. VAL-82634)</option>
-                        <option value="42.50">Aceite Sintético 5W30 5L</option>
-                        <option value="55.00">Pastillas Freno Delanteras Bosch</option>
-                        <option value="12.00">Valvulina transmisiones 75W80 1L</option>
-                    </select>
-                </td>
-                <td><input type="number" min="1" step="1" class="tallerpro-order-input mat-qty" value="1" style="text-align: center;" /></td>
-                <td><input type="number" step="0.01" min="0" class="tallerpro-order-input mat-price" value="28.55" style="text-align: right;" /></td>
-                <td style="text-align: right; font-weight: 600; color: #1e293b;" class="mat-row-total">28.55 €</td>
-                <td style="text-align: center;"><button type="button" class="tallerpro-order-del-btn" title="Eliminar repuesto">✕</button></td>
-            `;
+                    <td>
+                        <select class="tallerpro-order-select mat-select">
+                            ${optionsHtml}
+                        </select>
+                    </td>
+                    <td><input type="number" min="1" step="1" class="tallerpro-order-input mat-qty" value="1" style="text-align: center;" /></td>
+                    <td><input type="number" step="0.01" min="0" class="tallerpro-order-input mat-price" value="${defaultPrice}" style="text-align: right;" /></td>
+                    <td style="text-align: right; font-weight: 600; color: #1e293b;" class="mat-row-total">${defaultPrice} €</td>
+                    <td style="text-align: center;"><button type="button" class="tallerpro-order-del-btn" title="Eliminar repuesto">✕</button></td>
+                `;
                 materialsBody.appendChild(tr);
                 recalculateTotals();
             });
@@ -1262,7 +1263,7 @@ if (window.__tallerProLoaded) {
             const actionInput = document.getElementById('reparacionFormAction');
             const rowidInput = document.getElementById('reparacionFormRowid');
             const titleEl = document.getElementById('orderModalTitle');
-
+            
             if (actionInput) actionInput.value = 'update_reparacion';
             if (rowidInput) rowidInput.value = id;
             if (titleEl) titleEl.textContent = ref ? ('Editar ' + ref) : 'Editar Orden de Reparación';

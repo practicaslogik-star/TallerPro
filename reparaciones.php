@@ -63,6 +63,7 @@ if (!isModEnabled('taller')) {
 
 $table_reparacion = MAIN_DB_PREFIX . "taller_reparacion";
 $table_vehiculo = MAIN_DB_PREFIX . "taller_vehiculo";
+$table_material = MAIN_DB_PREFIX . "taller_material";
 
 // Ensure table exists
 $sql_create = "CREATE TABLE IF NOT EXISTS " . $table_reparacion . " (
@@ -280,6 +281,17 @@ $res_v = $db->query($sql_v);
 if ($res_v) {
 	while ($v = $db->fetch_object($res_v)) {
 		$vehicles_list[] = $v;
+	}
+}
+
+// Consultar materiales para el desplegable del modal
+$materials_list = array();
+$sql_m = "SELECT rowid, ref, nombre, precio, stock FROM " . $table_material;
+$sql_m .= " WHERE status = 1 AND entity IN (" . getEntity('taller_material') . ") ORDER BY nombre ASC";
+$res_m = $db->query($sql_m);
+if ($res_m) {
+	while ($m = $db->fetch_object($res_m)) {
+		$materials_list[] = $m;
 	}
 }
 
@@ -518,10 +530,10 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<tr>
 								<th style="width: 14%;">FECHA / REF</th>
 								<th style="width: 20%;">VEHÍCULO &amp; CLIENTE</th>
-								<th style="max-width:150px;">INTERVENCIÓN PRINCIPAL</th>
-								<th style="width: 14%;">ESTADO</th>
+								<th style="width: 28%;">INTERVENCIÓN PRINCIPAL</th>
+								<th style="width: 12%;">ESTADO</th>
 								<th style="width: 10%;">COSTE EST.</th>
-								<th style="width: 10%; text-align: right;">ACCIONES</th>
+								<th style="width: 16%; text-align: right;">ACCIONES</th>
 							</tr>
 						</thead>
 						<tbody id="reparacionesTableBody">
@@ -546,7 +558,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 												<?php echo dol_escape_htmltag(trim(($rep->vehiculo_marca ?: '') . ' ' . ($rep->vehiculo_modelo ?: '')) ?: 'Cliente'); ?>
 											</div>
 										</td>
-										<td style="color: #334155; font-size: 13.5px; max-width: 150px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<?php echo dol_escape_htmltag($rep->descripcion ?: ''); ?>">
+										<td style="color: #334155; font-size: 13.5px; min-width:150px max-width: 100px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="<?php echo dol_escape_htmltag($rep->descripcion ?: ''); ?>">
 											<?php echo dol_escape_htmltag($rep->descripcion ?: '—'); ?>
 										</td>
 										<td>
@@ -603,7 +615,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<div style="font-weight: 700; color: #0f172a;">7422NJY</div>
 										<div style="font-size: 12px; color: #64748b; margin-top: 2px;">Ivan López</div>
 									</td>
-									<td style="color: #334155; font-size: 13.5px;">Cambio de embrague y valvulina de caja</td>
+									<td style="color: #334155; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Cambio de embrague y valvulina de caja</td>
 									<td>
 										<select class="tallerpro-status-select status-finalizada" data-id="mock-1" title="Cambiar estado de reparación">
 											<option value="en_curso">En curso</option>
@@ -655,7 +667,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<div style="font-weight: 700; color: #0f172a;">7412NJY</div>
 										<div style="font-size: 12px; color: #64748b; margin-top: 2px;">John Miller</div>
 									</td>
-									<td style="color: #334155; font-size: 13.5px;">Revisión de caja de cambios que rasca al reducir</td>
+									<td style="color: #334155; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Revisión de caja de cambios que rasca al reducir</td>
 									<td>
 										<select class="tallerpro-status-select status-en_curso" data-id="mock-2" title="Cambiar estado de reparación">
 											<option value="en_curso" selected>En curso</option>
@@ -697,7 +709,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<div style="font-weight: 700; color: #0f172a;">3569 JPB</div>
 										<div style="font-size: 12px; color: #64748b; margin-top: 2px;">Prealuma S.L.</div>
 									</td>
-									<td style="color: #334155; font-size: 13.5px;">Pulir carrocería lateral y sustitución de moldura</td>
+									<td style="color: #334155; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Pulir carrocería lateral y sustitución de moldura</td>
 									<td>
 										<select class="tallerpro-status-select status-finalizada" data-id="mock-3" title="Cambiar estado de reparación">
 											<option value="en_curso">En curso</option>
@@ -749,7 +761,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<div style="font-weight: 700; color: #0f172a;">6721 HPB</div>
 										<div style="font-size: 12px; color: #64748b; margin-top: 2px;">Fernández &amp; Outeiro</div>
 									</td>
-									<td style="color: #334155; font-size: 13.5px;">Diagnóstico luz de avería motor en cuadro</td>
+									<td style="color: #334155; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Diagnóstico luz de avería motor en cuadro</td>
 									<td>
 										<select class="tallerpro-status-select status-en_curso" data-id="mock-4" title="Cambiar estado de reparación">
 											<option value="en_curso" selected>En curso</option>
@@ -834,11 +846,12 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<div class="tallerpro-input-with-icon">
 							<input type="date" class="tallerpro-form-input" id="orderFecha" name="fecha" value="<?php echo date('Y-m-d'); ?>" min="<?php echo date('Y-m-d'); ?>" required />						</div>
 					</div>
+
 					<div class="tallerpro-form-group">
 						<label class="tallerpro-form-label">Estado de la Reparación</label>
 						<select class="tallerpro-form-select" id="orderEstadoSelect" name="estado">
-							<option value="en_curso">En curso</option>
-							<option value="finalizada" selected>Finalizada</option>
+							<option value="en_curso" selected>En curso</option>
+							<option value="finalizada">Finalizada</option>
 						</select>
 					</div>
 				</div>
@@ -846,7 +859,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				<!-- Row 2: Trabajo Solicitado / Avería Reportada -->
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Trabajo Solicitado / Avería Reportada <span class="tallerpro-required">*</span></label>
-					<textarea class="tallerpro-form-textarea" maxlength="150" id="orderAveria" name="descripcion" rows="2" style="min-height: 54px;" required>Cambio de embrague y valvulina de caja de cambios</textarea>
+					<textarea class="tallerpro-form-textarea" maxlength="300" id="orderAveria" name="descripcion" rows="2" style="min-height: 54px;" required></textarea>
 				</div>
 
 				<!-- Section: Mano de Obra & Operaciones -->
@@ -878,10 +891,10 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<tbody id="laborTableBody">
 							<tr>
 								<td>
-									<input type="text" class="tallerpro-order-input labor-desc" value="Sustitución kit embrague y ajuste" placeholder="Descripción de la tarea..." />
+									<input type="text" class="tallerpro-order-input labor-desc" placeholder="Descripción de la tarea..." />
 								</td>
 								<td>
-									<input type="number" step="0.01" min="0" class="tallerpro-order-input labor-cost" value="100.00" style="text-align: right;" />
+									<input type="number" step="0.01" min="0" class="tallerpro-order-input labor-cost" style="text-align: right;" />
 								</td>
 								<td style="text-align: center;">
 									<button type="button" class="tallerpro-order-del-btn" title="Eliminar trabajo">✕</button>
@@ -920,25 +933,38 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<th style="width: 36px; text-align: center;"></th>
 							</tr>
 						</thead>
+
 						<tbody id="materialsTableBody">
+							<?php
+							$first_mat_price = !empty($materials_list) ? number_format((float) $materials_list[0]->precio, 2, '.', '') : '0.00';
+							?>
+						
 							<tr>
 								<td>
 									<select class="tallerpro-order-select mat-select">
-										<option value="28.55" selected>Filtro aire origen Hyundai (Ref. H-28113)</option>
-										<option value="120.00">Kit Embrague Valeo (Ref. VAL-82634)</option>
-										<option value="42.50">Aceite Sintético 5W30 5L</option>
-										<option value="55.00">Pastillas Freno Delanteras Bosch</option>
-										<option value="12.00">Valvulina transmisiones 75W80 1L</option>
+										<?php if (!empty($materials_list)): ?>
+											<?php foreach ($materials_list as $mat): ?>
+												<?php
+												$mat_label = $mat->nombre . (!empty($mat->ref) ? ' (Ref. ' . $mat->ref . ')' : '');
+												$mat_price = number_format((float) $mat->precio, 2, '.', '');
+												?>
+												<option value="<?php echo $mat_price; ?>" data-id="<?php echo (int) $mat->rowid; ?>" data-price="<?php echo $mat_price; ?>">
+													<?php echo dol_escape_htmltag($mat_label); ?>
+												</option>
+											<?php endforeach; ?>
+										<?php else: ?>
+											<option value="0.00">Sin materiales registrados en catálogo</option>
+										<?php endif; ?>
 									</select>
 								</td>
 								<td>
 									<input type="number" min="1" step="1" class="tallerpro-order-input mat-qty" value="1" style="text-align: center;" />
 								</td>
 								<td>
-									<input type="number" step="0.01" min="0" class="tallerpro-order-input mat-price" value="28.55" style="text-align: right;" />
+									<input type="number" step="0.01" min="0" class="tallerpro-order-input mat-price" value="<?php echo $first_mat_price; ?>" style="text-align: right;" />
 								</td>
 								<td style="text-align: right; font-weight: 600; color: #1e293b;" class="mat-row-total">
-									28.55 €
+									<?php echo $first_mat_price; ?> €
 								</td>
 								<td style="text-align: center;">
 									<button type="button" class="tallerpro-order-del-btn" title="Eliminar repuesto">✕</button>
