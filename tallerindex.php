@@ -168,13 +168,13 @@ if ($resql_mat && ($obj_mat = $db->fetch_object($resql_mat))) {
 	$nb_materiales = (int) $obj_mat->total;
 }
 
-// 7. Consultar últimas 5 reparaciones con JOIN de vehículo
+// 7. Consultar últimas reparaciones con JOIN de vehículo
 $ultimas_reparaciones = array();
 $sql_ult_rep = "SELECT r.rowid, r.fecha, r.descripcion, r.coste_mo, v.rowid as vehiculo_id, v.matricula, v.marca, v.modelo ";
 $sql_ult_rep .= "FROM " . MAIN_DB_PREFIX . "taller_reparacion as r ";
 $sql_ult_rep .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON r.fk_vehiculo = v.rowid ";
 $sql_ult_rep .= "WHERE r.status = 1 AND r.entity IN (" . getEntity('taller_reparacion') . ") ";
-$sql_ult_rep .= "ORDER BY r.fecha DESC, r.rowid DESC LIMIT 5";
+$sql_ult_rep .= "ORDER BY r.fecha DESC, r.rowid DESC LIMIT 10";
 $res_ult_rep = $db->query($sql_ult_rep);
 if ($res_ult_rep) {
 	while ($ur = $db->fetch_object($res_ult_rep)) {
@@ -182,13 +182,13 @@ if ($res_ult_rep) {
 	}
 }
 
-// 8. Consultar últimos 5 vehículos con JOIN de cliente
+// 8. Consultar últimos vehículos con JOIN de cliente
 $vehiculos_recientes = array();
 $sql_rec_veh = "SELECT v.rowid, v.matricula, v.marca, v.modelo, v.anio, s.nom as cliente_nombre ";
 $sql_rec_veh .= "FROM " . MAIN_DB_PREFIX . "taller_vehiculo as v ";
 $sql_rec_veh .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON v.fk_soc = s.rowid ";
 $sql_rec_veh .= "WHERE v.status = 1 AND v.entity IN (" . getEntity('taller_vehiculo') . ") ";
-$sql_rec_veh .= "ORDER BY v.rowid DESC LIMIT 5";
+$sql_rec_veh .= "ORDER BY v.rowid DESC LIMIT 10";
 $res_rec_veh = $db->query($sql_rec_veh);
 if ($res_rec_veh) {
 	while ($rv = $db->fetch_object($res_rec_veh)) {
