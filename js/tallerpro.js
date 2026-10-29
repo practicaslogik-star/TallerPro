@@ -162,8 +162,8 @@ if (window.__tallerProLoaded) {
 
                     cells.forEach(function (td, idx) {
                         const headerText = headers[idx] || '';
-                        const hasActions = td.querySelector('.tallerpro-actions') || 
-                                           (!headerText && idx === cells.length - 1);
+                        const hasActions = td.querySelector('.tallerpro-actions') ||
+                            (!headerText && idx === cells.length - 1);
 
                         if (idx === 0) {
                             td.classList.add('tallerpro-card-header-cell');
@@ -1450,7 +1450,7 @@ if (window.__tallerProLoaded) {
             const actionInput = document.getElementById('reparacionFormAction');
             const rowidInput = document.getElementById('reparacionFormRowid');
             const titleEl = document.getElementById('orderModalTitle');
-            
+
             if (actionInput) actionInput.value = 'update_reparacion';
             if (rowidInput) rowidInput.value = id;
             if (titleEl) titleEl.textContent = ref ? ('Editar ' + ref) : 'Editar Orden de Reparación';
@@ -1534,6 +1534,216 @@ if (window.__tallerProLoaded) {
                 }).catch(console.error);
             }
         });
+
+        //catalogo de modelos y marcasd e vehiculos
+
+        const catalogoVehiculos = {
+            "Seat": ["Ibiza", "León", "Arona", "Ateca", "Tarraco", "Toledo", "Altea", "Mii", "Cordoba"],
+            "Renault": ["Clio", "Mégane", "Captur", "Kadjar", "Austral", "Scenic", "Kangoo", "Trafic", "Arkana", "Zoe", "Espace", "Twingo"],
+            "Peugeot": ["208", "2008", "308", "3008", "508", "5008", "Partner", "Rifter", "206", "207"],
+            "Citroën": ["C3", "C3 Aircross", "C4", "C4 Cactus", "C5 Aircross", "Berlingo", "C1", "Xsara Picasso", "Jumpy"],
+            "Volkswagen": ["Polo", "Golf", "T-Roc", "Tiguan", "Passat", "T-Cross", "Taigo", "Touran", "Caddy", "Transporter", "Arteon"],
+            "Ford": ["Fiesta", "Focus", "Puma", "Kuga", "Mondeo", "Transit", "Tourneo", "EcoSport", "Ka"],
+            "Toyota": ["Yaris", "Corolla", "C-HR", "RAV4", "Auris", "Aygo", "Prius", "Hilux", "Proace", "Land Cruiser"],
+            "BMW": ["Serie 1", "Serie 2", "Serie 3", "Serie 4", "Serie 5", "X1", "X2", "X3", "X4", "X5"],
+            "Mercedes-Benz": ["Clase A", "Clase B", "Clase C", "Clase E", "GLA", "GLB", "GLC", "Vito", "Sprinter", "Citan"],
+            "Audi": ["A1", "A3", "A4", "A5", "A6", "Q2", "Q3", "Q4", "Q5", "TT"],
+            "Hyundai": ["i10", "i20", "i30", "Kona", "Tucson", "Santa Fe", "Bayon", "Ioniq"],
+            "Kia": ["Picanto", "Rio", "Ceed", "Stonic", "Sportage", "Niro", "Xceed", "Sorento"],
+            "Dacia": ["Sandero", "Duster", "Jogger", "Lodgy", "Dokker", "Spring"],
+            "Nissan": ["Micra", "Juke", "Qashqai", "X-Trail", "Navara", "Leaf"],
+            "Opel": ["Corsa", "Astra", "Mokka", "Crossland", "Grandland", "Insignia", "Combo", "Zafira"],
+            "Fiat": ["500", "Panda", "Tipo", "Punto", "Doblo", "Ducato", "500X"],
+            "Skoda": ["Fabia", "Scala", "Octavia", "Kamiq", "Karoq", "Kodiaq", "Superb"],
+            "Volvo": ["XC40", "XC60", "XC90", "V40", "V60", "S60"],
+            "Mini": ["Cooper", "Countryman", "Clubman", "One"],
+            "Cupra": ["Formentor", "Born", "Leon", "Ateca"],
+            "MG": ["ZS", "MG4", "HS", "MG5"],
+            "Alfa Romeo": ["Giulietta", "Giulia", "Stelvio", "Tonale", "Mito"],
+            "Mitsubishi": ["ASX", "Outlander", "Eclipse Cross", "Space Star", "L200"],
+            "Honda": ["Civic", "CR-V", "HR-V", "Jazz"],
+            "Suzuki": ["Swift", "Vitara", "S-Cross", "Jimny", "Ignis"],
+            "Mazda": ["Mazda 2", "Mazda 3", "Mazda 6", "CX-3", "CX-30", "CX-5"],
+            "Jeep": ["Renegade", "Compass", "Cherokee", "Wrangler"]
+        };
+        
+        const inputMarca = document.getElementById('veh_marca');
+        const inputModelo = document.getElementById('veh_modelo');
+        const dropdownMarcas = document.getElementById('dropdown_marcas');
+        const dropdownModelos = document.getElementById('dropdown_modelos');
+
+        if (inputMarca && dropdownMarcas && inputModelo && dropdownModelos) {
+            // Helper genérico para desplegable de autocompletado sobrio y moderno
+            function setupCustomAutocomplete(input, dropdown, getItemsFn, onSelectFn) {
+                let currentFocus = -1;
+
+                function render(items, query) {
+                    dropdown.innerHTML = '';
+                    currentFocus = -1;
+
+                    if (!items || items.length === 0) {
+                        dropdown.classList.remove('active');
+                        return;
+                    }
+
+                    items.forEach(function (item) {
+                        const div = document.createElement('div');
+                        div.className = 'tallerpro-autocomplete-item';
+                        div.setAttribute('data-value', item);
+
+                        const q = (query || '').trim();
+                        if (q) {
+                            const idx = item.toLowerCase().indexOf(q.toLowerCase());
+                            if (idx !== -1) {
+                                div.innerHTML = item.substring(0, idx) +
+                                    '<strong>' + item.substring(idx, idx + q.length) + '</strong>' +
+                                    item.substring(idx + q.length);
+                            } else {
+                                div.textContent = item;
+                            }
+                        } else {
+                            div.textContent = item;
+                        }
+
+                        div.addEventListener('mousedown', function (e) {
+                            e.preventDefault();
+                            selectVal(item);
+                        });
+
+                        div.addEventListener('click', function (e) {
+                            e.preventDefault();
+                            selectVal(item);
+                        });
+
+                        dropdown.appendChild(div);
+                    });
+
+                    dropdown.classList.add('active');
+                }
+
+                function selectVal(val) {
+                    input.value = val;
+                    dropdown.classList.remove('active');
+                    if (typeof onSelectFn === 'function') {
+                        onSelectFn(val);
+                    }
+                }
+
+                function filterAndShow() {
+                    const q = input.value || '';
+                    const items = getItemsFn(q);
+                    render(items, q);
+                }
+
+                input.addEventListener('input', filterAndShow);
+                input.addEventListener('focus', filterAndShow);
+
+                input.addEventListener('keydown', function (e) {
+                    const items = dropdown.querySelectorAll('.tallerpro-autocomplete-item');
+                    if (!dropdown.classList.contains('active') || items.length === 0) return;
+
+                    if (e.key === 'ArrowDown') {
+                        e.preventDefault();
+                        currentFocus++;
+                        if (currentFocus >= items.length) currentFocus = 0;
+                        highlight(items);
+                    } else if (e.key === 'ArrowUp') {
+                        e.preventDefault();
+                        currentFocus--;
+                        if (currentFocus < 0) currentFocus = items.length - 1;
+                        highlight(items);
+                    } else if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        // Selecciona el elemento enfocado con flechas, o el primero de la lista si no se usaron flechas
+                        const targetIdx = currentFocus > -1 ? currentFocus : 0;
+                        if (items[targetIdx]) {
+                            const val = items[targetIdx].getAttribute('data-value');
+                            selectVal(val);
+                        }
+                    } else if (e.key === 'Escape') {
+                        dropdown.classList.remove('active');
+                    }
+                });
+
+                function highlight(items) {
+                    items.forEach(it => it.classList.remove('active-item'));
+                    if (currentFocus > -1 && items[currentFocus]) {
+                        items[currentFocus].classList.add('active-item');
+                        items[currentFocus].scrollIntoView({ block: 'nearest' });
+                    }
+                }
+
+                document.addEventListener('click', function (e) {
+                    if (!input.contains(e.target) && !dropdown.contains(e.target)) {
+                        dropdown.classList.remove('active');
+                    }
+                });
+            }
+
+            // 1. Configurar Autocompletado de Marcas
+            setupCustomAutocomplete(
+                inputMarca,
+                dropdownMarcas,
+                function (query) {
+                    const all = Object.keys(catalogoVehiculos).sort();
+                    if (!query || !query.trim()) return all;
+                    const q = query.trim().toLowerCase();
+                    return all.filter(m => m.toLowerCase().includes(q));
+                },
+                function (marcaElegida) {
+                    const marcaMatch = Object.keys(catalogoVehiculos).find(
+                        m => m.toLowerCase() === marcaElegida.toLowerCase()
+                    );
+                    const modelos = (marcaMatch && catalogoVehiculos[marcaMatch]) || [];
+                    if (inputModelo.value && !modelos.includes(inputModelo.value)) {
+                        inputModelo.value = '';
+                    }
+                    setTimeout(function () {
+                        inputModelo.focus();
+                    }, 50);
+                }
+            );
+
+            // 2. Configurar Autocompletado de Modelos
+            setupCustomAutocomplete(
+                inputModelo,
+                dropdownModelos,
+                function (query) {
+                    const marcaActual = (inputMarca.value || '').trim();
+                    const marcaMatch = Object.keys(catalogoVehiculos).find(
+                        m => m.toLowerCase() === marcaActual.toLowerCase()
+                    );
+                    const modelosDisponibles = (marcaMatch && catalogoVehiculos[marcaMatch]) ? catalogoVehiculos[marcaMatch].slice().sort() : [];
+
+                    if (!query || !query.trim()) return modelosDisponibles;
+                    const q = query.trim().toLowerCase();
+                    return modelosDisponibles.filter(mod => mod.toLowerCase().includes(q));
+                },
+                function (modeloElegido) {
+                    if (!inputMarca.value.trim()) {
+                        for (const [m, mods] of Object.entries(catalogoVehiculos)) {
+                            if (mods.includes(modeloElegido)) {
+                                inputMarca.value = m;
+                                break;
+                            }
+                        }
+                    }
+                }
+            );
+
+            // Limpiar modelo si se cambia manualmente la marca y deja de ser compatible
+            inputMarca.addEventListener('change', function () {
+                const marcaActual = (inputMarca.value || '').trim();
+                const marcaMatch = Object.keys(catalogoVehiculos).find(
+                    m => m.toLowerCase() === marcaActual.toLowerCase()
+                );
+                const modelos = (marcaMatch && catalogoVehiculos[marcaMatch]) || [];
+                if (inputModelo.value && !modelos.includes(inputModelo.value)) {
+                    inputModelo.value = '';
+                }
+            });
+        }
     });
 }
 

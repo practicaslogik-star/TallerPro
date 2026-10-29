@@ -858,11 +858,17 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Marca</label>
-					<input type="text" name="marca" id="veh_marca" class="tallerpro-form-input" placeholder="Ej: BMW, Renault..." />
+					<div class="tallerpro-autocomplete-wrapper">
+						<input type="text" name="marca" id="veh_marca" class="tallerpro-form-input" placeholder="Ej: BMW, Renault..." autocomplete="off" />
+						<div class="tallerpro-autocomplete-dropdown" id="dropdown_marcas"></div>
+					</div>
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Modelo</label>
-					<input type="text" name="modelo" id="veh_modelo" class="tallerpro-form-input" placeholder="Ej: 318 D, Mégane..." />
+					<div class="tallerpro-autocomplete-wrapper">
+						<input type="text" name="modelo" id="veh_modelo" class="tallerpro-form-input" placeholder="Ej: 318 D, Mégane..." autocomplete="off" />
+						<div class="tallerpro-autocomplete-dropdown" id="dropdown_modelos"></div>
+					</div>
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Año</label>

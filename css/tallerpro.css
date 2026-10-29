@@ -994,6 +994,90 @@ a.tallerpro-nav-item.active {
     align-items: center;
 }
 
+/* ==========================================================================
+   Autocomplete Desplegable Flotante (Diseño Sobrio y Moderno)
+   ========================================================================== */
+.tallerpro-autocomplete-wrapper {
+    position: relative;
+    width: 100%;
+}
+
+.tallerpro-autocomplete-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    width: 100%;
+    max-height: 200px;
+    overflow-y: auto;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12), 0 4px 6px -2px rgba(15, 23, 42, 0.04);
+    z-index: 999999;
+    display: none;
+    padding: 5px;
+    box-sizing: border-box;
+}
+
+.tallerpro-autocomplete-dropdown.active {
+    display: block;
+}
+
+.tallerpro-autocomplete-dropdown::-webkit-scrollbar {
+    width: 5px;
+}
+
+.tallerpro-autocomplete-dropdown::-webkit-scrollbar-track {
+    background: #f8fafc;
+    border-radius: 6px;
+}
+
+.tallerpro-autocomplete-dropdown::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 6px;
+}
+
+.tallerpro-autocomplete-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+.tallerpro-autocomplete-item {
+    padding: 9px 13px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: #334155;
+    border-radius: 6px;
+    cursor: pointer;
+    display: block;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: background-color 0.12s ease, color 0.12s ease;
+    user-select: none;
+}
+
+.tallerpro-autocomplete-item:hover,
+.tallerpro-autocomplete-item.active-item {
+    background-color: #eff6ff;
+    color: #1d4ed8;
+    font-weight: 600;
+}
+
+.tallerpro-autocomplete-item strong {
+    color: #2563eb;
+    font-weight: 700;
+}
+
+.tallerpro-autocomplete-empty {
+    padding: 10px 12px;
+    font-size: 13px;
+    color: #94a3b8;
+    text-align: center;
+    font-style: italic;
+}
+
 .tallerpro-form-input:focus,
 .tallerpro-form-select:focus,
 .tallerpro-form-textarea:focus {
