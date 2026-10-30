@@ -51,11 +51,13 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	$lineas = array();
 	$tot_mat = 0.0;
 	$tot_rep = 0.0;
-	$sql_lines = "SELECT rowid, (CASE WHEN product_type = 1 THEN 'reparacion' ELSE 'material' END) as tipo, ";
-	$sql_lines .= "ref as codigo, (CASE WHEN description IS NOT NULL AND description != '' THEN description ELSE label END) as descripcion, ";
-	$sql_lines .= "qty as cantidad, subprice as precio, remise_percent as descuento, total_ht as total_neto ";
-	$sql_lines .= "FROM " . MAIN_DB_PREFIX . "facturedet ";
-	$sql_lines .= "WHERE fk_facture = " . ((int) $fac_id) . " ORDER BY rang ASC, rowid ASC";
+	$sql_lines = "SELECT fd.rowid, (CASE WHEN fd.product_type = 1 THEN 'reparacion' ELSE 'material' END) as tipo, ";
+	$sql_lines .= "COALESCE(NULLIF(fd.ref_ext, ''), p.ref) as codigo, ";
+	$sql_lines .= "(CASE WHEN fd.description IS NOT NULL AND fd.description != '' THEN fd.description ELSE fd.label END) as descripcion, ";
+	$sql_lines .= "fd.qty as cantidad, fd.subprice as precio, fd.remise_percent as descuento, fd.total_ht as total_neto ";
+	$sql_lines .= "FROM " . MAIN_DB_PREFIX . "facturedet as fd ";
+	$sql_lines .= "LEFT JOIN " . MAIN_DB_PREFIX . "product as p ON fd.fk_product = p.rowid ";
+	$sql_lines .= "WHERE fd.fk_facture = " . ((int) $fac_id) . " ORDER BY fd.rang ASC, fd.rowid ASC";
 	$res_lines = $db->query($sql_lines);
 	if ($res_lines && $db->num_rows($res_lines) > 0) {
 		while ($l = $db->fetch_object($res_lines)) {

@@ -306,7 +306,7 @@ if ($action == 'get_factura_lineas') {
 					'rowid' => (int) $line->id,
 					'tipo' => ($line->product_type == 1 ? 'reparacion' : 'material'),
 					'fk_material' => (int) $line->fk_product,
-					'codigo' => $line->ref,
+					'codigo' => !empty($line->ref_ext) ? $line->ref_ext : (!empty($line->product_ref) ? $line->product_ref : (!empty($line->ref) ? $line->ref : '')),
 					'descripcion' => !empty($line->desc) ? $line->desc : (!empty($line->label) ? $line->label : 'Sin descripción'),
 					'cantidad' => (float) $line->qty,
 					'precio' => (float) $line->subprice,
@@ -642,11 +642,13 @@ if ($view_id > 0) {
 		$factura_single = $fs;
 		$tot_mat = 0.0;
 		$tot_rep = 0.0;
-		$sql_single_lines = "SELECT rowid, (CASE WHEN product_type = 1 THEN 'reparacion' ELSE 'material' END) as tipo, ";
-		$sql_single_lines .= "ref as codigo, (CASE WHEN description IS NOT NULL AND description != '' THEN description ELSE label END) as descripcion, ";
-		$sql_single_lines .= "qty as cantidad, subprice as precio, remise_percent as descuento, total_ht as total_neto ";
-		$sql_single_lines .= "FROM " . MAIN_DB_PREFIX . "facturedet ";
-		$sql_single_lines .= "WHERE fk_facture = " . ((int) $view_id) . " ORDER BY rang ASC, rowid ASC";
+		$sql_single_lines = "SELECT fd.rowid, (CASE WHEN fd.product_type = 1 THEN 'reparacion' ELSE 'material' END) as tipo, ";
+		$sql_single_lines .= "COALESCE(NULLIF(fd.ref_ext, ''), p.ref) as codigo, ";
+		$sql_single_lines .= "(CASE WHEN fd.description IS NOT NULL AND fd.description != '' THEN fd.description ELSE fd.label END) as descripcion, ";
+		$sql_single_lines .= "fd.qty as cantidad, fd.subprice as precio, fd.remise_percent as descuento, fd.total_ht as total_neto ";
+		$sql_single_lines .= "FROM " . MAIN_DB_PREFIX . "facturedet as fd ";
+		$sql_single_lines .= "LEFT JOIN " . MAIN_DB_PREFIX . "product as p ON fd.fk_product = p.rowid ";
+		$sql_single_lines .= "WHERE fd.fk_facture = " . ((int) $view_id) . " ORDER BY fd.rang ASC, fd.rowid ASC";
 		$res_lin = $db->query($sql_single_lines);
 		if ($res_lin) {
 			while ($l = $db->fetch_object($res_lin)) {
