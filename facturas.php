@@ -67,6 +67,13 @@ if (!isModEnabled('taller')) {
 	accessforbidden('Module not enabled');
 }
 
+$facture_enabled = isModEnabled('facture');
+if (!$facture_enabled && !empty($action) && in_array($action, array('create_factura', 'add_factura', 'update_factura', 'delete_factura', 'add_factura_linea', 'delete_factura_linea', 'save_factura_totales'))) {
+	setEventMessages("El módulo de Facturación nativo de Dolibarr está desactivado. Actívelo en Configuración -> Módulos para gestionar facturas.", null, 'errors');
+	header("Location: " . $_SERVER['PHP_SELF']);
+	exit;
+}
+
 require_once DOL_DOCUMENT_ROOT . '/core/lib/date.lib.php';
 require_once DOL_DOCUMENT_ROOT . '/compta/facture/class/facture.class.php';
 require_once DOL_DOCUMENT_ROOT . '/core/class/extrafields.class.php';
@@ -1261,6 +1268,27 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					</div>
 
 					<?php echo dol_htmloutput_events(); ?>
+
+					<?php if (!$facture_enabled): ?>
+						<div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 18px 22px; margin-bottom: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+							<div style="display: flex; align-items: flex-start; gap: 14px;">
+								<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;">
+									<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+									<line x1="12" y1="9" x2="12" y2="13"></line>
+									<line x1="12" y1="17" x2="12.01" y2="17"></line>
+								</svg>
+								<div>
+									<h3 style="margin: 0 0 4px 0; font-size: 14.5px; font-weight: 600; color: #92400e;">Módulo nativo de Facturación de Dolibarr desactivado</h3>
+									<p style="margin: 0 0 12px 0; font-size: 13px; color: #b45309; line-height: 1.5;">
+										TallerPro requiere el módulo oficial <strong>Facturación y Pagos</strong> para emitir y consultar facturas oficiales.
+									</p>
+									<a href="<?php echo DOL_URL_ROOT; ?>/admin/modules.php?mainmenu=home" class="tallerpro-btn-primary" style="display: inline-flex; text-decoration: none; padding: 7px 14px; font-size: 12.5px;">
+										Activar módulo Facturación en Dolibarr
+									</a>
+								</div>
+							</div>
+						</div>
+					<?php endif; ?>
 
 					<?php if (empty($facturas_list)): ?>
 						<!-- Empty State Card -->

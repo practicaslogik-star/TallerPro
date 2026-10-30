@@ -61,6 +61,13 @@ if (!isModEnabled('taller')) {
 	accessforbidden('Module not enabled');
 }
 
+$societe_enabled = isModEnabled('societe');
+if (!$societe_enabled && !empty($action) && in_array($action, array('create_client', 'add_client', 'update_client', 'edit_client', 'delete_client', 'delete'))) {
+	setEventMessages("El módulo de Terceros de Dolibarr está desactivado. Actívelo en Configuración -> Módulos para gestionar clientes.", null, 'errors');
+	header("Location: " . $_SERVER['PHP_SELF']);
+	exit;
+}
+
 $clientes_url = dol_buildpath('/taller/clientes.php', 1);
 
 require_once DOL_DOCUMENT_ROOT . '/societe/class/societe.class.php';
@@ -416,6 +423,27 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				// Mostrar alertas o mensajes de Dolibarr
 				echo dol_htmloutput_events();
 				?>
+
+				<?php if (!$societe_enabled): ?>
+					<div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 18px 22px; margin-bottom: 20px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
+						<div style="display: flex; align-items: flex-start; gap: 14px;">
+							<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0; margin-top: 2px;">
+								<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+								<line x1="12" y1="9" x2="12" y2="13"></line>
+								<line x1="12" y1="17" x2="12.01" y2="17"></line>
+							</svg>
+							<div>
+								<h3 style="margin: 0 0 4px 0; font-size: 14.5px; font-weight: 600; color: #92400e;">Módulo nativo de Terceros de Dolibarr desactivado</h3>
+								<p style="margin: 0 0 12px 0; font-size: 13px; color: #b45309; line-height: 1.5;">
+									TallerPro requiere el módulo oficial <strong>Terceros</strong> para gestionar fichas de clientes.
+								</p>
+								<a href="<?php echo DOL_URL_ROOT; ?>/admin/modules.php?mainmenu=home" class="tallerpro-btn-primary" style="display: inline-flex; text-decoration: none; padding: 7px 14px; font-size: 12.5px;">
+									Activar módulo Terceros en Dolibarr
+								</a>
+							</div>
+						</div>
+					</div>
+				<?php endif; ?>
 
 				<?php if ($client_detail): ?>
 					<?php
