@@ -1598,92 +1598,113 @@ if (window.__tallerProLoaded) {
             });
         }
 
-        // Dashboard Global Search
+        // Dashboard Global Search (In-Page integrated results)
         // =========================================================================
         const globalSearchInput = document.getElementById('tallerGlobalSearchInput');
-        const searchDropdown = document.getElementById('tallerSearchDropdown');
+        const searchResultsContainer = document.getElementById('tallerDashboardSearchResults');
+        const defaultViewContainer = document.getElementById('tallerDashboardDefaultView');
 
-        if (globalSearchInput && searchDropdown) {
+        if (globalSearchInput && searchResultsContainer && defaultViewContainer) {
             let debounceTimer = null;
+
+            function escapeHtml(str) {
+                if (!str) return '';
+                return String(str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            const iconVehiculo = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 3.1C2 11.4 2 11.7 2 12v4c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><path d="M9 17h6"></path><circle cx="17" cy="17" r="2"></circle></svg>';
+            const iconCliente = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>';
+            const iconMaterial = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>';
+            const iconFactura = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>';
+
+            function renderSection(title, iconSvg, items, defaultUrl) {
+                const count = Array.isArray(items) ? items.length : 0;
+                let itemsHtml = '';
+
+                if (count === 0) {
+                    itemsHtml = '<div class="tallerpro-search-empty-text">Sin coincidencias</div>';
+                } else {
+                    itemsHtml = '<div class="tallerpro-search-items-list">' +
+                        items.map(function (item) {
+                            const url = item.url || defaultUrl || '#';
+                            return '<a href="' + url + '" class="tallerpro-search-item-card">' +
+                                '<div class="tallerpro-search-item-title">' + escapeHtml(item.title) + '</div>' +
+                                (item.subtitle ? '<div class="tallerpro-search-item-sub">' + escapeHtml(item.subtitle) + '</div>' : '') +
+                                '</a>';
+                        }).join('') +
+                        '</div>';
+                }
+
+                return '<div class="tallerpro-search-section-card">' +
+                    '<div class="tallerpro-search-section-header">' +
+                    '<div class="tallerpro-search-section-title">' +
+                    '<span class="tallerpro-search-section-icon">' + iconSvg + '</span>' +
+                    '<span>' + escapeHtml(title) + '</span>' +
+                    '</div>' +
+                    '<span class="tallerpro-search-count-badge">' + count + '</span>' +
+                    '</div>' +
+                    itemsHtml +
+                    '</div>';
+            }
+
+            function resetDashboardView() {
+                searchResultsContainer.style.display = 'none';
+                searchResultsContainer.innerHTML = '';
+                defaultViewContainer.style.display = 'block';
+            }
+
             globalSearchInput.addEventListener('input', function () {
                 const query = globalSearchInput.value.trim();
                 clearTimeout(debounceTimer);
-                if (query.length < 2) {
-                    searchDropdown.innerHTML = '';
-                    searchDropdown.classList.remove('active');
+
+                if (query.length === 0) {
+                    resetDashboardView();
                     return;
                 }
+
+                // Switch view immediately to search mode
+                defaultViewContainer.style.display = 'none';
+                searchResultsContainer.style.display = 'flex';
+
                 debounceTimer = setTimeout(function () {
                     fetch('tallerindex.php?action=search_all&q=' + encodeURIComponent(query))
                         .then(function (res) { return res.json(); })
                         .then(function (data) {
+                            if (globalSearchInput.value.trim() !== query) {
+                                return; // Input changed while request was in-flight
+                            }
+
                             let html = '';
-                            let hasResults = false;
-
-                            if (data.vehiculos && data.vehiculos.length > 0) {
-                                hasResults = true;
-                                html += '<div class="tallerpro-search-group-title">Vehículos</div>';
-                                data.vehiculos.forEach(function (v) {
-                                    html += '<a href="' + v.url + '" class="tallerpro-search-result-item">' +
-                                        '<div><div class="tallerpro-search-result-title">' + v.title + '</div>' +
-                                        '<div class="tallerpro-search-result-sub">' + v.subtitle + '</div></div>' +
-                                        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>' +
-                                        '</a>';
-                                });
-                            }
-
-                            if (data.clientes && data.clientes.length > 0) {
-                                hasResults = true;
-                                html += '<div class="tallerpro-search-group-title">Clientes</div>';
-                                data.clientes.forEach(function (c) {
-                                    html += '<a href="' + c.url + '" class="tallerpro-search-result-item">' +
-                                        '<div><div class="tallerpro-search-result-title">' + c.title + '</div>' +
-                                        '<div class="tallerpro-search-result-sub">' + c.subtitle + '</div></div>' +
-                                        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>' +
-                                        '</a>';
-                                });
-                            }
-
-                            if (data.materiales && data.materiales.length > 0) {
-                                hasResults = true;
-                                html += '<div class="tallerpro-search-group-title">Materiales</div>';
-                                data.materiales.forEach(function (m) {
-                                    html += '<a href="' + m.url + '" class="tallerpro-search-result-item">' +
-                                        '<div><div class="tallerpro-search-result-title">' + m.title + '</div>' +
-                                        '<div class="tallerpro-search-result-sub">' + m.subtitle + '</div></div>' +
-                                        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>' +
-                                        '</a>';
-                                });
-                            }
-
+                            // 1. Vehículos
+                            html += renderSection('Vehículos', iconVehiculo, data.vehiculos || []);
+                            // 2. Clientes
+                            html += renderSection('Clientes', iconCliente, data.clientes || []);
+                            // 3. Materiales
+                            html += renderSection('Materiales', iconMaterial, data.materiales || []);
+                            // 4. Facturas (if matching invoices exist)
                             if (data.facturas && data.facturas.length > 0) {
-                                hasResults = true;
-                                html += '<div class="tallerpro-search-group-title">Facturas</div>';
-                                data.facturas.forEach(function (f) {
-                                    html += '<a href="' + f.url + '" class="tallerpro-search-result-item">' +
-                                        '<div><div class="tallerpro-search-result-title">' + f.title + '</div>' +
-                                        '<div class="tallerpro-search-result-sub">' + f.subtitle + '</div></div>' +
-                                        '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>' +
-                                        '</a>';
-                                });
+                                html += renderSection('Facturas', iconFactura, data.facturas);
                             }
 
-                            if (!hasResults) {
-                                html = '<div style="padding: 12px 16px; font-size: 13px; color: #94a3b8; text-align: center;">No se encontraron resultados</div>';
-                            }
-
-                            searchDropdown.innerHTML = html;
-                            searchDropdown.classList.add('active');
+                            searchResultsContainer.innerHTML = html;
                         })
-                        .catch(function () {
-                            searchDropdown.classList.remove('active');
+                        .catch(function (err) {
+                            console.error('Error fetching search results:', err);
                         });
-                }, 250);
+                }, 150);
             });
 
-            document.addEventListener('click', function (e) {
-                if (!globalSearchInput.contains(e.target) && !searchDropdown.contains(e.target)) {
-                    searchDropdown.classList.remove('active');
+            // ESC key resets search
+            globalSearchInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') {
+                    globalSearchInput.value = '';
+                    resetDashboardView();
+                    globalSearchInput.blur();
                 }
             });
         }

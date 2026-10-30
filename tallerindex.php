@@ -65,21 +65,21 @@ if (!isModEnabled('taller')) {
 }
 
 // AJAX: Búsqueda global en el Dashboard
-if (GETPOST('action', 'a_z09') == 'search_all') {
-	$q = trim(GETPOST('q', 'alphanohtml'));
+if (GETPOST('action', 'aZ09') == 'search_all') {
+	$q = trim(GETPOST('q', 'nohtml'));
 	$results = array(
 		'vehiculos' => array(),
 		'clientes' => array(),
 		'materiales' => array(),
 		'facturas' => array(),
 	);
-	if (strlen($q) >= 2) {
+	if (strlen($q) >= 1) {
 		$q_esc = $db->escape($q);
 		// Vehículos
 		$sql_v = "SELECT v.rowid, v.matricula, v.marca, v.modelo, s.nom as cliente ";
 		$sql_v .= "FROM " . MAIN_DB_PREFIX . "taller_vehiculo as v ";
 		$sql_v .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON v.fk_soc = s.rowid ";
-		$sql_v .= "WHERE v.status = 1 AND (v.matricula LIKE '%" . $q_esc . "%' OR v.marca LIKE '%" . $q_esc . "%' OR v.modelo LIKE '%" . $q_esc . "%') LIMIT 5";
+		$sql_v .= "WHERE v.status = 1 AND (v.matricula LIKE '%" . $q_esc . "%' OR v.marca LIKE '%" . $q_esc . "%' OR v.modelo LIKE '%" . $q_esc . "%') LIMIT 10";
 		$res_v = $db->query($sql_v);
 		if ($res_v) {
 			while ($o = $db->fetch_object($res_v)) {
@@ -92,20 +92,22 @@ if (GETPOST('action', 'a_z09') == 'search_all') {
 			}
 		}
 		// Clientes
-		$sql_c = "SELECT rowid, nom, siren, email, phone FROM " . MAIN_DB_PREFIX . "societe WHERE client IN (1, 2, 3) AND (nom LIKE '%" . $q_esc . "%' OR siren LIKE '%" . $q_esc . "%' OR email LIKE '%" . $q_esc . "%' OR phone LIKE '%" . $q_esc . "%') LIMIT 5";
+		$sql_c = "SELECT rowid, nom, siren, email, phone FROM " . MAIN_DB_PREFIX . "societe WHERE client IN (1, 2, 3) AND (nom LIKE '%" . $q_esc . "%' OR siren LIKE '%" . $q_esc . "%' OR email LIKE '%" . $q_esc . "%' OR phone LIKE '%" . $q_esc . "%') LIMIT 10";
 		$res_c = $db->query($sql_c);
 		if ($res_c) {
 			while ($o = $db->fetch_object($res_c)) {
+				$contact_info = array_filter(array($o->phone, $o->email));
+				$sub = !empty($contact_info) ? implode(' · ', $contact_info) : ($o->siren ?: '');
 				$results['clientes'][] = array(
 					'id' => $o->rowid,
 					'title' => $o->nom,
-					'subtitle' => $o->siren ?: ($o->phone ?: $o->email),
+					'subtitle' => $sub,
 					'url' => dol_buildpath('/taller/clientes.php', 1) . '?id=' . $o->rowid
 				);
 			}
 		}
 		// Materiales
-		$sql_m = "SELECT rowid, nombre, ref, precio FROM " . MAIN_DB_PREFIX . "taller_material WHERE status = 1 AND (nombre LIKE '%" . $q_esc . "%' OR ref LIKE '%" . $q_esc . "%') LIMIT 5";
+		$sql_m = "SELECT rowid, nombre, ref, precio FROM " . MAIN_DB_PREFIX . "taller_material WHERE status = 1 AND (nombre LIKE '%" . $q_esc . "%' OR ref LIKE '%" . $q_esc . "%') LIMIT 10";
 		$res_m = $db->query($sql_m);
 		if ($res_m) {
 			while ($o = $db->fetch_object($res_m)) {
@@ -120,7 +122,7 @@ if (GETPOST('action', 'a_z09') == 'search_all') {
 		// Facturas
 		$sql_f = "SELECT f.rowid, f.ref as numero_factura, f.total_ttc as total, ";
 		$sql_f .= "(CASE WHEN (f.paye = 1 OR f.fk_statut = 2) THEN 'Pagada' ELSE 'Pendiente' END) as estado ";
-		$sql_f .= "FROM " . MAIN_DB_PREFIX . "facture as f WHERE f.ref LIKE '%" . $q_esc . "%' AND f.entity IN (" . getEntity('facture') . ") LIMIT 5";
+		$sql_f .= "FROM " . MAIN_DB_PREFIX . "facture as f WHERE f.ref LIKE '%" . $q_esc . "%' AND f.entity IN (" . getEntity('facture') . ") LIMIT 10";
 		$res_f = $db->query($sql_f);
 		if ($res_f) {
 			while ($o = $db->fetch_object($res_f)) {
@@ -400,9 +402,13 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					</span>
 					<input type="text" id="tallerGlobalSearchInput" class="tallerpro-search-input" placeholder="<?php echo $langs->trans("SearchPlaceholder"); ?>" autocomplete="off" />
 				</div>
-				<div class="tallerpro-search-dropdown" id="tallerSearchDropdown"></div>
 			</div>
 
+			<!-- Search Results In-Page View (hidden by default) -->
+			<div id="tallerDashboardSearchResults" class="tallerpro-dashboard-search-results" style="display: none;"></div>
+
+			<!-- Default Dashboard View (KPIs + Activities) -->
+			<div id="tallerDashboardDefaultView">
 			<!-- Metric KPI Cards (3 columns x 2 rows) -->
 			<div class="tallerpro-kpi-grid">
 				<!-- Card 1: Clientes -->
@@ -575,6 +581,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<?php } ?>
 				</div>
 			</div>
+			</div> <!-- End tallerDashboardDefaultView -->
 		</main>
 	</div>
 </div>
