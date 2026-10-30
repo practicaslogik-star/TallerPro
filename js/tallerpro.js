@@ -1537,36 +1537,24 @@ if (window.__tallerProLoaded) {
 
         //catalogo de modelos y marcasd e vehiculos
 
-        const catalogoVehiculos = {
-            "Seat": ["Ibiza", "León", "Arona", "Ateca", "Tarraco", "Toledo", "Altea", "Mii", "Cordoba"],
-            "Renault": ["Clio", "Mégane", "Captur", "Kadjar", "Austral", "Scenic", "Kangoo", "Trafic", "Arkana", "Zoe", "Espace", "Twingo"],
-            "Peugeot": ["208", "2008", "308", "3008", "508", "5008", "Partner", "Rifter", "206", "207"],
-            "Citroën": ["C3", "C3 Aircross", "C4", "C4 Cactus", "C5 Aircross", "Berlingo", "C1", "Xsara Picasso", "Jumpy"],
-            "Volkswagen": ["Polo", "Golf", "T-Roc", "Tiguan", "Passat", "T-Cross", "Taigo", "Touran", "Caddy", "Transporter", "Arteon"],
-            "Ford": ["Fiesta", "Focus", "Puma", "Kuga", "Mondeo", "Transit", "Tourneo", "EcoSport", "Ka"],
-            "Toyota": ["Yaris", "Corolla", "C-HR", "RAV4", "Auris", "Aygo", "Prius", "Hilux", "Proace", "Land Cruiser"],
-            "BMW": ["Serie 1", "Serie 2", "Serie 3", "Serie 4", "Serie 5", "X1", "X2", "X3", "X4", "X5"],
-            "Mercedes-Benz": ["Clase A", "Clase B", "Clase C", "Clase E", "GLA", "GLB", "GLC", "Vito", "Sprinter", "Citan"],
-            "Audi": ["A1", "A3", "A4", "A5", "A6", "Q2", "Q3", "Q4", "Q5", "TT"],
-            "Hyundai": ["i10", "i20", "i30", "Kona", "Tucson", "Santa Fe", "Bayon", "Ioniq"],
-            "Kia": ["Picanto", "Rio", "Ceed", "Stonic", "Sportage", "Niro", "Xceed", "Sorento"],
-            "Dacia": ["Sandero", "Duster", "Jogger", "Lodgy", "Dokker", "Spring"],
-            "Nissan": ["Micra", "Juke", "Qashqai", "X-Trail", "Navara", "Leaf"],
-            "Opel": ["Corsa", "Astra", "Mokka", "Crossland", "Grandland", "Insignia", "Combo", "Zafira"],
-            "Fiat": ["500", "Panda", "Tipo", "Punto", "Doblo", "Ducato", "500X"],
-            "Skoda": ["Fabia", "Scala", "Octavia", "Kamiq", "Karoq", "Kodiaq", "Superb"],
-            "Volvo": ["XC40", "XC60", "XC90", "V40", "V60", "S60"],
-            "Mini": ["Cooper", "Countryman", "Clubman", "One"],
-            "Cupra": ["Formentor", "Born", "Leon", "Ateca"],
-            "MG": ["ZS", "MG4", "HS", "MG5"],
-            "Alfa Romeo": ["Giulietta", "Giulia", "Stelvio", "Tonale", "Mito"],
-            "Mitsubishi": ["ASX", "Outlander", "Eclipse Cross", "Space Star", "L200"],
-            "Honda": ["Civic", "CR-V", "HR-V", "Jazz"],
-            "Suzuki": ["Swift", "Vitara", "S-Cross", "Jimny", "Ignis"],
-            "Mazda": ["Mazda 2", "Mazda 3", "Mazda 6", "CX-3", "CX-30", "CX-5"],
-            "Jeep": ["Renegade", "Compass", "Cherokee", "Wrangler"]
-        };
-        
+        let catalogo_vehiculos = {};
+        let catalogoVehiculos = catalogo_vehiculos;
+        // cargar los datos del vehiculo del json 
+        fetch('js/catalogo_coches_new.json')
+            .then(function (response) {
+                if (!response.ok) {
+                    throw new Error('Error HTTP: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(function (data) {
+                catalogo_vehiculos = data;
+                catalogoVehiculos = data;
+            })
+            .catch(function (error) {
+                console.error('No se pudo cargar catalogo_coches_new.json:', error);
+            });
+
         const inputMarca = document.getElementById('veh_marca');
         const inputModelo = document.getElementById('veh_modelo');
         const dropdownMarcas = document.getElementById('dropdown_marcas');
@@ -1686,16 +1674,16 @@ if (window.__tallerProLoaded) {
                 inputMarca,
                 dropdownMarcas,
                 function (query) {
-                    const all = Object.keys(catalogoVehiculos).sort();
+                    const all = Object.keys(catalogo_vehiculos).sort();
                     if (!query || !query.trim()) return all;
                     const q = query.trim().toLowerCase();
                     return all.filter(m => m.toLowerCase().includes(q));
                 },
                 function (marcaElegida) {
-                    const marcaMatch = Object.keys(catalogoVehiculos).find(
+                    const marcaMatch = Object.keys(catalogo_vehiculos).find(
                         m => m.toLowerCase() === marcaElegida.toLowerCase()
                     );
-                    const modelos = (marcaMatch && catalogoVehiculos[marcaMatch]) || [];
+                    const modelos = (marcaMatch && catalogo_vehiculos[marcaMatch]) || [];
                     if (inputModelo.value && !modelos.includes(inputModelo.value)) {
                         inputModelo.value = '';
                     }
@@ -1711,10 +1699,10 @@ if (window.__tallerProLoaded) {
                 dropdownModelos,
                 function (query) {
                     const marcaActual = (inputMarca.value || '').trim();
-                    const marcaMatch = Object.keys(catalogoVehiculos).find(
+                    const marcaMatch = Object.keys(catalogo_vehiculos).find(
                         m => m.toLowerCase() === marcaActual.toLowerCase()
                     );
-                    const modelosDisponibles = (marcaMatch && catalogoVehiculos[marcaMatch]) ? catalogoVehiculos[marcaMatch].slice().sort() : [];
+                    const modelosDisponibles = (marcaMatch && catalogo_vehiculos[marcaMatch]) ? catalogo_vehiculos[marcaMatch].slice().sort() : [];
 
                     if (!query || !query.trim()) return modelosDisponibles;
                     const q = query.trim().toLowerCase();
@@ -1722,7 +1710,7 @@ if (window.__tallerProLoaded) {
                 },
                 function (modeloElegido) {
                     if (!inputMarca.value.trim()) {
-                        for (const [m, mods] of Object.entries(catalogoVehiculos)) {
+                        for (const [m, mods] of Object.entries(catalogo_vehiculos)) {
                             if (mods.includes(modeloElegido)) {
                                 inputMarca.value = m;
                                 break;
@@ -1735,13 +1723,162 @@ if (window.__tallerProLoaded) {
             // Limpiar modelo si se cambia manualmente la marca y deja de ser compatible
             inputMarca.addEventListener('change', function () {
                 const marcaActual = (inputMarca.value || '').trim();
-                const marcaMatch = Object.keys(catalogoVehiculos).find(
+                const marcaMatch = Object.keys(catalogo_vehiculos).find(
                     m => m.toLowerCase() === marcaActual.toLowerCase()
                 );
-                const modelos = (marcaMatch && catalogoVehiculos[marcaMatch]) || [];
+                const modelos = (marcaMatch && catalogo_vehiculos[marcaMatch]) || [];
                 if (inputModelo.value && !modelos.includes(inputModelo.value)) {
                     inputModelo.value = '';
                 }
+            });
+        }
+
+
+        // ==========================================================================
+        // Algoritmo de Similitud (Levenshtein) y Confirmación Inteligente de Catálogo
+        // ==========================================================================
+
+        // Normaliza texto eliminando acentos/tildes y convirtiendo a minúsculas
+        function normalizarTexto(str) {
+            return (str || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+        }
+
+        // 1. Función que calcula cuántas letras de diferencia hay entre dos palabras
+        function distanciaLevenshtein(a, b) {
+            const s1 = normalizarTexto(a);
+            const s2 = normalizarTexto(b);
+            const costs = [];
+            for (let i = 0; i <= s1.length; i++) {
+                let lastValue = i;
+                for (let j = 0; j <= s2.length; j++) {
+                    if (i === 0) {
+                        costs[j] = j;
+                    } else if (j > 0) {
+                        let newValue = costs[j - 1];
+                        if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
+                            newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                        }
+                        costs[j - 1] = lastValue;
+                        lastValue = newValue;
+                    }
+                }
+                if (i > 0) costs[s2.length] = lastValue;
+            }
+            return costs[s2.length];
+        }
+
+        // 2. Interceptar el formulario de creación de vehículo
+        const vehForm = document.getElementById('tallerVehiculoForm');
+        const modalCat = document.getElementById('catalogoConfirmModal');
+        const modalTitle = document.getElementById('catalogoModalTitle');
+        const modalDesc = document.getElementById('catalogoModalDesc');
+        const btnOpcion1 = document.getElementById('btnCatalogoOpcion1');
+        const btnOpcion2 = document.getElementById('btnCatalogoOpcion2');
+        const hiddenGuardarCat = document.getElementById('veh_guardar_en_catalogo');
+
+        if (vehForm && modalCat) {
+            vehForm.addEventListener('submit', function (e) {
+                // Si ya fue validado y confirmado, dejamos que se envíe normalmente
+                if (vehForm.dataset.validado === 'true') {
+                    return true;
+                }
+
+                const marcaEscrita = (inputMarca.value || '').trim();
+                const modeloEscrito = (inputModelo.value || '').trim();
+                const catActual = catalogo_vehiculos || catalogoVehiculos || {};
+
+                // Si no hay catálogo cargado o campos vacíos, dejamos que el formulario valide por defecto
+                if (!catActual || Object.keys(catActual).length === 0 || !marcaEscrita || !modeloEscrito) {
+                    return true;
+                }
+
+                const marcasDisponibles = Object.keys(catActual);
+                const marcaCoincidente = marcasDisponibles.find(
+                    m => normalizarTexto(m) === normalizarTexto(marcaEscrita)
+                );
+
+                // --- CASO 1: POSIBLE ERRATA EN LA MARCA (ej: "renaul" -> "Renault") ---
+                if (!marcaCoincidente) {
+                    let marcaSugerida = null;
+                    for (const b of marcasDisponibles) {
+                        const dist = distanciaLevenshtein(marcaEscrita, b);
+                        // Si la diferencia es de 1 o 2 letras, es casi seguro una errata
+                        if (dist > 0 && dist <= (marcaEscrita.length > 5 ? 2 : 1)) {
+                            marcaSugerida = b;
+                            break;
+                        }
+                    }
+
+                    if (marcaSugerida) {
+                        e.preventDefault();
+                        modalTitle.textContent = '¿Quisiste decir ' + marcaSugerida + '?';
+                        modalDesc.innerHTML = 'Has escrito <strong>"' + marcaEscrita + '"</strong>, pero parece una errata de la marca <strong>"' + marcaSugerida + '"</strong>.<br><br>¿Deseas corregirla antes de continuar?';
+                        btnOpcion1.textContent = 'Corregir a ' + marcaSugerida;
+                        btnOpcion2.textContent = 'No, es otra marca';
+
+                        btnOpcion1.onclick = function () {
+                            inputMarca.value = marcaSugerida;
+                            modalCat.classList.remove('active');
+                            // Volvemos a lanzar la validación con la marca ya corregida
+                            vehForm.dispatchEvent(new Event('submit', { cancelable: true }));
+                        };
+
+                        btnOpcion2.onclick = function () {
+                            modalCat.classList.remove('active');
+                            // El usuario insiste en que es una marca nueva: enviar directamente
+                            vehForm.dataset.validado = 'true';
+                            vehForm.submit();
+                        };
+
+                        modalCat.classList.add('active');
+                        return false;
+                    }
+                }
+
+                // --- CASO 2: MODELO NUEVO (La marca existe, pero el modelo no está en su lista) ---
+                const marcaFinal = marcaCoincidente || marcaEscrita;
+                const modelosDeMarca = catActual[marcaFinal] || [];
+
+                // Usamos .find() para capturar exactamente cómo está escrito en el catálogo (ej: "kj" o "Mégane")
+                const modeloCoincidente = modelosDeMarca.find(
+                    mod => normalizarTexto(mod) === normalizarTexto(modeloEscrito)
+                );
+
+                if (!modeloCoincidente) {
+                    // Si NO existe en el catálogo, mostramos el modal para preguntar si guardarlo
+                    e.preventDefault();
+                    modalTitle.textContent = 'Nuevo modelo detectado';
+                    modalDesc.innerHTML = 'El modelo <strong>"' + modeloEscrito + '"</strong> no está en el catálogo de <strong>"' + marcaFinal + '"</strong>.<br><br>¿Quieres guardarlo en el catálogo para que aparezca en futuras altas de vehículos?';
+                    btnOpcion1.textContent = 'Guardar en catálogo';
+                    btnOpcion2.textContent = 'Solo este vehículo';
+
+                    btnOpcion1.onclick = function () {
+                        if (hiddenGuardarCat) hiddenGuardarCat.value = '1';
+                        modalCat.classList.remove('active');
+                        vehForm.dataset.validado = 'true';
+                        vehForm.submit();
+                    };
+
+                    btnOpcion2.onclick = function () {
+                        if (hiddenGuardarCat) hiddenGuardarCat.value = '0';
+                        modalCat.classList.remove('active');
+                        vehForm.dataset.validado = 'true';
+                        vehForm.submit();
+                    };
+
+                    modalCat.classList.add('active');
+                    return false;
+                }
+
+                // --- CASO 3: TODO EXISTE EN EL CATÁLOGO ---
+                // Auto-corregimos los campos con las mayúsculas/minúsculas oficiales del catálogo antes de guardar
+                if (marcaCoincidente) {
+                    inputMarca.value = marcaCoincidente;
+                }
+                if (modeloCoincidente) {
+                    inputModelo.value = modeloCoincidente; // <-- Si pusiste "KJ", aquí se cambia automáticamente a "kj"
+                }
+                return true;
             });
         }
     });
