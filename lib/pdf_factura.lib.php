@@ -44,21 +44,10 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 
 	$res = $db->query($sql);
 	if (!$res || !($factura = $db->fetch_object($res))) {
-		// Fallback compatibilidad previa
-		$sql_fb = "SELECT f.*, s.nom as cliente_nombre, COALESCE(NULLIF(s.siren, ''), NULLIF(s.siret, ''), s.tva_intra) as cliente_cif, ";
-		$sql_fb .= "s.address as cliente_direccion, s.zip as cliente_cp, s.town as cliente_ciudad, s.phone as cliente_telefono, s.email as cliente_email, ";
-		$sql_fb .= "v.matricula as vehiculo_matricula, v.marca as vehiculo_marca, v.modelo as vehiculo_modelo, v.anio as vehiculo_anio, v.vin as vehiculo_vin, v.km as vehiculo_km ";
-		$sql_fb .= "FROM " . MAIN_DB_PREFIX . "taller_factura as f ";
-		$sql_fb .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON f.fk_soc = s.rowid ";
-		$sql_fb .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON f.fk_vehiculo = v.rowid ";
-		$sql_fb .= "WHERE f.rowid = " . ((int) $fac_id);
-		$res_fb = $db->query($sql_fb);
-		if (!$res_fb || !($factura = $db->fetch_object($res_fb))) {
-			return false;
-		}
+		return false;
 	}
 
-	// 2. Obtener líneas de la factura
+	// 2. Obtener líneas de la factura desde llx_facturedet
 	$lineas = array();
 	$tot_mat = 0.0;
 	$tot_rep = 0.0;
@@ -75,20 +64,6 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 				$tot_mat += (float) $l->total_neto;
 			} else {
 				$tot_rep += (float) $l->total_neto;
-			}
-		}
-	} else {
-		// Fallback líneas tabla taller
-		$sql_lines_fb = "SELECT * FROM " . MAIN_DB_PREFIX . "taller_factura_linea WHERE fk_factura = " . ((int) $fac_id) . " ORDER BY rowid ASC";
-		$res_lines_fb = $db->query($sql_lines_fb);
-		if ($res_lines_fb) {
-			while ($l = $db->fetch_object($res_lines_fb)) {
-				$lineas[] = $l;
-				if ($l->tipo == 'material') {
-					$tot_mat += (float) $l->total_neto;
-				} else {
-					$tot_rep += (float) $l->total_neto;
-				}
 			}
 		}
 	}
