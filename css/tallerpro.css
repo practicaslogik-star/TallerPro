@@ -1693,7 +1693,8 @@ a.tallerpro-nav-item.active {
 
     /* Dimensiones generosas y correctas de botones de acción en tarjetas */
     .tallerpro-table tbody td .tallerpro-action-btn,
-    .tallerpro-table tbody td .tallerpro-btn-facturar-action {
+    .tallerpro-table tbody td .tallerpro-btn-facturar-action,
+    .tallerpro-table tbody td .tallerpro-btn-facturada-link {
         width: auto !important;
         min-width: 76px !important;
         height: 36px !important;
@@ -1715,7 +1716,8 @@ a.tallerpro-nav-item.active {
     }
 
     .tallerpro-table tbody td .tallerpro-action-btn svg,
-    .tallerpro-table tbody td .tallerpro-btn-facturar-action svg {
+    .tallerpro-table tbody td .tallerpro-btn-facturar-action svg,
+    .tallerpro-table tbody td .tallerpro-btn-facturada-link svg {
         width: 15px !important;
         height: 15px !important;
         min-width: 15px !important;
@@ -1739,7 +1741,8 @@ a.tallerpro-nav-item.active {
     }
 
     .tallerpro-table tbody td .tallerpro-action-btn .tallerpro-action-text,
-    .tallerpro-table tbody td .tallerpro-btn-facturar-action span {
+    .tallerpro-table tbody td .tallerpro-btn-facturar-action span,
+    .tallerpro-table tbody td .tallerpro-btn-facturada-link span {
         display: inline !important;
         font-size: 12.5px !important;
         font-weight: 600 !important;
@@ -1807,6 +1810,22 @@ a.tallerpro-nav-item.active {
         border-color: #86efac !important;
         color: #15803d !important;
         transform: translateY(-1px) !important;
+    }
+
+    /* Enlace Factura Emitida */
+    .tallerpro-table tbody td .tallerpro-btn-facturada-link {
+        background: #f8fafc !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #475569 !important;
+        text-decoration: none !important;
+    }
+
+    .tallerpro-table tbody td .tallerpro-btn-facturada-link:hover {
+        background: #f1f5f9 !important;
+        border-color: #94a3b8 !important;
+        color: #0f172a !important;
+        transform: translateY(-1px) !important;
+        text-decoration: none !important;
     }
 }
 
@@ -3356,13 +3375,47 @@ a.tallerpro-nav-item.active {
     padding: 4px 10px;
     font-size: 12px;
     font-weight: 600;
-    cursor: default;
-    transition: background-color 0.15s ease;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
     user-select: none;
 }
 
 .tallerpro-btn-facturar-action:hover {
     background-color: #d1fae5;
+    border-color: #6ee7b7;
+    color: #047857;
+    text-decoration: none;
+}
+
+/* Enlace a Factura Ya Emitida */
+.tallerpro-btn-facturada-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background-color: #f8fafc;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.tallerpro-btn-facturada-link:hover {
+    background-color: #f1f5f9;
+    border-color: #94a3b8;
+    color: #0f172a;
+    text-decoration: none;
+}
+
+.tallerpro-btn-facturada-link svg {
+    color: #059669;
+    flex-shrink: 0;
 }
 
 /* Modal Orden de Reparacion */

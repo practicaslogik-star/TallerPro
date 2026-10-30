@@ -1536,12 +1536,16 @@ if (window.__tallerProLoaded) {
             const actionsDiv = row ? row.querySelector('.tallerpro-actions') : null;
             if (actionsDiv) {
                 let facturarBtn = actionsDiv.querySelector('.tallerpro-btn-facturar-action');
-                if (newEstado === 'finalizada') {
+                const facturadaLink = actionsDiv.querySelector('.tallerpro-btn-facturada-link');
+                if (newEstado === 'finalizada' && !facturadaLink) {
                     if (!facturarBtn) {
-                        facturarBtn = document.createElement('button');
-                        facturarBtn.type = 'button';
+                        const token = document.getElementById('reparacionFormToken')?.value || '';
+                        facturarBtn = document.createElement('a');
+                        facturarBtn.href = 'reparaciones.php?action=facturar_reparacion&rowid=' + encodeURIComponent(rowid) + '&token=' + encodeURIComponent(token);
+                        facturarBtn.setAttribute('onclick', "return confirm('¿Deseas generar la factura oficial de Dolibarr para esta reparación?');");
+
                         facturarBtn.className = 'tallerpro-btn-facturar-action';
-                        facturarBtn.title = 'Emitir Factura (sin funcionalidad)';
+                        facturarBtn.title = 'Emitir Factura oficial de esta reparación';
                         facturarBtn.innerHTML = `
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -1570,6 +1574,30 @@ if (window.__tallerProLoaded) {
             }
         });
         // =========================================================================
+        // Modal "Emitir Factura Ahora": guarda los datos y genera la factura oficial en Dolibarr
+        const btnModalEmitirFactura = document.getElementById('btnModalEmitirFactura');
+        if (btnModalEmitirFactura && repForm) {
+            btnModalEmitirFactura.addEventListener('click', function (e) {
+                e.preventDefault();
+                const vehSelect = document.getElementById('orderVehiculoSelect');
+                if (!vehSelect || !vehSelect.value || parseInt(vehSelect.value) <= 0) {
+                    alert('Debe seleccionar un vehículo válido para poder emitir la factura.');
+                    return;
+                }
+                if (!confirm('¿Deseas guardar los cambios y emitir la factura oficial de Dolibarr para esta reparación?')) {
+                    return;
+                }
+                const actionInput = document.getElementById('reparacionFormAction');
+                if (actionInput) actionInput.value = 'save_and_facturar';
+
+                const estadoSelect = document.getElementById('orderEstadoSelect');
+                if (estadoSelect) estadoSelect.value = 'finalizada';
+
+                recalculateTotals();
+                repForm.submit();
+            });
+        }
+
         // Dashboard Global Search
         // =========================================================================
         const globalSearchInput = document.getElementById('tallerGlobalSearchInput');
