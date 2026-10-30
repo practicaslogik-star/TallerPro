@@ -383,6 +383,35 @@ if (window.__tallerProLoaded) {
         const facFormAction = document.getElementById('facturaFormAction');
         const facFormRowid = document.getElementById('facturaFormRowid');
         const addFacBtn = document.getElementById('tallerOpenModalBtn');
+        const facNumero = document.getElementById('fac_numero');
+        const facFecha = document.getElementById('fac_fecha');
+
+        function updateNextInvoiceNumber(fechaStr) {
+            if (!facNumero) return;
+            if (facNumero.dataset && facNumero.dataset.nextNumero && (!fechaStr || fechaStr.substring(0, 4) === String(new Date().getFullYear()))) {
+                facNumero.value = facNumero.dataset.nextNumero;
+            }
+
+            const url = (window.location.pathname || 'facturas.php') + '?action=get_next_factura_numero&fecha=' + encodeURIComponent(fechaStr || '');
+            fetch(url)
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (data && data.status === 'ok' && data.numero) {
+                        facNumero.value = data.numero;
+                    }
+                })
+                .catch(function (err) {
+                    console.error('Error al obtener siguiente número de factura:', err);
+                });
+        }
+
+        if (facFecha) {
+            facFecha.addEventListener('change', function () {
+                if (facFormAction && facFormAction.value === 'create_factura') {
+                    updateNextInvoiceNumber(facFecha.value);
+                }
+            });
+        }
 
         if (addFacBtn && facForm) {
             addFacBtn.addEventListener('click', function () {
@@ -390,13 +419,17 @@ if (window.__tallerProLoaded) {
                 if (facModalTitle) facModalTitle.textContent = 'Nuevo registro';
                 if (facFormAction) facFormAction.value = 'create_factura';
                 if (facFormRowid) facFormRowid.value = '0';
-                const facFecha = document.getElementById('fac_fecha');
+                const todayStr = new Date().toISOString().split('T')[0];
                 if (facFecha) {
-                    facFecha.value = new Date().toISOString().split('T')[0];
+                    facFecha.value = todayStr;
                 }
                 const facEstado = document.getElementById('fac_estado');
                 if (facEstado) {
                     facEstado.value = 'Pendiente';
+                }
+                if (facNumero) {
+                    facNumero.readOnly = true;
+                    updateNextInvoiceNumber(todayStr);
                 }
             });
         }
@@ -411,15 +444,16 @@ if (window.__tallerProLoaded) {
                 if (facFormAction) facFormAction.value = 'update_factura';
                 if (facFormRowid) facFormRowid.value = btn.dataset.id || '0';
 
-                const facNumero = document.getElementById('fac_numero');
-                const facFecha = document.getElementById('fac_fecha');
                 const facSoc = document.getElementById('fac_fk_soc');
                 const facVehiculo = document.getElementById('fac_fk_vehiculo');
                 const facTotal = document.getElementById('fac_total');
                 const facEstado = document.getElementById('fac_estado');
                 const facNotas = document.getElementById('fac_notas');
 
-                if (facNumero) facNumero.value = btn.dataset.numero || '';
+                if (facNumero) {
+                    facNumero.value = btn.dataset.numero || '';
+                    facNumero.readOnly = true;
+                }
                 if (facFecha) facFecha.value = btn.dataset.fecha || '';
                 if (facSoc) facSoc.value = btn.dataset.soc || '';
                 if (facVehiculo) facVehiculo.value = btn.dataset.vehiculo || '';
@@ -428,7 +462,7 @@ if (window.__tallerProLoaded) {
                 if (facNotas) facNotas.value = btn.dataset.notas || '';
 
                 facModal.classList.add('active');
-                if (facNumero) facNumero.focus();
+                if (facFecha) facFecha.focus();
             });
         });
 
@@ -436,6 +470,7 @@ if (window.__tallerProLoaded) {
         const verFacBtns = document.querySelectorAll('.btn-ver-factura');
         verFacBtns.forEach(function (btn) {
             btn.addEventListener('click', function (e) {
+                e.preventDefault();
                 const href = btn.getAttribute('href');
                 if (href && href !== '#' && href !== 'javascript:void(0);') {
                     window.location.href = href;
@@ -1539,12 +1574,16 @@ if (window.__tallerProLoaded) {
             const actionsDiv = row ? row.querySelector('.tallerpro-actions') : null;
             if (actionsDiv) {
                 let facturarBtn = actionsDiv.querySelector('.tallerpro-btn-facturar-action');
-                if (newEstado === 'finalizada') {
+                const facturadaLink = actionsDiv.querySelector('.tallerpro-btn-facturada-link');
+                if (newEstado === 'finalizada' && !facturadaLink) {
                     if (!facturarBtn) {
-                        facturarBtn = document.createElement('button');
-                        facturarBtn.type = 'button';
+                        const token = document.getElementById('reparacionFormToken')?.value || '';
+                        facturarBtn = document.createElement('a');
+                        facturarBtn.href = 'reparaciones.php?action=facturar_reparacion&rowid=' + encodeURIComponent(rowid) + '&token=' + encodeURIComponent(token);
+                        facturarBtn.setAttribute('onclick', "return confirm('¿Deseas generar la factura oficial de Dolibarr para esta reparación?');");
+
                         facturarBtn.className = 'tallerpro-btn-facturar-action';
-                        facturarBtn.title = 'Emitir Factura (sin funcionalidad)';
+                        facturarBtn.title = 'Emitir Factura oficial de esta reparación';
                         facturarBtn.innerHTML = `
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -1980,9 +2019,150 @@ if (window.__tallerProLoaded) {
             if (modal) modal.classList.add('active');
         });
 
+        // =========================================================================
+        // Modal "Emitir Factura Ahora": guarda los datos y genera la factura oficial en Dolibarr
+        // =========================================================================
+        const btnModalEmitirFactura = document.getElementById('btnModalEmitirFactura');
+        if (btnModalEmitirFactura && repForm) {
+            btnModalEmitirFactura.addEventListener('click', function (e) {
+                e.preventDefault();
+                const vehSelect = document.getElementById('orderVehiculoSelect');
+                if (!vehSelect || !vehSelect.value || parseInt(vehSelect.value) <= 0) {
+                    alert('Debe seleccionar un vehículo válido para poder emitir la factura.');
+                    return;
+                }
+                if (!confirm('¿Deseas guardar los cambios y emitir la factura oficial de Dolibarr para esta reparación?')) {
+                    return;
+                }
+                const actionInput = document.getElementById('reparacionFormAction');
+                if (actionInput) actionInput.value = 'save_and_facturar';
+
+                const estadoSelect = document.getElementById('orderEstadoSelect');
+                if (estadoSelect) estadoSelect.value = 'finalizada';
+
+                recalculateTotals();
+                repForm.submit();
+            });
+        }
+
+        // =========================================================================
+        // Dashboard Global Search (In-Page integrated results)
+        // =========================================================================
+        const globalSearchInput = document.getElementById('tallerGlobalSearchInput');
+        const searchResultsContainer = document.getElementById('tallerDashboardSearchResults');
+        const defaultViewContainer = document.getElementById('tallerDashboardDefaultView');
+
+        if (globalSearchInput && searchResultsContainer && defaultViewContainer) {
+            let debounceTimer = null;
+
+            function escapeHtml(str) {
+                if (!str) return '';
+                return String(str)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            }
+
+            const iconVehiculo = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 3.1C2 11.4 2 11.7 2 12v4c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><path d="M9 17h6"></path><circle cx="17" cy="17" r="2"></circle></svg>';
+            const iconCliente = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>';
+            const iconMaterial = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>';
+            const iconFactura = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>';
+
+            function renderSection(title, iconSvg, items, defaultUrl) {
+                const count = Array.isArray(items) ? items.length : 0;
+                let itemsHtml = '';
+
+                if (count === 0) {
+                    itemsHtml = '<div class="tallerpro-search-empty-text">Sin coincidencias</div>';
+                } else {
+                    itemsHtml = '<div class="tallerpro-search-items-list">' +
+                        items.map(function (item) {
+                            const url = item.url || defaultUrl || '#';
+                            return '<a href="' + url + '" class="tallerpro-search-item-card">' +
+                                '<div class="tallerpro-search-item-title">' + escapeHtml(item.title) + '</div>' +
+                                (item.subtitle ? '<div class="tallerpro-search-item-sub">' + escapeHtml(item.subtitle) + '</div>' : '') +
+                                '</a>';
+                        }).join('') +
+                        '</div>';
+                }
+
+                return '<div class="tallerpro-search-section-card">' +
+                    '<div class="tallerpro-search-section-header">' +
+                    '<div class="tallerpro-search-section-title">' +
+                    '<span class="tallerpro-search-section-icon">' + iconSvg + '</span>' +
+                    '<span>' + escapeHtml(title) + '</span>' +
+                    '</div>' +
+                    '<span class="tallerpro-search-count-badge">' + count + '</span>' +
+                    '</div>' +
+                    itemsHtml +
+                    '</div>';
+            }
+
+            function resetDashboardView() {
+                searchResultsContainer.style.display = 'none';
+                searchResultsContainer.innerHTML = '';
+                defaultViewContainer.style.display = 'block';
+            }
+
+            globalSearchInput.addEventListener('input', function () {
+                const query = globalSearchInput.value.trim();
+                clearTimeout(debounceTimer);
+
+                if (query.length === 0) {
+                    resetDashboardView();
+                    return;
+                }
+
+                // Switch view immediately to search mode
+                defaultViewContainer.style.display = 'none';
+                searchResultsContainer.style.display = 'flex';
+
+                debounceTimer = setTimeout(function () {
+                    fetch('tallerindex.php?action=search_all&q=' + encodeURIComponent(query))
+                        .then(function (res) { return res.json(); })
+                        .then(function (data) {
+                            if (globalSearchInput.value.trim() !== query) {
+                                return; // Input changed while request was in-flight
+                            }
+
+                            let html = '';
+                            // 1. Vehículos
+                            html += renderSection('Vehículos', iconVehiculo, data.vehiculos || []);
+                            // 2. Clientes
+                            html += renderSection('Clientes', iconCliente, data.clientes || []);
+                            // 3. Materiales
+                            html += renderSection('Materiales', iconMaterial, data.materiales || []);
+                            // 4. Facturas (if matching invoices exist)
+                            if (data.facturas && data.facturas.length > 0) {
+                                html += renderSection('Facturas', iconFactura, data.facturas);
+                            }
+
+                            searchResultsContainer.innerHTML = html;
+                        })
+                        .catch(function (err) {
+                            console.error('Error fetching search results:', err);
+                        });
+                }, 150);
+            });
+
+            // ESC key resets search
+            globalSearchInput.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') {
+                    globalSearchInput.value = '';
+                    resetDashboardView();
+                    globalSearchInput.blur();
+                }
+            });
+        }
+
     }); // Cierre DOMContentLoaded
 
 } // Cierre if window.__tallerProLoaded
+
+
+
 
 
 

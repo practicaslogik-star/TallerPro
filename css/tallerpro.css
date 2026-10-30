@@ -581,13 +581,14 @@ a.tallerpro-nav-item.active {
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 12px;
-    padding: 20px 22px;
-    min-height: 135px;
+    padding: 18px 20px;
+    height: 245px;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    overflow: hidden;
 }
 
 .tallerpro-activity-card:hover {
@@ -603,7 +604,8 @@ a.tallerpro-nav-item.active {
     font-size: 13.5px;
     font-weight: 600;
     color: #0f172a;
-    margin-bottom: 20px;
+    margin-bottom: 14px;
+    flex-shrink: 0;
 }
 
 .tallerpro-activity-header svg {
@@ -613,9 +615,293 @@ a.tallerpro-nav-item.active {
 }
 
 .tallerpro-empty-state {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     font-size: 13px;
     color: #94a3b8;
     font-weight: 400;
+}
+
+/* Activity Items List */
+.tallerpro-activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 0 4px 0 0;
+    list-style: none;
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 transparent;
+}
+
+.tallerpro-activity-list::-webkit-scrollbar {
+    width: 5px;
+}
+
+.tallerpro-activity-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.tallerpro-activity-list::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1;
+    border-radius: 4px;
+}
+
+.tallerpro-activity-list::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8;
+}
+
+.tallerpro-activity-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 12px;
+    border-radius: 8px;
+    background-color: #f8fafc;
+    border: 1px solid #f1f5f9;
+    text-decoration: none !important;
+    color: inherit;
+    transition: all 0.15s ease;
+}
+
+.tallerpro-activity-item:hover {
+    background-color: #f1f5f9;
+    border-color: #cbd5e1;
+    transform: translateX(2px);
+}
+
+.tallerpro-activity-item-left {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
+}
+
+.tallerpro-activity-item-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tallerpro-activity-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    color: #0f172a;
+    background: #e2e8f0;
+    border: 1px solid #cbd5e1;
+    border-radius: 5px;
+    font-family: monospace, sans-serif;
+    flex-shrink: 0;
+}
+
+.tallerpro-activity-item-desc {
+    font-size: 12px;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.tallerpro-activity-item-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+    text-align: right;
+    margin-left: 12px;
+}
+
+.tallerpro-activity-cost {
+    font-size: 13px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.tallerpro-activity-arrow {
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+}
+
+/* Global Search Dropdown */
+.tallerpro-search-container {
+    position: relative;
+    width: 100%;
+}
+
+/* Dashboard In-Page Search Results */
+.tallerpro-dashboard-search-results {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.tallerpro-search-section-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 18px 22px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.tallerpro-search-section-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tallerpro-search-section-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #1e293b;
+}
+
+.tallerpro-search-section-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1e293b;
+}
+
+.tallerpro-search-count-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 2px 9px;
+    border-radius: 9999px;
+    line-height: 1.4;
+    margin-left: 2px;
+}
+
+.tallerpro-search-empty-text {
+    font-size: 13.5px;
+    color: #64748b;
+    padding: 2px 0 2px 0;
+}
+
+.tallerpro-search-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+.tallerpro-search-item-card {
+    display: block;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 14px 18px;
+    text-decoration: none !important;
+    transition: all 0.15s ease-in-out;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.tallerpro-search-item-card:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.tallerpro-search-item-title {
+    font-size: 14.5px;
+    font-weight: 600;
+    color: #0f172a;
+    margin-bottom: 4px;
+    line-height: 1.3;
+}
+
+.tallerpro-search-item-sub {
+    font-size: 13px;
+    color: #64748b;
+    line-height: 1.3;
+}
+
+/* Global Search Dropdown (Legacy / Generic) */
+.tallerpro-search-dropdown {
+    position: absolute;
+    top: calc(100% - 10px);
+    left: 0;
+    right: 0;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+    z-index: 1000;
+    max-height: 380px;
+    overflow-y: auto;
+    padding: 8px 0;
+    display: none;
+}
+
+.tallerpro-search-dropdown.active {
+    display: block;
+}
+
+.tallerpro-search-group-title {
+    padding: 8px 16px 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.tallerpro-search-result-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    text-decoration: none !important;
+    color: inherit;
+    transition: background-color 0.12s ease;
+}
+
+.tallerpro-search-result-item:hover {
+    background-color: #f1f5f9;
+}
+
+.tallerpro-search-result-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #0f172a;
+}
+
+.tallerpro-search-result-sub {
+    font-size: 12px;
+    color: #64748b;
 }
 
 /* Empty Card Container for Empty Views */
@@ -812,9 +1098,10 @@ a.tallerpro-nav-item.active {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 3px 10px;
-    background-color: #eff6ff;
-    color: #1d4ed8;
+    padding: 3px 12px;
+    background-color: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
     border-radius: 9999px;
     font-size: 12px;
     font-weight: 600;
@@ -824,12 +1111,13 @@ a.tallerpro-nav-item.active {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 3px 10px;
-    background-color: #fff7ed;
-    color: #c2410c;
+    padding: 3px 12px;
+    background-color: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fde68a;
     border-radius: 9999px;
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 500;
 }
 
 /* ==========================================================================
@@ -962,6 +1250,33 @@ a.tallerpro-nav-item.active {
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
     height: 38px !important;
     line-height: normal;
+}
+
+.tallerpro-form-input.tallerpro-input-readonly,
+.tallerpro-form-input[readonly] {
+    background-color: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #475569;
+    cursor: not-allowed;
+    user-select: none;
+    font-weight: 600;
+}
+
+.tallerpro-form-input.tallerpro-input-readonly:focus,
+.tallerpro-form-input[readonly]:focus {
+    border-color: #cbd5e1;
+    box-shadow: none;
+    outline: none;
+}
+
+.tallerpro-form-help-text {
+    font-size: 11.5px;
+    color: #64748b;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 3px;
+    font-weight: 500;
 }
 
 .tallerpro-form-select {
@@ -1567,7 +1882,8 @@ a.tallerpro-nav-item.active {
 
     /* Dimensiones generosas y correctas de botones de acción en tarjetas */
     .tallerpro-table tbody td .tallerpro-action-btn,
-    .tallerpro-table tbody td .tallerpro-btn-facturar-action {
+    .tallerpro-table tbody td .tallerpro-btn-facturar-action,
+    .tallerpro-table tbody td .tallerpro-btn-facturada-link {
         width: auto !important;
         min-width: 76px !important;
         height: 36px !important;
@@ -1589,7 +1905,8 @@ a.tallerpro-nav-item.active {
     }
 
     .tallerpro-table tbody td .tallerpro-action-btn svg,
-    .tallerpro-table tbody td .tallerpro-btn-facturar-action svg {
+    .tallerpro-table tbody td .tallerpro-btn-facturar-action svg,
+    .tallerpro-table tbody td .tallerpro-btn-facturada-link svg {
         width: 15px !important;
         height: 15px !important;
         min-width: 15px !important;
@@ -1613,7 +1930,8 @@ a.tallerpro-nav-item.active {
     }
 
     .tallerpro-table tbody td .tallerpro-action-btn .tallerpro-action-text,
-    .tallerpro-table tbody td .tallerpro-btn-facturar-action span {
+    .tallerpro-table tbody td .tallerpro-btn-facturar-action span,
+    .tallerpro-table tbody td .tallerpro-btn-facturada-link span {
         display: inline !important;
         font-size: 12.5px !important;
         font-weight: 600 !important;
@@ -1681,6 +1999,22 @@ a.tallerpro-nav-item.active {
         border-color: #86efac !important;
         color: #15803d !important;
         transform: translateY(-1px) !important;
+    }
+
+    /* Enlace Factura Emitida */
+    .tallerpro-table tbody td .tallerpro-btn-facturada-link {
+        background: #f8fafc !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #475569 !important;
+        text-decoration: none !important;
+    }
+
+    .tallerpro-table tbody td .tallerpro-btn-facturada-link:hover {
+        background: #f1f5f9 !important;
+        border-color: #94a3b8 !important;
+        color: #0f172a !important;
+        transform: translateY(-1px) !important;
+        text-decoration: none !important;
     }
 }
 
@@ -2681,22 +3015,23 @@ a.tallerpro-nav-item.active {
 
 .tallerpro-btn-edit-lines {
     background: #ffffff;
-    border: 1px solid #cbd5e1;
+    border: 1px solid #e2e8f0;
     border-radius: 8px;
-    padding: 8px 14px;
+    padding: 7px 14px;
     font-size: 13px;
-    font-weight: 600;
-    color: #334155;
+    font-weight: 500;
+    color: #0f172a;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 6px;
     transition: all 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .tallerpro-btn-edit-lines:hover {
     background: #f8fafc;
-    border-color: #94a3b8;
+    border-color: #cbd5e1;
     color: #0f172a;
 }
 
@@ -2709,7 +3044,7 @@ a.tallerpro-nav-item.active {
 
 .tallerpro-invoice-doc-label {
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: 0.06em;
     color: #64748b;
     display: flex;
@@ -2719,18 +3054,18 @@ a.tallerpro-nav-item.active {
 }
 
 .tallerpro-invoice-doc-num {
-    font-size: 32px;
-    font-weight: 800;
+    font-size: 26px;
+    font-weight: 700;
     color: #0f172a;
-    line-height: 1.1;
-    margin: 0;
-    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin: 3px 0 2px 0;
+    letter-spacing: -0.01em;
 }
 
 .tallerpro-invoice-doc-date {
     font-size: 13.5px;
     color: #64748b;
-    font-weight: 500;
+    font-weight: 400;
 }
 
 .tallerpro-invoice-cards-grid {
@@ -2743,37 +3078,64 @@ a.tallerpro-nav-item.active {
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 12px;
-    padding: 16px 20px;
+    padding: 20px 22px;
     display: flex;
     flex-direction: column;
     gap: 3px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .tallerpro-info-card-tag {
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 600;
     letter-spacing: 0.06em;
     color: #64748b;
     text-transform: uppercase;
-    margin-bottom: 2px;
+    margin-bottom: 4px;
 }
 
 .tallerpro-info-card-title {
     font-size: 16px;
     font-weight: 700;
     color: #0f172a;
+    margin-bottom: 4px;
 }
 
 .tallerpro-info-card-line {
     font-size: 13px;
-    color: #334155;
-    line-height: 1.4;
+    color: #64748b;
+    line-height: 1.5;
 }
 
 .tallerpro-info-card-sub {
     font-size: 12.5px;
     color: #64748b;
     margin-top: 2px;
+}
+
+.tallerpro-invoice-section-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.tallerpro-invoice-section-heading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: #0f172a;
+    margin-top: 2px;
+}
+
+.tallerpro-invoice-table-card {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
 .tallerpro-invoice-view-section {
@@ -2794,21 +3156,21 @@ a.tallerpro-nav-item.active {
     width: 100%;
     border-collapse: collapse;
     text-align: left;
-    margin-top: 4px;
+    margin-top: 0;
 }
 
 .tallerpro-invoice-table th {
-    background-color: transparent;
-    padding: 10px 12px;
-    font-size: 12px;
-    font-weight: 600;
+    background-color: #ffffff;
+    padding: 12px 18px;
+    font-size: 12.5px;
+    font-weight: 500;
     color: #64748b;
     border-bottom: 1px solid #e2e8f0;
     white-space: nowrap;
 }
 
 .tallerpro-invoice-table td {
-    padding: 12px 12px;
+    padding: 14px 18px;
     font-size: 13.5px;
     color: #334155;
     border-bottom: 1px solid #f1f5f9;
@@ -2820,40 +3182,113 @@ a.tallerpro-nav-item.active {
 }
 
 .tallerpro-invoice-table tr:hover td {
-    background-color: #f8fafc;
+    background-color: #fafbfd;
+}
+
+.tallerpro-invoice-totals-card-view {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 22px 28px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+    display: flex;
+    justify-content: flex-end;
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.tallerpro-totals-summary-box {
+    width: 320px;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+
+.tallerpro-totals-summary-box .tallerpro-totals-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13.5px;
+    color: #64748b;
+    width: 100%;
+}
+
+.tallerpro-totals-summary-box .tallerpro-totals-row span:first-child {
+    color: #64748b;
+    font-weight: 400;
+}
+
+.tallerpro-totals-summary-box .tallerpro-totals-row span:last-child {
+    color: #0f172a;
+    font-weight: 500;
+    text-align: right;
+}
+
+.tallerpro-totals-summary-box .tallerpro-totals-divider {
+    height: 1px;
+    background-color: #f1f5f9;
+    margin: 4px 0;
+    border: none;
+    width: 100%;
+}
+
+.tallerpro-totals-summary-box .tallerpro-totals-final {
+    margin-top: 3px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.tallerpro-totals-summary-box .tallerpro-totals-final span:first-child {
+    font-size: 15px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.tallerpro-totals-summary-box .tallerpro-totals-final span:last-child {
+    font-size: 16px;
+    font-weight: 700;
+    color: #0f172a;
+    text-align: right;
 }
 
 .tallerpro-badge-status-pagada {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 5px 14px;
-    background-color: #e0f2fe;
-    color: #0284c7;
+    padding: 4px 14px;
+    background-color: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
     border-radius: 9999px;
     font-size: 12px;
-    font-weight: 600;
-    line-height: 1.2;
+    font-weight: 500;
+    line-height: 1.3;
 }
 
 .tallerpro-badge-status-pendiente {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 5px 14px;
-    background-color: #fef3c7;
+    padding: 4px 14px;
+    background-color: #fffbeb;
     color: #b45309;
+    border: 1px solid #fde68a;
     border-radius: 9999px;
     font-size: 12px;
-    font-weight: 600;
-    line-height: 1.2;
+    font-weight: 500;
+    line-height: 1.3;
 }
 
 .tallerpro-btn-pdf {
     display: inline-flex;
     align-items: center;
     gap: 7px;
-    background-color: #0f3ba8;
+    background-color: #1d4ed8;
     color: #ffffff !important;
     font-size: 13px;
     font-weight: 600;
@@ -2862,14 +3297,14 @@ a.tallerpro-nav-item.active {
     border: none;
     cursor: pointer;
     text-decoration: none !important;
-    transition: background-color 0.15s ease, transform 0.1s ease;
-    box-shadow: 0 1px 2px rgba(15, 59, 168, 0.25);
+    transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+    box-shadow: 0 1px 2px rgba(29, 78, 216, 0.2);
 }
 
 .tallerpro-btn-pdf:hover {
-    background-color: #0d318e;
+    background-color: #1e40af;
     transform: translateY(-1px);
-    box-shadow: 0 4px 10px rgba(15, 59, 168, 0.35);
+    box-shadow: 0 4px 10px rgba(29, 78, 216, 0.3);
 }
 
 .tallerpro-invoice-modal-footer-actions {
@@ -3129,13 +3564,47 @@ a.tallerpro-nav-item.active {
     padding: 4px 10px;
     font-size: 12px;
     font-weight: 600;
-    cursor: default;
-    transition: background-color 0.15s ease;
+    cursor: pointer;
+    text-decoration: none;
+    transition: background-color 0.15s ease, border-color 0.15s ease;
     user-select: none;
 }
 
 .tallerpro-btn-facturar-action:hover {
     background-color: #d1fae5;
+    border-color: #6ee7b7;
+    color: #047857;
+    text-decoration: none;
+}
+
+/* Enlace a Factura Ya Emitida */
+.tallerpro-btn-facturada-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background-color: #f8fafc;
+    color: #475569;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.tallerpro-btn-facturada-link:hover {
+    background-color: #f1f5f9;
+    border-color: #94a3b8;
+    color: #0f172a;
+    text-decoration: none;
+}
+
+.tallerpro-btn-facturada-link svg {
+    color: #059669;
+    flex-shrink: 0;
 }
 
 /* Modal Orden de Reparacion */

@@ -252,6 +252,116 @@ if ($action == 'toggle_estado' || $action == 'update_estado') {
 	exit;
 }
 
+// Acción: Facturar Reparación (Convierte la orden de reparación en Factura oficial de Dolibarr)
+if ($action == 'facturar_reparacion' || $action == 'facturar') {
+	$rowid = GETPOSTINT('rowid');
+	if (empty($rowid) && !empty($_POST['rowid'])) {
+		$rowid = (int) $_POST['rowid'];
+	}
+	if ($rowid > 0) {
+		require_once DOL_DOCUMENT_ROOT . '/compta/facture/class/facture.class.php';
+
+		// 1. Obtener la reparación con su vehículo y cliente
+		$sql_r = "SELECT r.*, v.fk_soc, v.matricula, v.marca, v.modelo ";
+		$sql_r .= "FROM " . $table_reparacion . " as r ";
+		$sql_r .= "LEFT JOIN " . $table_vehiculo . " as v ON r.fk_vehiculo = v.rowid ";
+		$sql_r .= "WHERE r.rowid = " . ((int) $rowid);
+		$res_r = $db->query($sql_r);
+
+		if ($res_r && ($rep = $db->fetch_object($res_r))) {
+			// Si ya tiene factura asociada, redirigir a la vista de la factura
+			if (!empty($rep->ref_factura)) {
+				$sql_f_check = "SELECT rowid FROM " . MAIN_DB_PREFIX . "facture WHERE ref = '" . $db->escape($rep->ref_factura) . "' AND entity IN (" . getEntity('facture') . ")";
+				$res_f_check = $db->query($sql_f_check);
+				if ($res_f_check && ($f_exist = $db->fetch_object($res_f_check))) {
+					setEventMessages("Esta reparación ya tiene emitida la Factura " . $rep->ref_factura, null, 'mesgs');
+					header("Location: " . dol_buildpath('/taller/facturas.php', 1) . '?id=' . ((int) $f_exist->rowid));
+					exit;
+				}
+			}
+
+			if (empty($rep->fk_soc)) {
+				setEventMessages("El vehículo asociado a esta reparación no tiene ningún cliente asignado", null, 'errors');
+			} else {
+				$fac = new Facture($db);
+				$fac->socid = (int) $rep->fk_soc;
+				$fac->date = dol_now();
+				$fac->type = Facture::TYPE_STANDARD;
+				$ot_num = 'OT #' . str_pad($rep->rowid, 4, '0', STR_PAD_LEFT);
+				$fac->note_public = "Factura de reparación " . $ot_num . " (" . $rep->matricula . ")" . (!empty($rep->notas) ? "\n" . $rep->notas : "");
+				$fac->array_options['options_fk_vehiculo'] = (int) $rep->fk_vehiculo;
+
+				$fac_id = $fac->create($user);
+				if ($fac_id > 0) {
+					// Añadir línea de mano de obra / trabajo realizado
+					$desc_mo = !empty($rep->descripcion) ? $rep->descripcion : ("Mano de obra reparación " . $ot_num);
+					$coste_mo = (float) $rep->coste_mo;
+					if ($coste_mo <= 0) $coste_mo = 50.0;
+					$tva_tx = 21.0;
+					$fac->addline($desc_mo, $coste_mo, 1, $tva_tx, 0, 0, 0, 0, '', '', 0, 0, 0, 'HT', 0, 1);
+
+					// Validar factura (asigna numeración oficial definitiva y queda en estado Pendiente)
+					$fac->validate($user);
+
+					// Actualizar la reparación con la referencia de la factura y marcarla como finalizada
+					$db->query("UPDATE " . $table_reparacion . " SET ref_factura = '" . $db->escape($fac->ref) . "', estado = 'finalizada' WHERE rowid = " . ((int) $rowid));
+
+					setEventMessages("Factura " . $fac->ref . " emitida con éxito a partir de la reparación", null, 'mesgs');
+					header("Location: " . dol_buildpath('/taller/facturas.php', 1) . '?id=' . $fac_id);
+					exit;
+				} else {
+					setEventMessages("Error al generar la factura en Dolibarr: " . $fac->error . " " . implode(' ', $fac->errors), null, 'errors');
+				}
+			}
+		} else {
+			setEventMessages("No se encontró la reparación indicada", null, 'errors');
+		}
+	}
+}
+
+// Acción: Guardar cambios y Facturar desde el modal
+if ($action == 'save_and_facturar') {
+	$rowid = GETPOSTINT('rowid');
+	if (empty($rowid) && !empty($_POST['rowid'])) {
+		$rowid = (int) $_POST['rowid'];
+	}
+	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
+	if (empty($fk_vehiculo) && !empty($_POST['fk_vehiculo'])) {
+		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
+	}
+	$fecha = trim(GETPOST('fecha', 'alpha'));
+	if (empty($fecha) && !empty($_POST['fecha'])) $fecha = trim($_POST['fecha']);
+	if (empty($fecha)) $fecha = date('Y-m-d');
+
+	$descripcion = trim(GETPOST('descripcion', 'restricthtml'));
+	if (empty($descripcion) && !empty($_POST['descripcion'])) $descripcion = trim($_POST['descripcion']);
+
+	$coste_mo = GETPOSTFLOAT('coste_mo');
+	if ($coste_mo === null || $coste_mo === '') $coste_mo = isset($_POST['coste_mo']) ? (float) $_POST['coste_mo'] : 0;
+
+	$notas = trim(GETPOST('notas', 'restricthtml'));
+	if (empty($notas) && !empty($_POST['notas'])) $notas = trim($_POST['notas']);
+
+	if ($fk_vehiculo <= 0) {
+		setEventMessages("Debe seleccionar un vehículo para la reparación", null, 'errors');
+	} else {
+		$target_rep_id = 0;
+		if ($rowid > 0) {
+			$sql_upd = "UPDATE " . $table_reparacion . " SET fk_vehiculo = " . ((int)$fk_vehiculo) . ", fecha = '" . $db->escape($fecha) . "', descripcion = '" . $db->escape($descripcion) . "', coste_mo = " . ((float)$coste_mo) . ", estado = 'finalizada', notas = '" . $db->escape($notas) . "' WHERE rowid = " . ((int)$rowid);
+			$db->query($sql_upd);
+			$target_rep_id = $rowid;
+		} else {
+			$sql_ins = "INSERT INTO " . $table_reparacion . " (fk_vehiculo, fecha, descripcion, coste_mo, notas, estado, date_creation, fk_user_creat, entity, status) VALUES (";
+			$sql_ins .= ((int)$fk_vehiculo) . ", '" . $db->escape($fecha) . "', '" . $db->escape($descripcion) . "', " . ((float)$coste_mo) . ", '" . $db->escape($notas) . "', 'finalizada', '" . $db->idate(dol_now()) . "', " . ((int)$user->id) . ", " . ((int)$conf->entity) . ", 1)";
+			$db->query($sql_ins);
+			$target_rep_id = $db->last_insert_id($table_reparacion);
+		}
+
+		header("Location: " . $_SERVER['PHP_SELF'] . "?action=facturar_reparacion&rowid=" . $target_rep_id);
+		exit;
+	}
+}
+
 // Acción: Eliminar Reparación
 if ($action == 'delete_reparacion' || $action == 'delete') {
 	$rowid = GETPOSTINT('rowid');
@@ -582,8 +692,19 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 
 
 											<div class="tallerpro-actions">
-												<?php if ($is_finalizada): ?>
-													<button type="button"  id="btn_facturar" class="tallerpro-btn-facturar-action" title="Emitir Factura (sin funcionalidad)">
+												<?php if (!empty($rep->ref_factura)): ?>
+													<a href="<?php echo dol_buildpath('/taller/facturas.php', 1) . '?search_q=' . urlencode($rep->ref_factura); ?>" class="tallerpro-btn-facturada-link" title="Ver factura <?php echo dol_escape_htmltag($rep->ref_factura); ?>">
+														<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+															<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+															<polyline points="14 2 14 8 20 8"></polyline>
+														</svg>
+														<span><?php echo dol_escape_htmltag($rep->ref_factura); ?></span>
+													</a>
+												<?php elseif ($is_finalizada): ?>
+													<a href="<?php echo $_SERVER['PHP_SELF']; ?>?action=facturar_reparacion&rowid=<?php echo (int) $rep->rowid; ?>&token=<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : (function_exists('newToken') ? newToken() : ''))); ?>"
+														class="tallerpro-btn-facturar-action"
+														title="Emitir Factura oficial de esta reparación"
+														onclick="return confirm('¿Deseas generar la factura oficial de Dolibarr para esta reparación?');">
 														<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 															<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
 															<polyline points="14 2 14 8 20 8"></polyline>
@@ -592,7 +713,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															<polyline points="10 9 9 9 8 9"></polyline>
 														</svg>
 														<span>Facturar</span>
-													</button>
+													</a>
 												<?php endif; ?>
 												<button type="button" class="tallerpro-action-btn btn-edit-reparacion" title="Editar reparación"
 													data-id="<?php echo (int) $rep->rowid; ?>"
@@ -1006,7 +1127,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 
 				<!-- Modal Footer: Dual actions -->
 				<div class="tallerpro-order-footer-dual">
-					<button type="button" class="tallerpro-btn-emitir-factura" title="Emitir Factura Ahora (sin funcionalidad)">
+					<button type="button" class="tallerpro-btn-emitir-factura" id="btnModalEmitirFactura" title="Emitir Factura oficial de esta reparación">
 						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 							<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
 							<polyline points="14 2 14 8 20 8"></polyline>

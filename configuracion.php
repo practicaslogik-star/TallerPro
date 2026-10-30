@@ -63,19 +63,35 @@ if (!isModEnabled('taller')) {
 	accessforbidden('Module not enabled');
 }
 
+require_once DOL_DOCUMENT_ROOT . '/core/lib/security.lib.php';
+
 $action = GETPOST('action', 'aZ09');
 
 // Guardar datos editados del taller
 if ($action == 'update_settings') {
 	$nombre = trim(GETPOST('taller_nombre', 'alphanohtml'));
+	$cif = trim(GETPOST('taller_cif', 'alphanohtml'));
 	$email = trim(GETPOST('taller_email', 'alphanohtml'));
 	$telefono = trim(GETPOST('taller_telefono', 'alphanohtml'));
 	$direccion = trim(GETPOST('taller_direccion', 'alphanohtml'));
+	$poblacion = trim(GETPOST('taller_poblacion', 'alphanohtml'));
+	$iban = trim(GETPOST('taller_iban', 'alphanohtml'));
 
 	dolibarr_set_const($db, 'TALLER_NOMBRE_COMERCIAL', $nombre, 'chaine', 0, '', $conf->entity);
+	dolibarr_set_const($db, 'TALLER_CIF', $cif, 'chaine', 0, '', $conf->entity);
 	dolibarr_set_const($db, 'TALLER_EMAIL', $email, 'chaine', 0, '', $conf->entity);
 	dolibarr_set_const($db, 'TALLER_TELEFONO', $telefono, 'chaine', 0, '', $conf->entity);
 	dolibarr_set_const($db, 'TALLER_DIRECCION', $direccion, 'chaine', 0, '', $conf->entity);
+	dolibarr_set_const($db, 'TALLER_POBLACION', $poblacion, 'chaine', 0, '', $conf->entity);
+
+	// Cifrado simétrico seguro para el IBAN bancario (OpenSSL con clave de instancia)
+	if (!empty($iban)) {
+		$iban_clean = strtoupper(str_replace(' ', '', $iban));
+		$iban_cifrado = dolEncrypt($iban_clean);
+		dolibarr_set_const($db, 'TALLER_IBAN', $iban_cifrado, 'chaine', 0, '', $conf->entity);
+	} else {
+		dolibarr_del_const($db, 'TALLER_IBAN', $conf->entity);
+	}
 
 	setEventMessages("Datos del taller actualizados correctamente", null, 'mesgs');
 	header("Location: " . $_SERVER['PHP_SELF']);
@@ -84,9 +100,20 @@ if ($action == 'update_settings') {
 
 // Cargar datos: primero de las constantes de TallerPro, o fallback a los datos generales de Dolibarr ($mysoc)
 $taller_nombre = !empty($conf->global->TALLER_NOMBRE_COMERCIAL) ? $conf->global->TALLER_NOMBRE_COMERCIAL : (!empty($mysoc->name) ? $mysoc->name : 'TallerPro');
+$taller_cif = !empty($conf->global->TALLER_CIF) ? $conf->global->TALLER_CIF : (!empty($mysoc->idprof1) ? $mysoc->idprof1 : (!empty($mysoc->tva_intra) ? $mysoc->tva_intra : ''));
 $taller_email = !empty($conf->global->TALLER_EMAIL) ? $conf->global->TALLER_EMAIL : (!empty($mysoc->email) ? $mysoc->email : '');
 $taller_telefono = !empty($conf->global->TALLER_TELEFONO) ? $conf->global->TALLER_TELEFONO : (!empty($mysoc->phone) ? $mysoc->phone : '');
 $taller_direccion = !empty($conf->global->TALLER_DIRECCION) ? $conf->global->TALLER_DIRECCION : (!empty($mysoc->address) ? $mysoc->address : '');
+$taller_poblacion = !empty($conf->global->TALLER_POBLACION) ? $conf->global->TALLER_POBLACION : ((!empty($mysoc->zip) ? $mysoc->zip . ' ' : '') . (!empty($mysoc->town) ? $mysoc->town : ''));
+
+// Descifrar IBAN para visualización en el formulario
+$taller_iban = '';
+if (!empty($conf->global->TALLER_IBAN)) {
+	$raw_iban = dolDecrypt($conf->global->TALLER_IBAN);
+	if (!empty($raw_iban)) {
+		$taller_iban = trim(chunk_split($raw_iban, 4, ' '));
+	}
+}
 
 // Rutas
 $css_file = __DIR__ . '/css/tallerpro.css';
@@ -293,23 +320,50 @@ $configuracion_url = dol_buildpath('/taller/configuracion.php', 1);
 						</div>
 
 						<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; gap: 20px;">
-							<label style="font-size: 14px; color: #64748b; min-width: 120px;">Nombre</label>
+							<label style="font-size: 14px; color: #64748b; min-width: 140px;">Nombre comercial</label>
 							<input type="text" name="taller_nombre" class="tallerpro-form-input" style="max-width: 450px;" value="<?php echo dol_escape_htmltag($taller_nombre); ?>" placeholder="Nombre comercial de tu taller" required />
 						</div>
 
 						<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; gap: 20px;">
-							<label style="font-size: 14px; color: #64748b; min-width: 120px;">Email</label>
+							<label style="font-size: 14px; color: #64748b; min-width: 140px;">CIF / NIF</label>
+							<input type="text" name="taller_cif" class="tallerpro-form-input" style="max-width: 450px;" value="<?php echo dol_escape_htmltag($taller_cif); ?>" placeholder="Ej: B-12345678" />
+						</div>
+
+						<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; gap: 20px;">
+							<label style="font-size: 14px; color: #64748b; min-width: 140px;">Email</label>
 							<input type="email" name="taller_email" class="tallerpro-form-input" style="max-width: 450px;" value="<?php echo dol_escape_htmltag($taller_email); ?>" placeholder="taller@ejemplo.com" />
 						</div>
 
 						<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; gap: 20px;">
-							<label style="font-size: 14px; color: #64748b; min-width: 120px;">Teléfono</label>
+							<label style="font-size: 14px; color: #64748b; min-width: 140px;">Teléfono</label>
 							<input type="text" name="taller_telefono" class="tallerpro-form-input" style="max-width: 450px;" value="<?php echo dol_escape_htmltag($taller_telefono); ?>" placeholder="Teléfono del taller" />
 						</div>
 
 						<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; gap: 20px;">
-							<label style="font-size: 14px; color: #64748b; min-width: 120px;">Dirección</label>
-							<input type="text" name="taller_direccion" class="tallerpro-form-input" style="max-width: 450px;" value="<?php echo dol_escape_htmltag($taller_direccion); ?>" placeholder="Calle, número, código postal y ciudad" />
+							<label style="font-size: 14px; color: #64748b; min-width: 140px;">Dirección</label>
+							<input type="text" name="taller_direccion" class="tallerpro-form-input" style="max-width: 450px;" value="<?php echo dol_escape_htmltag($taller_direccion); ?>" placeholder="Calle, número, polígono..." />
+						</div>
+
+						<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; gap: 20px;">
+							<label style="font-size: 14px; color: #64748b; min-width: 140px;">CP y Ciudad</label>
+							<input type="text" name="taller_poblacion" class="tallerpro-form-input" style="max-width: 450px;" value="<?php echo dol_escape_htmltag($taller_poblacion); ?>" placeholder="Ej: 28001 Madrid" />
+						</div>
+
+						<div style="display: flex; justify-content: space-between; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid #f1f5f9; gap: 20px;">
+							<div>
+								<label style="font-size: 14px; color: #64748b; display: block; margin-bottom: 4px;">IBAN Bancario (Opcional)</label>
+								<span style="display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: #059669; background: #ecfdf5; padding: 2px 8px; border-radius: 4px; border: 1px solid #a7f3d0;">
+									<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+										<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+										<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+									</svg>
+									Cifrado seguro en BD
+								</span>
+							</div>
+							<div style="width: 100%; max-width: 450px;">
+								<input type="text" name="taller_iban" class="tallerpro-form-input" style="font-family: monospace; letter-spacing: 0.05em;" value="<?php echo dol_escape_htmltag($taller_iban); ?>" placeholder="ES00 0000 0000 0000 0000 0000" />
+								<span style="font-size: 11.5px; color: #94a3b8; margin-top: 4px; display: block;">Se imprimirá en las facturas pendientes como cuenta de destino para transferencias.</span>
+							</div>
 						</div>
 
 						<div style="margin-top: 20px; display: flex; justify-content: flex-end;">
