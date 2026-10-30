@@ -146,7 +146,7 @@ class modTaller extends DolibarrModules
 		// A condition to hide module
 		$this->hidden = getDolGlobalInt('MODULE_TALLER_DISABLED'); // A condition to disable module;
 		// List of module class names that must be enabled if this module is enabled. Example: array('always'=>array('modModuleToEnable1','modModuleToEnable2'), 'FR'=>array('modModuleToEnableFR')...)
-		$this->depends = array();
+		$this->depends = array('modFacture', 'modSociete');
 		// List of module class names to disable if this one is disabled. Example: array('modModuleToDisable1', ...)
 		$this->requiredby = array();
 		// List of module class names this module is in conflict with. Example: array('modModuleToDisable1', ...)
@@ -457,14 +457,9 @@ class modTaller extends DolibarrModules
 		}
 
 		// Create extrafields during init
-		//include_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
-		//$extrafields = new ExtraFields($this->db);
-		//$result0=$extrafields->addExtraField('taller_separator1', "Separator 1", 'separator', 1,  0, 'thirdparty',   0, 0, '', array('options'=>array(1=>1)), 1, '', 1, 0, '', '', 'taller@taller', 'isModEnabled("taller")');
-		//$result1=$extrafields->addExtraField('taller_myattr1', "New Attr 1 label", 'boolean', 1,  3, 'thirdparty',   0, 0, '', '', 1, '', -1, 0, '', '', 'taller@taller', 'isModEnabled("taller")');
-		//$result2=$extrafields->addExtraField('taller_myattr2', "New Attr 2 label", 'varchar', 1, 10, 'project',      0, 0, '', '', 1, '', -1, 0, '', '', 'taller@taller', 'isModEnabled("taller")');
-		//$result3=$extrafields->addExtraField('taller_myattr3', "New Attr 3 label", 'varchar', 1, 10, 'bank_account', 0, 0, '', '', 1, '', -1, 0, '', '', 'taller@taller', 'isModEnabled("taller")');
-		//$result4=$extrafields->addExtraField('taller_myattr4', "New Attr 4 label", 'select',  1,  3, 'thirdparty',   0, 1, '', array('options'=>array('code1'=>'Val1','code2'=>'Val2','code3'=>'Val3')), 1,'', -1, 0, '', '', 'taller@taller', 'isModEnabled("taller")');
-		//$result5=$extrafields->addExtraField('taller_myattr5', "New Attr 5 label", 'text',    1, 10, 'user',         0, 0, '', '', 1, '', -1, 0, '', '', 'taller@taller', 'isModEnabled("taller")');
+		include_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
+		$extrafields = new ExtraFields($this->db);
+		$extrafields->addExtraField('fk_vehiculo', "Vehículo Taller", 'link', 1, '', 'facture', 0, 0, '', array('options'=>array('taller_vehiculo:matricula:rowid::status=1')), 1, '', -1, 0, '', '', 'taller@taller', 'isModEnabled("taller")');
 
 		// Permissions
 		$this->remove($options);

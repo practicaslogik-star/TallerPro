@@ -67,138 +67,27 @@ if (!isModEnabled('taller')) {
 	accessforbidden('Module not enabled');
 }
 
-$table_factura = MAIN_DB_PREFIX . "taller_factura";
+require_once DOL_DOCUMENT_ROOT . '/core/lib/date.lib.php';
+require_once DOL_DOCUMENT_ROOT . '/compta/facture/class/facture.class.php';
+require_once DOL_DOCUMENT_ROOT . '/core/class/extrafields.class.php';
+
 $table_vehiculo = MAIN_DB_PREFIX . "taller_vehiculo";
 $table_soc = MAIN_DB_PREFIX . "societe";
-$table_linea = MAIN_DB_PREFIX . "taller_factura_linea";
 
-// Ensure tables exist
-$sql_create = "CREATE TABLE IF NOT EXISTS " . $table_factura . " (
-    rowid           INT AUTO_INCREMENT PRIMARY KEY,
-    numero_factura  VARCHAR(64) NOT NULL,
-    fecha           DATE DEFAULT NULL,
-    fk_soc          INT DEFAULT NULL,
-    fk_vehiculo     INT DEFAULT NULL,
-    total           DECIMAL(10,2) NOT NULL DEFAULT 0.00,
-    descuento_global DECIMAL(10,2) DEFAULT 0.00,
-    iva_porcentaje  DECIMAL(5,2) DEFAULT 21.00,
-    estado          VARCHAR(32) DEFAULT 'Pendiente',
-    notas           TEXT DEFAULT NULL,
-    date_creation   DATETIME NOT NULL,
-    tms             TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    fk_user_creat   INT NOT NULL,
-    entity          INT DEFAULT 1,
-    status          SMALLINT DEFAULT 1,
-    INDEX idx_taller_factura_soc (fk_soc),
-    INDEX idx_taller_factura_vehiculo (fk_vehiculo),
-    INDEX idx_taller_factura_num (numero_factura)
-) ENGINE=innodb;";
-$db->query($sql_create);
-
-$sql_create_linea = "CREATE TABLE IF NOT EXISTS " . $table_linea . " (
-    rowid           INT AUTO_INCREMENT PRIMARY KEY,
-    fk_factura      INT NOT NULL,
-    tipo            VARCHAR(32) NOT NULL,
-    fk_material     INT DEFAULT NULL,
-    codigo          VARCHAR(64) DEFAULT NULL,
-    descripcion     VARCHAR(255) NOT NULL,
-    cantidad        DECIMAL(10,2) DEFAULT 1.00,
-    precio          DECIMAL(10,2) DEFAULT 0.00,
-    descuento       DECIMAL(5,2) DEFAULT 0.00,
-    total_neto      DECIMAL(10,2) DEFAULT 0.00,
-    notas           TEXT DEFAULT NULL,
-    date_creation   DATETIME NOT NULL,
-    entity          INT DEFAULT 1,
-    INDEX idx_taller_fac_linea_fac (fk_factura),
-    INDEX idx_taller_fac_linea_tipo (tipo)
-) ENGINE=innodb;";
-$db->query($sql_create_linea);
-
-// Seed sample invoices if empty
-$sql_check_empty = "SELECT COUNT(*) as nb FROM " . $table_factura;
-$res_ce = $db->query($sql_check_empty);
-if ($res_ce) {
-	$obj_ce = $db->fetch_object($res_ce);
-	if ($obj_ce && $obj_ce->nb == 0) {
-		$first_soc_id = 0;
-		$res_fs = $db->query("SELECT rowid FROM " . $table_soc . " LIMIT 1");
-		if ($res_fs && ($fs = $db->fetch_object($res_fs))) {
-			$first_soc_id = (int)$fs->rowid;
-		}
-		$first_veh_id = 0;
-		$res_fv = $db->query("SELECT rowid FROM " . $table_vehiculo . " LIMIT 1");
-		if ($res_fv && ($fv = $db->fetch_object($res_fv))) {
-			$first_veh_id = (int)$fv->rowid;
-		}
-
-		$seed_data = array(
-			array('numero' => '127', 'fecha' => '2026-10-28', 'total' => 0.00, 'estado' => 'Pagada'),
-			array('numero' => '123', 'fecha' => '2026-10-27', 'total' => 0.00, 'estado' => 'Pendiente'),
-			array('numero' => '0177/25', 'fecha' => '2025-01-28', 'total' => 773.44, 'estado' => 'Pagada'),
-			array('numero' => '0162/24', 'fecha' => '2024-05-09', 'total' => 844.58, 'estado' => 'Pagada'),
-			array('numero' => '0161/24', 'fecha' => '2024-05-08', 'total' => 98.01, 'estado' => 'Pagada'),
-			array('numero' => '0159/24', 'fecha' => '2024-04-25', 'total' => 318.23, 'estado' => 'Pagada'),
-			array('numero' => '0157/24', 'fecha' => '2024-04-23', 'total' => 199.88, 'estado' => 'Pagada'),
-			array('numero' => '0160/24', 'fecha' => '2024-04-29', 'total' => 578.38, 'estado' => 'Pagada')
-		);
-		foreach ($seed_data as $sd) {
-			$sql_seed = "INSERT INTO " . $table_factura . " (numero_factura, fecha, fk_soc, fk_vehiculo, total, estado, date_creation, fk_user_creat, entity, status) VALUES (";
-			$sql_seed .= "'" . $db->escape($sd['numero']) . "', ";
-			$sql_seed .= "'" . $db->escape($sd['fecha']) . "', ";
-			$sql_seed .= ($first_soc_id > 0 ? $first_soc_id : "NULL") . ", ";
-			$sql_seed .= ($first_veh_id > 0 ? $first_veh_id : "NULL") . ", ";
-			$sql_seed .= ((float) $sd['total']) . ", ";
-			$sql_seed .= "'" . $db->escape($sd['estado']) . "', ";
-			$sql_seed .= "'" . $db->idate(dol_now()) . "', ";
-			$sql_seed .= ((int) $user->id) . ", ";
-			$sql_seed .= ((int) $conf->entity) . ", 1)";
-			$db->query($sql_seed);
-		}
-	}
+// Ensure extrafield fk_vehiculo exists on facture_extrafields
+$sql_ef_check = "SHOW COLUMNS FROM " . MAIN_DB_PREFIX . "facture_extrafields LIKE 'fk_vehiculo'";
+$res_ef_check = $db->query($sql_ef_check);
+if ($res_ef_check && $db->num_rows($res_ef_check) == 0) {
+	$db->query("ALTER TABLE " . MAIN_DB_PREFIX . "facture_extrafields ADD COLUMN fk_vehiculo INT DEFAULT NULL");
 }
 
-// Función para obtener el siguiente número correlativo de factura (Formato anual NNNN/YY, ej: 0001/26)
+// Función para obtener la siguiente referencia prevista de factura en Dolibarr
 if (!function_exists('getNextFacturaNumero')) {
 	function getNextFacturaNumero($db, $year_or_date = '', $entity = 1) {
-		$table_factura = MAIN_DB_PREFIX . "taller_factura";
-
-		if (empty($year_or_date)) {
-			$year_or_date = date('Y-m-d');
-		}
-
-		if (preg_match('/^(\d{4})/', $year_or_date, $m)) {
-			$year_2d = substr($m[1], -2);
-		} elseif (is_numeric($year_or_date) && strlen($year_or_date) == 2) {
-			$year_2d = sprintf('%02d', (int) $year_or_date);
-		} else {
-			$year_2d = date('y');
-		}
-
-		$suffix = '/' . $year_2d;
-		$entity_filter = ($entity > 0) ? " AND entity IN (" . ((int) $entity) . ")" : "";
-
-		// Consultar el registro con el número más alto en ese año para esa entidad
-		$sql = "SELECT numero_factura FROM " . $table_factura . " ";
-		$sql .= "WHERE 1=1 " . $entity_filter . " ";
-		$sql .= "AND numero_factura LIKE '%" . $db->escape($suffix) . "' ";
-		$sql .= "ORDER BY rowid DESC";
-
-		$max_num = 0;
-		$resql = $db->query($sql);
-		if ($resql) {
-			while ($obj = $db->fetch_object($resql)) {
-				$num_str = trim($obj->numero_factura);
-				if (preg_match('/^(\d+)\/' . preg_quote($year_2d, '/') . '$/', $num_str, $matches)) {
-					$val = (int) $matches[1];
-					if ($val > $max_num) {
-						$max_num = $val;
-					}
-				}
-			}
-		}
-
-		$next_seq = $max_num + 1;
-		return sprintf('%04d/%s', $next_seq, $year_2d);
+		global $mysoc;
+		$fac_static = new Facture($db);
+		$next = $fac_static->getNextNumRef($mysoc);
+		return !empty($next) ? $next : '(PROV)';
 	}
 }
 
@@ -209,20 +98,13 @@ if (empty($action) && !empty($_POST['action'])) {
 
 // AJAX: Obtener siguiente número de factura automático
 if ($action == 'get_next_factura_numero') {
-	$fecha = trim(GETPOST('fecha', 'alpha'));
-	if (empty($fecha) && !empty($_GET['fecha'])) {
-		$fecha = trim($_GET['fecha']);
-	}
-	if (empty($fecha)) {
-		$fecha = date('Y-m-d');
-	}
-	$next_num = getNextFacturaNumero($db, $fecha, $conf->entity);
+	$next_num = getNextFacturaNumero($db);
 	header('Content-Type: application/json');
 	echo json_encode(array('status' => 'ok', 'numero' => $next_num));
 	exit;
 }
 
-// Acción: Crear Factura
+// Acción: Crear Factura Nativa en Dolibarr
 if ($action == 'create_factura' || $action == 'add_factura') {
 	$fecha = trim(GETPOST('fecha', 'alpha'));
 	if (empty($fecha) && !empty($_POST['fecha'])) {
@@ -232,8 +114,11 @@ if ($action == 'create_factura' || $action == 'add_factura') {
 		$fecha = date('Y-m-d');
 	}
 
-	// El código se genera automáticamente y no puede ser alterado por el usuario
-	$numero_factura = getNextFacturaNumero($db, $fecha, $conf->entity);
+	$total_raw = GETPOST('total', 'alpha');
+	if ($total_raw === '' && isset($_POST['total'])) {
+		$total_raw = $_POST['total'];
+	}
+	$total = (float) str_replace(',', '.', $total_raw);
 
 	$fk_soc = GETPOSTINT('fk_soc');
 	if (empty($fk_soc) && !empty($_POST['fk_soc'])) {
@@ -245,18 +130,12 @@ if ($action == 'create_factura' || $action == 'add_factura') {
 		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
 	}
 
-	$total_raw = trim(GETPOST('total', 'alpha'));
-	if (empty($total_raw) && isset($_POST['total'])) {
-		$total_raw = trim($_POST['total']);
-	}
-	$total = (float) str_replace(',', '.', $total_raw);
-
 	$estado = trim(GETPOST('estado', 'alphanohtml'));
 	if (empty($estado) && !empty($_POST['estado'])) {
 		$estado = trim($_POST['estado']);
 	}
 	if (empty($estado)) {
-		$estado = 'Pendiente';
+		$estado = 'Borrador';
 	}
 
 	$notas = trim(GETPOST('notas', 'restricthtml'));
@@ -264,29 +143,35 @@ if ($action == 'create_factura' || $action == 'add_factura') {
 		$notas = trim($_POST['notas']);
 	}
 
-	$sql_insert = "INSERT INTO " . $table_factura . " (";
-	$sql_insert .= "numero_factura, fecha, fk_soc, fk_vehiculo, total, estado, notas, date_creation, fk_user_creat, entity, status";
-	$sql_insert .= ") VALUES (";
-	$sql_insert .= "'" . $db->escape($numero_factura) . "', ";
-	$sql_insert .= (!empty($fecha) ? "'" . $db->escape($fecha) . "'" : "NULL") . ", ";
-	$sql_insert .= ($fk_soc > 0 ? ((int) $fk_soc) : "NULL") . ", ";
-	$sql_insert .= ($fk_vehiculo > 0 ? ((int) $fk_vehiculo) : "NULL") . ", ";
-	$sql_insert .= ((float) $total) . ", ";
-	$sql_insert .= "'" . $db->escape($estado) . "', ";
-	$sql_insert .= "'" . $db->escape($notas) . "', ";
-	$sql_insert .= "'" . $db->idate(dol_now()) . "', ";
-	$sql_insert .= ((int) $user->id) . ", ";
-	$sql_insert .= ((int) $conf->entity) . ", ";
-	$sql_insert .= "1";
-	$sql_insert .= ")";
-
-	$resql = $db->query($sql_insert);
-	if ($resql) {
-		setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
-		header("Location: " . $_SERVER['PHP_SELF']);
-		exit;
+	if ($fk_soc <= 0) {
+		setEventMessages("Debe seleccionar un cliente para emitir la factura", null, 'errors');
 	} else {
-		setEventMessages("Error al guardar la factura: " . $db->lasterror(), null, 'errors');
+		$fac = new Facture($db);
+		$fac->socid = (int) $fk_soc;
+		$fac->date = !empty($fecha) ? dol_stringtotime($fecha) : dol_now();
+		$fac->type = Facture::TYPE_STANDARD;
+		$fac->note_public = $notas;
+		$fac->array_options['options_fk_vehiculo'] = ($fk_vehiculo > 0 ? (int) $fk_vehiculo : null);
+
+		$fac_id = $fac->create($user);
+		if ($fac_id > 0) {
+			if ($total > 0) {
+				$tva_tx = 21.0;
+				$subprice = round($total / (1 + ($tva_tx / 100)), 2);
+				$fac->addline("Servicios de taller", $subprice, 1, $tva_tx, 0, 0, 0, 0, '', '', 0, 0, 0, 'HT', 0, 1);
+			}
+			if ($estado == 'Validada' || $estado == 'Pendiente' || $estado == 'Pagada') {
+				$fac->validate($user);
+			}
+			if ($estado == 'Pagada') {
+				$fac->setPaid($user);
+			}
+			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
+			header("Location: " . $_SERVER['PHP_SELF'] . '?id=' . $fac_id);
+			exit;
+		} else {
+			setEventMessages("Error al crear la factura: " . $fac->error . " " . implode(' ', $fac->errors), null, 'errors');
+		}
 	}
 }
 
@@ -312,18 +197,9 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
 	}
 
-	$total_raw = trim(GETPOST('total', 'alpha'));
-	if (empty($total_raw) && isset($_POST['total'])) {
-		$total_raw = trim($_POST['total']);
-	}
-	$total = (float) str_replace(',', '.', $total_raw);
-
 	$estado = trim(GETPOST('estado', 'alphanohtml'));
 	if (empty($estado) && !empty($_POST['estado'])) {
 		$estado = trim($_POST['estado']);
-	}
-	if (empty($estado)) {
-		$estado = 'Pendiente';
 	}
 
 	$notas = trim(GETPOST('notas', 'restricthtml'));
@@ -334,77 +210,48 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 	if ($rowid <= 0) {
 		setEventMessages("Identificador de factura no válido", null, 'errors');
 	} else {
-		$sql_update = "UPDATE " . $table_factura . " SET ";
-		// El número de factura es inmutable por el usuario
-		$sql_update .= "fecha = " . (!empty($fecha) ? "'" . $db->escape($fecha) . "'" : "NULL") . ", ";
-		$sql_update .= "fk_soc = " . ($fk_soc > 0 ? ((int) $fk_soc) : "NULL") . ", ";
-		$sql_update .= "fk_vehiculo = " . ($fk_vehiculo > 0 ? ((int) $fk_vehiculo) : "NULL") . ", ";
-		$sql_update .= "total = " . ((float) $total) . ", ";
-		$sql_update .= "estado = '" . $db->escape($estado) . "', ";
-		$sql_update .= "notas = '" . $db->escape($notas) . "' ";
-		$sql_update .= "WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_factura') . ")";
+		$fac = new Facture($db);
+		if ($fac->fetch($rowid) > 0) {
+			if (!empty($fk_soc)) $fac->socid = $fk_soc;
+			if (!empty($fecha)) $fac->date = dol_stringtotime($fecha);
+			$fac->note_public = $notas;
+			$fac->array_options['options_fk_vehiculo'] = ($fk_vehiculo > 0 ? (int) $fk_vehiculo : null);
 
-		$resql = $db->query($sql_update);
-		if ($resql) {
-			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
-			header("Location: " . $_SERVER['PHP_SELF']);
-			exit;
+			$res = $fac->update($user);
+			if ($res >= 0) {
+				if (($estado == 'Validada' || $estado == 'Pendiente' || $estado == 'Pagada') && $fac->statut == Facture::STATUS_DRAFT) {
+					$fac->validate($user);
+				}
+				if ($estado == 'Pagada' && $fac->paye == 0) {
+					$fac->setPaid($user);
+				}
+				setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
+				header("Location: " . $_SERVER['PHP_SELF'] . '?id=' . $rowid);
+				exit;
+			} else {
+				setEventMessages("Error al actualizar la factura: " . $fac->error, null, 'errors');
+			}
 		} else {
-			setEventMessages("Error al actualizar la factura: " . $db->lasterror(), null, 'errors');
+			setEventMessages("No se encontró la factura a modificar", null, 'errors');
 		}
 	}
 }
 
-// Acción: Eliminar Factura (borrado lógico papelera interna)
+// Acción: Eliminar Factura
 if ($action == 'delete_factura' || $action == 'delete') {
 	$rowid = GETPOSTINT('rowid');
 	if ($rowid > 0) {
-		$sql_del = "UPDATE " . $table_factura . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_factura') . ")";
-		$resql = $db->query($sql_del);
-		if ($resql) {
-			setEventMessages($langs->trans("RecordDeleted"), null, 'mesgs');
-			header("Location: " . $_SERVER['PHP_SELF']);
-			exit;
-		} else {
-			setEventMessages("Error al eliminar la factura: " . $db->lasterror(), null, 'errors');
-		}
-	}
-}
-
-// Función para recalcular totales de la factura a partir de sus líneas
-if (!function_exists('recalcFacturaTotal')) {
-	function recalcFacturaTotal($db, $fk_factura) {
-		$table_linea = MAIN_DB_PREFIX . "taller_factura_linea";
-		$table_factura = MAIN_DB_PREFIX . "taller_factura";
-
-		$tot_mat = 0.0;
-		$tot_rep = 0.0;
-		$res_lines = $db->query("SELECT tipo, total_neto FROM " . $table_linea . " WHERE fk_factura = " . ((int) $fk_factura));
-		if ($res_lines) {
-			while ($l = $db->fetch_object($res_lines)) {
-				if ($l->tipo == 'material') {
-					$tot_mat += (float) $l->total_neto;
-				} else {
-					$tot_rep += (float) $l->total_neto;
-				}
+		$fac = new Facture($db);
+		if ($fac->fetch($rowid) > 0) {
+			$res = $fac->delete($user);
+			if ($res > 0) {
+				setEventMessages($langs->trans("RecordDeleted"), null, 'mesgs');
+				header("Location: " . $_SERVER['PHP_SELF']);
+				exit;
+			} else {
+				setEventMessages("Error al eliminar la factura: " . $fac->error, null, 'errors');
 			}
 		}
-
-		$res_fac = $db->query("SELECT descuento_global, iva_porcentaje FROM " . $table_factura . " WHERE rowid = " . ((int) $fk_factura));
-		$desc = 0.0;
-		$iva = 21.0;
-		if ($res_fac && ($fac_obj = $db->fetch_object($res_fac))) {
-			$desc = (float) $fac_obj->descuento_global;
-			$iva = (float) $fac_obj->iva_porcentaje;
-		}
-
-		$subtotal = $tot_mat + $tot_rep;
-		$base = max(0, $subtotal - $desc);
-		$total_iva = $base * ($iva / 100);
-		$total_final = $base + $total_iva;
-
-		$db->query("UPDATE " . $table_factura . " SET total = " . ((float) $total_final) . " WHERE rowid = " . ((int) $fk_factura));
-		return $total_final;
 	}
 }
 
@@ -431,19 +278,38 @@ if ($action == 'get_factura_lineas') {
 	$fk_factura = GETPOSTINT('fk_factura');
 	$out = array('materiales' => array(), 'reparaciones' => array(), 'factura' => null);
 	if ($fk_factura > 0) {
-		$res_fac = $db->query("SELECT rowid, numero_factura, total, descuento_global, iva_porcentaje, estado FROM " . $table_factura . " WHERE rowid = " . ((int) $fk_factura));
-		if ($res_fac && ($fac_obj = $db->fetch_object($res_fac))) {
-			$out['factura'] = $fac_obj;
-		}
+		$fac = new Facture($db);
+		if ($fac->fetch($fk_factura) > 0) {
+			$fac->fetch_lines();
+			$estado_label = ($fac->statut == Facture::STATUS_DRAFT ? 'Borrador' : ($fac->paye == 1 || $fac->statut == Facture::STATUS_CLOSED ? 'Pagada' : ($fac->statut == Facture::STATUS_ABANDONED ? 'Anulada' : 'Validada')));
+			$out['factura'] = (object) array(
+				'rowid' => (int) $fac->id,
+				'numero_factura' => $fac->ref,
+				'total' => (float) $fac->total_ttc,
+				'total_ht' => (float) $fac->total_ht,
+				'total_tva' => (float) $fac->total_tva,
+				'descuento_global' => (float) $fac->remise_percent,
+				'iva_porcentaje' => 21.0,
+				'estado' => $estado_label
+			);
 
-		$sql_lines = "SELECT rowid, tipo, fk_material, codigo, descripcion, cantidad, precio, descuento, total_neto, notas FROM " . $table_linea . " WHERE fk_factura = " . ((int) $fk_factura) . " ORDER BY rowid ASC";
-		$res_lines = $db->query($sql_lines);
-		if ($res_lines) {
-			while ($l = $db->fetch_object($res_lines)) {
-				if ($l->tipo == 'material') {
-					$out['materiales'][] = $l;
+			foreach ($fac->lines as $line) {
+				$item = array(
+					'rowid' => (int) $line->id,
+					'tipo' => ($line->product_type == 1 ? 'reparacion' : 'material'),
+					'fk_material' => (int) $line->fk_product,
+					'codigo' => $line->ref,
+					'descripcion' => !empty($line->desc) ? $line->desc : (!empty($line->label) ? $line->label : 'Sin descripción'),
+					'cantidad' => (float) $line->qty,
+					'precio' => (float) $line->subprice,
+					'descuento' => (float) $line->remise_percent,
+					'total_neto' => (float) $line->total_ht,
+					'notas' => ''
+				);
+				if ($line->product_type == 1) {
+					$out['reparaciones'][] = $item;
 				} else {
-					$out['reparaciones'][] = $l;
+					$out['materiales'][] = $item;
 				}
 			}
 		}
@@ -458,9 +324,6 @@ if ($action == 'add_factura_linea') {
 	$fk_factura = GETPOSTINT('fk_factura');
 	if (empty($fk_factura) && !empty($_POST['fk_factura'])) {
 		$fk_factura = (int) $_POST['fk_factura'];
-	}
-	if (empty($fk_factura) && !empty($_GET['fk_factura'])) {
-		$fk_factura = (int) $_GET['fk_factura'];
 	}
 
 	$tipo = trim(GETPOST('tipo', 'alpha'));
@@ -514,9 +377,6 @@ if ($action == 'add_factura_linea') {
 	}
 
 	$guardar_catalogo = GETPOSTINT('guardar_catalogo');
-	if (empty($guardar_catalogo) && !empty($_POST['guardar_catalogo'])) {
-		$guardar_catalogo = (int) $_POST['guardar_catalogo'];
-	}
 
 	if ($fk_factura <= 0) {
 		header('Content-Type: application/json');
@@ -529,27 +389,30 @@ if ($action == 'add_factura_linea') {
 		echo json_encode(array('status' => 'error', 'message' => 'La descripción es obligatoria'));
 		exit;
 	}
-	// Anti-duplicate protection: avoid inserting the exact same line within 3 seconds
-	$sql_chk = "SELECT rowid, total_neto FROM " . $table_linea . " ";
-	$sql_chk .= "WHERE fk_factura = " . ((int) $fk_factura) . " ";
-	$sql_chk .= "AND tipo = '" . $db->escape($tipo) . "' ";
-	$sql_chk .= "AND descripcion = '" . $db->escape($descripcion) . "' ";
-	$sql_chk .= "AND cantidad = " . $cantidad . " ";
-	$sql_chk .= "AND precio = " . $precio . " ";
-	$sql_chk .= "AND date_creation >= '" . $db->idate(dol_now() - 3) . "' ";
-	$sql_chk .= "ORDER BY rowid DESC LIMIT 1";
-	$res_chk = $db->query($sql_chk);
-	if ($res_chk && ($chk_obj = $db->fetch_object($res_chk))) {
-		$new_total = recalcFacturaTotal($db, $fk_factura);
+
+	$fac = new Facture($db);
+	if ($fac->fetch($fk_factura) <= 0) {
 		header('Content-Type: application/json');
-		echo json_encode(array(
-			'status' => 'ok',
-			'id' => (int) $chk_obj->rowid,
-			'total_neto' => (float) $chk_obj->total_neto,
-			'new_total' => $new_total,
-			'duplicate_prevented' => true
-		));
+		echo json_encode(array('status' => 'error', 'message' => 'Factura no encontrada'));
 		exit;
+	}
+
+	// Anti-duplicate protection: avoid inserting the exact same line within 3 seconds
+	$fac->fetch_lines();
+	foreach ($fac->lines as $existing_line) {
+		if ($existing_line->desc == $descripcion && $existing_line->qty == $cantidad && $existing_line->subprice == $precio) {
+			if (abs(dol_now() - $existing_line->date_creation) <= 3) {
+				header('Content-Type: application/json');
+				echo json_encode(array(
+					'status' => 'ok',
+					'id' => (int) $existing_line->id,
+					'total_neto' => (float) $existing_line->total_ht,
+					'new_total' => (float) $fac->total_ttc,
+					'duplicate_prevented' => true
+				));
+				exit;
+			}
+		}
 	}
 
 	if ($guardar_catalogo && $tipo == 'material') {
@@ -563,29 +426,22 @@ if ($action == 'add_factura_linea') {
 		$db->query($sql_ins_mat);
 	}
 
-	$sql_ins_linea = "INSERT INTO " . $table_linea . " (fk_factura, tipo, fk_material, codigo, descripcion, cantidad, precio, descuento, total_neto, notas, date_creation, entity) VALUES (";
-	$sql_ins_linea .= ((int) $fk_factura) . ", ";
-	$sql_ins_linea .= "'" . $db->escape($tipo) . "', ";
-	$sql_ins_linea .= ($fk_material > 0 ? ((int) $fk_material) : "NULL") . ", ";
-	$sql_ins_linea .= "'" . $db->escape($codigo) . "', ";
-	$sql_ins_linea .= "'" . $db->escape($descripcion) . "', ";
-	$sql_ins_linea .= $cantidad . ", ";
-	$sql_ins_linea .= $precio . ", ";
-	$sql_ins_linea .= $descuento . ", ";
-	$sql_ins_linea .= $total_neto . ", ";
-	$sql_ins_linea .= "'" . $db->escape($notas) . "', ";
-	$sql_ins_linea .= "'" . $db->idate(dol_now()) . "', ";
-	$sql_ins_linea .= ((int) $conf->entity) . ")";
+	$product_type = ($tipo == 'reparacion') ? 1 : 0;
+	$tva_tx = 21.0;
+	$line_id = $fac->addline($descripcion, $precio, $cantidad, $tva_tx, 0, 0, $fk_material, $descuento, '', '', 0, 0, 0, 'HT', 0, $product_type, -1, 0, '', 0, 0, null, 0, '', array(), 100, 0, null, 0, $codigo, 0);
 
-	$resql = $db->query($sql_ins_linea);
-	if ($resql) {
-		$inserted_id = $db->last_insert_id($table_linea);
-		$new_total = recalcFacturaTotal($db, $fk_factura);
+	if ($line_id > 0) {
+		$fac->fetch($fk_factura);
 		header('Content-Type: application/json');
-		echo json_encode(array('status' => 'ok', 'id' => $inserted_id, 'total_neto' => $total_neto, 'new_total' => $new_total));
+		echo json_encode(array(
+			'status' => 'ok',
+			'id' => (int) $line_id,
+			'total_neto' => (float) $total_neto,
+			'new_total' => (float) $fac->total_ttc
+		));
 	} else {
 		header('Content-Type: application/json');
-		echo json_encode(array('status' => 'error', 'message' => 'Error al insertar línea: ' . $db->lasterror()));
+		echo json_encode(array('status' => 'error', 'message' => 'Error al añadir línea en Dolibarr: ' . $fac->error));
 	}
 	exit;
 }
@@ -596,20 +452,19 @@ if ($action == 'delete_factura_linea') {
 	if (empty($linea_id) && !empty($_POST['linea_id'])) {
 		$linea_id = (int) $_POST['linea_id'];
 	}
-	if (empty($linea_id) && !empty($_GET['linea_id'])) {
-		$linea_id = (int) $_GET['linea_id'];
-	}
 	$fk_factura = GETPOSTINT('fk_factura');
 	if (empty($fk_factura) && !empty($_POST['fk_factura'])) {
 		$fk_factura = (int) $_POST['fk_factura'];
 	}
-	if (empty($fk_factura) && !empty($_GET['fk_factura'])) {
-		$fk_factura = (int) $_GET['fk_factura'];
-	}
-	if ($linea_id > 0) {
-		$db->query("DELETE FROM " . $table_linea . " WHERE rowid = " . ((int) $linea_id));
-		if ($fk_factura > 0) {
-			recalcFacturaTotal($db, $fk_factura);
+
+	if ($fk_factura > 0 && $linea_id > 0) {
+		$fac = new Facture($db);
+		if ($fac->fetch($fk_factura) > 0) {
+			$fac->deleteline($user, $linea_id);
+			$fac->fetch($fk_factura);
+			header('Content-Type: application/json');
+			echo json_encode(array('status' => 'ok', 'new_total' => (float) $fac->total_ttc));
+			exit;
 		}
 	}
 	header('Content-Type: application/json');
@@ -623,9 +478,6 @@ if ($action == 'save_factura_totales') {
 	if (empty($fk_factura) && !empty($_POST['fk_factura'])) {
 		$fk_factura = (int) $_POST['fk_factura'];
 	}
-	if (empty($fk_factura) && !empty($_GET['fk_factura'])) {
-		$fk_factura = (int) $_GET['fk_factura'];
-	}
 
 	$descuento_global_raw = GETPOST('descuento_global', 'alpha');
 	if ($descuento_global_raw === '' && isset($_POST['descuento_global'])) {
@@ -633,28 +485,22 @@ if ($action == 'save_factura_totales') {
 	}
 	$descuento_global = (float) str_replace(',', '.', $descuento_global_raw);
 
-	$iva_porcentaje_raw = GETPOST('iva_porcentaje', 'alpha');
-	if ($iva_porcentaje_raw === '' && isset($_POST['iva_porcentaje'])) {
-		$iva_porcentaje_raw = $_POST['iva_porcentaje'];
-	}
-	$iva_porcentaje = (float) str_replace(',', '.', $iva_porcentaje_raw);
-
-	$total_raw = GETPOST('total', 'alpha');
-	if ($total_raw === '' && isset($_POST['total'])) {
-		$total_raw = $_POST['total'];
-	}
-	$total = (float) str_replace(',', '.', $total_raw);
-
 	if ($fk_factura > 0) {
-		$sql_upd = "UPDATE " . $table_factura . " SET ";
-		$sql_upd .= "descuento_global = " . $descuento_global . ", ";
-		$sql_upd .= "iva_porcentaje = " . $iva_porcentaje . ", ";
-		$sql_upd .= "total = " . $total . " ";
-		$sql_upd .= "WHERE rowid = " . ((int) $fk_factura);
-		$db->query($sql_upd);
+		$fac = new Facture($db);
+		if ($fac->fetch($fk_factura) > 0) {
+			if ($descuento_global > 0) {
+				$fac->remise_percent = $descuento_global;
+				$fac->update($user);
+			}
+			$fac->update_price();
+			$fac->fetch($fk_factura);
+			header('Content-Type: application/json');
+			echo json_encode(array('status' => 'ok', 'new_total' => (float) $fac->total_ttc));
+			exit;
+		}
 	}
 	header('Content-Type: application/json');
-	echo json_encode(array('status' => 'ok', 'total' => $total));
+	echo json_encode(array('status' => 'ok'));
 	exit;
 }
 
@@ -688,16 +534,20 @@ if ($res_mc) {
 	}
 }
 
-// Consultar facturas con JOIN a cliente y vehículo
+// Consultar facturas nativas de Dolibarr con JOIN a cliente y vehículo
 $facturas_list = array();
-$sql_f = "SELECT f.rowid, f.numero_factura, f.fecha, f.fk_soc, f.fk_vehiculo, f.total, f.descuento_global, f.iva_porcentaje, f.estado, f.notas, ";
+$sql_f = "SELECT f.rowid, f.ref as numero_factura, f.datef as fecha, f.fk_soc, f.total_ttc as total, f.total_ht, f.total_tva, ";
+$sql_f .= "f.fk_statut, f.paye, COALESCE(f.remise_percent, 0) as descuento_global, 21.0 as iva_porcentaje, f.note_public as notas, ";
+$sql_f .= "(CASE WHEN f.fk_statut = 0 THEN 'Borrador' WHEN f.fk_statut = 1 AND f.paye = 0 THEN 'Validada' WHEN f.paye = 1 OR f.fk_statut = 2 THEN 'Pagada' WHEN f.fk_statut = 3 THEN 'Anulada' ELSE 'Pendiente' END) as estado, ";
+$sql_f .= "fe.fk_vehiculo, ";
 $sql_f .= "s.nom as cliente_nombre, ";
 $sql_f .= "v.matricula as vehiculo_matricula, v.marca as vehiculo_marca, v.modelo as vehiculo_modelo ";
-$sql_f .= "FROM " . $table_factura . " as f ";
-$sql_f .= "LEFT JOIN " . $table_soc . " as s ON f.fk_soc = s.rowid ";
-$sql_f .= "LEFT JOIN " . $table_vehiculo . " as v ON f.fk_vehiculo = v.rowid ";
-$sql_f .= "WHERE f.status = 1 AND f.entity IN (" . getEntity('taller_factura') . ") ";
-$sql_f .= "ORDER BY f.rowid DESC";
+$sql_f .= "FROM " . MAIN_DB_PREFIX . "facture as f ";
+$sql_f .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON f.fk_soc = s.rowid ";
+$sql_f .= "LEFT JOIN " . MAIN_DB_PREFIX . "facture_extrafields as fe ON fe.fk_object = f.rowid ";
+$sql_f .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON fe.fk_vehiculo = v.rowid ";
+$sql_f .= "WHERE f.entity IN (" . getEntity('facture') . ") ";
+$sql_f .= "ORDER BY f.datef DESC, f.rowid DESC";
 $res_f = $db->query($sql_f);
 if ($res_f) {
 	while ($f_obj = $db->fetch_object($res_f)) {
@@ -705,6 +555,9 @@ if ($res_f) {
 	}
 }
 $total_facturas = count($facturas_list);
+
+// Siguiente número previsto
+$next_factura_numero = getNextFacturaNumero($db);
 
 // Vista individual de una factura (Documental)
 $view_id = GETPOSTINT('id');
@@ -722,19 +575,28 @@ $single_iva_amt = 0.0;
 $single_total = 0.0;
 
 if ($view_id > 0) {
-	$sql_single = "SELECT f.*, ";
+	$sql_single = "SELECT f.rowid, f.ref as numero_factura, f.datef as fecha, f.fk_soc, f.total_ttc as total, f.total_ht, f.total_tva, ";
+	$sql_single .= "f.fk_statut, f.paye, COALESCE(f.remise_percent, 0) as descuento_global, 21.0 as iva_porcentaje, f.note_public as notas, ";
+	$sql_single .= "(CASE WHEN f.fk_statut = 0 THEN 'Borrador' WHEN f.fk_statut = 1 AND f.paye = 0 THEN 'Validada' WHEN f.paye = 1 OR f.fk_statut = 2 THEN 'Pagada' WHEN f.fk_statut = 3 THEN 'Anulada' ELSE 'Pendiente' END) as estado, ";
+	$sql_single .= "fe.fk_vehiculo, ";
 	$sql_single .= "s.nom as cliente_nombre, COALESCE(NULLIF(s.siren, ''), NULLIF(s.siret, ''), s.tva_intra) as cliente_cif, COALESCE(NULLIF(s.town, ''), s.address) as cliente_ciudad, s.phone as cliente_telefono, s.email as cliente_email, ";
 	$sql_single .= "v.matricula as vehiculo_matricula, v.marca as vehiculo_marca, v.modelo as vehiculo_modelo, v.anio as vehiculo_anio ";
-	$sql_single .= "FROM " . $table_factura . " as f ";
-	$sql_single .= "LEFT JOIN " . $table_soc . " as s ON f.fk_soc = s.rowid ";
-	$sql_single .= "LEFT JOIN " . $table_vehiculo . " as v ON f.fk_vehiculo = v.rowid ";
+	$sql_single .= "FROM " . MAIN_DB_PREFIX . "facture as f ";
+	$sql_single .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON f.fk_soc = s.rowid ";
+	$sql_single .= "LEFT JOIN " . MAIN_DB_PREFIX . "facture_extrafields as fe ON fe.fk_object = f.rowid ";
+	$sql_single .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON fe.fk_vehiculo = v.rowid ";
 	$sql_single .= "WHERE f.rowid = " . ((int) $view_id);
 	$res_single = $db->query($sql_single);
 	if ($res_single && ($fs = $db->fetch_object($res_single))) {
 		$factura_single = $fs;
 		$tot_mat = 0.0;
 		$tot_rep = 0.0;
-		$res_lin = $db->query("SELECT * FROM " . $table_linea . " WHERE fk_factura = " . ((int) $view_id) . " ORDER BY rowid ASC");
+		$sql_single_lines = "SELECT rowid, (CASE WHEN product_type = 1 THEN 'reparacion' ELSE 'material' END) as tipo, ";
+		$sql_single_lines .= "ref as codigo, (CASE WHEN description IS NOT NULL AND description != '' THEN description ELSE label END) as descripcion, ";
+		$sql_single_lines .= "qty as cantidad, subprice as precio, remise_percent as descuento, total_ht as total_neto ";
+		$sql_single_lines .= "FROM " . MAIN_DB_PREFIX . "facturedet ";
+		$sql_single_lines .= "WHERE fk_facture = " . ((int) $view_id) . " ORDER BY rang ASC, rowid ASC";
+		$res_lin = $db->query($sql_single_lines);
 		if ($res_lin) {
 			while ($l = $db->fetch_object($res_lin)) {
 				if ($l->tipo == 'material') {
@@ -749,8 +611,8 @@ if ($view_id > 0) {
 		$single_subtotal = $tot_mat + $tot_rep;
 		$single_desc = (float) $factura_single->descuento_global;
 		$single_base = max(0, $single_subtotal - $single_desc);
-		$single_iva_pct = (float) ($factura_single->iva_porcentaje !== null ? $factura_single->iva_porcentaje : 21);
-		$single_iva_amt = $single_base * ($single_iva_pct / 100);
+		$single_iva_pct = 21.0;
+		$single_iva_amt = (float) $factura_single->total_tva;
 		$single_total = (float) $factura_single->total;
 		if ($single_total <= 0 && ($single_base > 0 || $single_desc > 0)) {
 			$single_total = $single_base + $single_iva_amt;
@@ -1589,14 +1451,14 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					</select>
 				</div>
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Total (€) <span class="tallerpro-required">*</span></label>
-					<input type="number" step="0.01" name="total" id="fac_total" class="tallerpro-form-input" required />
+					<label class="tallerpro-form-label">Total (€)</label>
+					<input type="number" step="0.01" min="0" name="total" id="fac_total" class="tallerpro-form-input" value="0.00" />
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Estado</label>
 					<select name="estado" id="fac_estado" class="tallerpro-form-select">
-						<option value="">— Selecciona —</option>
-						<option value="Pendiente">Pendiente</option>
+						<option value="Borrador">Borrador</option>
+						<option value="Pendiente" selected>Pendiente</option>
 						<option value="Pagada">Pagada</option>
 					</select>
 				</div>

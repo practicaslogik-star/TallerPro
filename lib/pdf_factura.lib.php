@@ -31,33 +31,64 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	require_once DOL_DOCUMENT_ROOT . '/core/lib/pdf.lib.php';
 	require_once DOL_DOCUMENT_ROOT . '/societe/class/societe.class.php';
 
-	// 1. Obtener datos de la factura
-	$sql = "SELECT f.*, s.nom as cliente_nombre, COALESCE(NULLIF(s.siren, ''), NULLIF(s.siret, ''), s.tva_intra) as cliente_cif, ";
+	// 1. Obtener datos de la factura (Dolibarr nativa llx_facture con extrafield vehiculo)
+	$sql = "SELECT f.rowid, f.ref as numero_factura, f.datef as fecha, f.total_ht, f.total_tva, f.total_ttc as total, COALESCE(f.remise_percent, 0) as descuento_global, 21.0 as iva_porcentaje, f.note_public as notas, ";
+	$sql .= "s.nom as cliente_nombre, COALESCE(NULLIF(s.siren, ''), NULLIF(s.siret, ''), s.tva_intra) as cliente_cif, ";
 	$sql .= "s.address as cliente_direccion, s.zip as cliente_cp, s.town as cliente_ciudad, s.phone as cliente_telefono, s.email as cliente_email, ";
 	$sql .= "v.matricula as vehiculo_matricula, v.marca as vehiculo_marca, v.modelo as vehiculo_modelo, v.anio as vehiculo_anio, v.vin as vehiculo_vin, v.km as vehiculo_km ";
-	$sql .= "FROM " . MAIN_DB_PREFIX . "taller_factura as f ";
+	$sql .= "FROM " . MAIN_DB_PREFIX . "facture as f ";
 	$sql .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON f.fk_soc = s.rowid ";
-	$sql .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON f.fk_vehiculo = v.rowid ";
+	$sql .= "LEFT JOIN " . MAIN_DB_PREFIX . "facture_extrafields as fe ON fe.fk_object = f.rowid ";
+	$sql .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON fe.fk_vehiculo = v.rowid ";
 	$sql .= "WHERE f.rowid = " . ((int) $fac_id);
 
 	$res = $db->query($sql);
 	if (!$res || !($factura = $db->fetch_object($res))) {
-		return false;
+		// Fallback compatibilidad previa
+		$sql_fb = "SELECT f.*, s.nom as cliente_nombre, COALESCE(NULLIF(s.siren, ''), NULLIF(s.siret, ''), s.tva_intra) as cliente_cif, ";
+		$sql_fb .= "s.address as cliente_direccion, s.zip as cliente_cp, s.town as cliente_ciudad, s.phone as cliente_telefono, s.email as cliente_email, ";
+		$sql_fb .= "v.matricula as vehiculo_matricula, v.marca as vehiculo_marca, v.modelo as vehiculo_modelo, v.anio as vehiculo_anio, v.vin as vehiculo_vin, v.km as vehiculo_km ";
+		$sql_fb .= "FROM " . MAIN_DB_PREFIX . "taller_factura as f ";
+		$sql_fb .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON f.fk_soc = s.rowid ";
+		$sql_fb .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON f.fk_vehiculo = v.rowid ";
+		$sql_fb .= "WHERE f.rowid = " . ((int) $fac_id);
+		$res_fb = $db->query($sql_fb);
+		if (!$res_fb || !($factura = $db->fetch_object($res_fb))) {
+			return false;
+		}
 	}
 
 	// 2. Obtener líneas de la factura
 	$lineas = array();
 	$tot_mat = 0.0;
 	$tot_rep = 0.0;
-	$sql_lines = "SELECT * FROM " . MAIN_DB_PREFIX . "taller_factura_linea WHERE fk_factura = " . ((int) $fac_id) . " ORDER BY rowid ASC";
+	$sql_lines = "SELECT rowid, (CASE WHEN product_type = 1 THEN 'reparacion' ELSE 'material' END) as tipo, ";
+	$sql_lines .= "ref as codigo, (CASE WHEN description IS NOT NULL AND description != '' THEN description ELSE label END) as descripcion, ";
+	$sql_lines .= "qty as cantidad, subprice as precio, remise_percent as descuento, total_ht as total_neto ";
+	$sql_lines .= "FROM " . MAIN_DB_PREFIX . "facturedet ";
+	$sql_lines .= "WHERE fk_facture = " . ((int) $fac_id) . " ORDER BY rang ASC, rowid ASC";
 	$res_lines = $db->query($sql_lines);
-	if ($res_lines) {
+	if ($res_lines && $db->num_rows($res_lines) > 0) {
 		while ($l = $db->fetch_object($res_lines)) {
 			$lineas[] = $l;
 			if ($l->tipo == 'material') {
 				$tot_mat += (float) $l->total_neto;
 			} else {
 				$tot_rep += (float) $l->total_neto;
+			}
+		}
+	} else {
+		// Fallback líneas tabla taller
+		$sql_lines_fb = "SELECT * FROM " . MAIN_DB_PREFIX . "taller_factura_linea WHERE fk_factura = " . ((int) $fac_id) . " ORDER BY rowid ASC";
+		$res_lines_fb = $db->query($sql_lines_fb);
+		if ($res_lines_fb) {
+			while ($l = $db->fetch_object($res_lines_fb)) {
+				$lineas[] = $l;
+				if ($l->tipo == 'material') {
+					$tot_mat += (float) $l->total_neto;
+				} else {
+					$tot_rep += (float) $l->total_neto;
+				}
 			}
 		}
 	}
@@ -379,8 +410,11 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 		}
 		$pdf->Output($filename, $output_mode);
 		return true;
+	} elseif ($output_mode == 'S') {
+		return $pdf->Output($filename, 'S');
 	} else {
-		$pdf->Output($file_path, 'F');
-		return $file_path;
+		$target_file = !empty($file_path) ? $file_path : $filename;
+		$pdf->Output($target_file, 'F');
+		return $target_file;
 	}
 }

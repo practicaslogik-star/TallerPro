@@ -228,10 +228,11 @@ if ($veh_id > 0 || !empty($veh_matricula)) {
 				$client_detail = $soc;
 			}
 
-			// Invoices of this client
+			// Invoices of this vehicle
 			$sql_inv = "SELECT f.rowid, f.ref, f.total_ttc, f.datef, f.paye, f.fk_statut ";
 			$sql_inv .= "FROM " . MAIN_DB_PREFIX . "facture as f ";
-			$sql_inv .= "WHERE f.fk_soc = " . ((int) $veh_detail->fk_soc) . " ";
+			$sql_inv .= "LEFT JOIN " . MAIN_DB_PREFIX . "facture_extrafields as fe ON fe.fk_object = f.rowid ";
+			$sql_inv .= "WHERE (fe.fk_vehiculo = " . ((int) $id) . " OR (fe.fk_vehiculo IS NULL AND f.fk_soc = " . ((int) $veh_detail->fk_soc) . ")) ";
 			$sql_inv .= "ORDER BY f.datef DESC";
 			$res_inv = $db->query($sql_inv);
 			if ($res_inv) {
