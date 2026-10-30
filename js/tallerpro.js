@@ -1659,23 +1659,29 @@ if (window.__tallerProLoaded) {
             }
 
             globalSearchInput.addEventListener('input', function () {
-                const query = globalSearchInput.value.trim();
                 clearTimeout(debounceTimer);
+                const query = globalSearchInput.value.trim();
 
                 if (query.length === 0) {
                     resetDashboardView();
                     return;
                 }
 
-                // Switch view immediately to search mode
-                defaultViewContainer.style.display = 'none';
-                searchResultsContainer.style.display = 'flex';
-
                 debounceTimer = setTimeout(function () {
-                    fetch('tallerindex.php?action=search_all&q=' + encodeURIComponent(query))
+                    const currentQuery = globalSearchInput.value.trim();
+                    if (currentQuery.length === 0) {
+                        resetDashboardView();
+                        return;
+                    }
+
+                    // Switch view to search mode after the user pauses typing
+                    defaultViewContainer.style.display = 'none';
+                    searchResultsContainer.style.display = 'flex';
+
+                    fetch('tallerindex.php?action=search_all&q=' + encodeURIComponent(currentQuery))
                         .then(function (res) { return res.json(); })
                         .then(function (data) {
-                            if (globalSearchInput.value.trim() !== query) {
+                            if (globalSearchInput.value.trim() !== currentQuery) {
                                 return; // Input changed while request was in-flight
                             }
 
@@ -1696,7 +1702,7 @@ if (window.__tallerProLoaded) {
                         .catch(function (err) {
                             console.error('Error fetching search results:', err);
                         });
-                }, 150);
+                }, 250);
             });
 
             // ESC key resets search
