@@ -1093,20 +1093,58 @@ if (window.__tallerProLoaded) {
             }, duration);
         };
 
-        // Auto-display flash toast from URL query params (e.g. ?msg=saved)
-        const repUrlParams = new URLSearchParams(window.location.search);
-        if (repUrlParams.has('msg')) {
-            const msgCode = repUrlParams.get('msg');
-            let flashMsg = '';
-            if (msgCode === 'saved') {
-                flashMsg = 'Reparación guardada';
-            } else if (msgCode === 'deleted') {
-                flashMsg = 'Reparación eliminada correctamente';
-            } else if (msgCode === 'status_updated') {
-                flashMsg = 'Estado de la reparación actualizado correctamente';
+        // ==========================================================================
+        // Toast Notifier Modular Universal para todas las Vistas de TallerPro
+        // ==========================================================================
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('msg')) {
+            const msgCode = urlParams.get('msg');
+            const currentPath = window.location.pathname.toLowerCase();
+
+            // 1. Detectar automáticamente la entidad según la vista
+            let entidad = 'Registro';
+            let esFemenino = false;
+
+            if (currentPath.includes('cliente')) {
+                entidad = 'Cliente';
+                esFemenino = false;
+            } else if (currentPath.includes('vehiculo')) {
+                entidad = 'Vehículo';
+                esFemenino = false;
+            } else if (currentPath.includes('reparacion')) {
+                entidad = 'Reparación';
+                esFemenino = true;
+            } else if (currentPath.includes('material')) {
+                entidad = 'Material';
+                esFemenino = false;
+            } else if (currentPath.includes('seguro')) {
+                entidad = 'Seguro';
+                esFemenino = false;
+            } else if (currentPath.includes('factura')) {
+                entidad = 'Factura';
+                esFemenino = true;
             }
+
+            // 2. mensaje personalizado dependiendo de la accion
+            let flashMsg = '';
+            let flashType = 'success';
+
+            if (msgCode === 'saved' || msgCode === 'created') {
+                flashMsg = entidad + (esFemenino ? ' guardada' : ' guardado') + ' correctamente';
+            } else if (msgCode === 'deleted') {
+                flashMsg = entidad + (esFemenino ? ' eliminada' : ' eliminado') + ' correctamente';
+            } else if (msgCode === 'updated') {
+                flashMsg = entidad + (esFemenino ? ' actualizada' : ' actualizado') + ' correctamente';
+            } else if (msgCode === 'status_updated') {
+                flashMsg = 'Estado de ' + (esFemenino ? 'la ' : 'el ') + entidad.toLowerCase() + ' actualizado correctamente';
+            } else if (msgCode === 'error') {
+                flashType = 'error';
+                flashMsg = urlParams.get('error') || ('Error al procesar ' + (esFemenino ? 'la ' : 'el ') + entidad.toLowerCase());
+            }
+
+            // 3. Mostrar el Toast y limpiar la URL discretamente
             if (flashMsg) {
-                window.showTallerToast(flashMsg);
+                window.showTallerToast(flashMsg, flashType);
                 if (window.history.replaceState) {
                     const cleanUrl = window.location.protocol + "//" + window.location.host + window.location.pathname;
                     window.history.replaceState({ path: cleanUrl }, '', cleanUrl);
@@ -1881,8 +1919,70 @@ if (window.__tallerProLoaded) {
                 return true;
             });
         }
-    });
-}
+
+        // ==========================================================================
+        // VISTA CLIENTES: Control del Modal de Alta y Edición
+        // ==========================================================================
+        const clientModal = document.getElementById('tallerClientModal');
+        const clientForm = document.getElementById('tallerClientForm');
+        const clientTitle = document.getElementById('clientModalTitle');
+        const clientAction = document.getElementById('clientFormAction');
+        const clientSocid = document.getElementById('client_socid');
+        const btnAddClient = document.getElementById('tallerOpenModalBtn');
+
+        // Al pulsar "+ Añadir": preparar modal limpio para crear
+        if (btnAddClient && clientForm) {
+            btnAddClient.addEventListener('click', function () {
+                clientForm.reset();
+                if (clientTitle) clientTitle.textContent = 'Nuevo registro de cliente';
+                if (clientAction) clientAction.value = 'create_client';
+                if (clientSocid) clientSocid.value = '0';
+            });
+        }
+
+        // Al pulsar el botón "Editar" en la tabla/tarjetas: rellenar datos y abrir modal
+        document.addEventListener('click', function (e) {
+            const editBtn = e.target.closest('.btn-edit-client');
+            if (!editBtn) return;
+            e.preventDefault();
+
+            const modal = document.getElementById('tallerClientModal');
+            const title = document.getElementById('clientModalTitle');
+            const action = document.getElementById('clientFormAction');
+            const socid = document.getElementById('client_socid');
+
+            const id = editBtn.getAttribute('data-id') || '0';
+            const name = editBtn.getAttribute('data-name') || '';
+            const phone = editBtn.getAttribute('data-phone') || '';
+            const email = editBtn.getAttribute('data-email') || '';
+            const cif = editBtn.getAttribute('data-cif') || '';
+            const address = editBtn.getAttribute('data-address') || '';
+            const notes = editBtn.getAttribute('data-notes') || '';
+
+            if (title) title.textContent = 'Editar cliente';
+            if (action) action.value = 'update_client';
+            if (socid) socid.value = id;
+
+            const inputName = document.getElementById('client_name');
+            const inputPhone = document.getElementById('client_phone');
+            const inputEmail = document.getElementById('client_email');
+            const inputCif = document.getElementById('client_cif');
+            const inputAddress = document.getElementById('client_address');
+            const inputNotes = document.getElementById('client_notes');
+
+            if (inputName) inputName.value = name;
+            if (inputPhone) inputPhone.value = phone;
+            if (inputEmail) inputEmail.value = email;
+            if (inputCif) inputCif.value = cif;
+            if (inputAddress) inputAddress.value = address;
+            if (inputNotes) inputNotes.value = notes;
+
+            if (modal) modal.classList.add('active');
+        });
+
+    }); // Cierre DOMContentLoaded
+
+} // Cierre if window.__tallerProLoaded
 
 
 

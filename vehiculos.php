@@ -189,7 +189,7 @@ if ($action == 'delete_vehiculo' || $action == 'delete') {
 
 // Consultar clientes reales para el desplegable
 $clients_list = array();
-$sql_c = "SELECT s.rowid, s.nom FROM " . MAIN_DB_PREFIX . "societe as s WHERE s.client IN (1, 2, 3) AND s.entity IN (" . getEntity('societe') . ") ORDER BY s.nom ASC";
+$sql_c = "SELECT s.rowid, s.nom FROM " . MAIN_DB_PREFIX . "societe as s WHERE s.client IN (1, 2, 3) AND s.status = 1 AND s.entity IN (" . getEntity('societe') . ") ORDER BY s.nom ASC";
 $res_c = $db->query($sql_c);
 if ($res_c) {
 	while ($c = $db->fetch_object($res_c)) {
