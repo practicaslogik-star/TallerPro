@@ -141,8 +141,8 @@ if ($action == 'create_factura' || $action == 'add_factura') {
 	if (empty($estado) && !empty($_POST['estado'])) {
 		$estado = trim($_POST['estado']);
 	}
-	if (empty($estado)) {
-		$estado = 'Borrador';
+	if (empty($estado) || ($estado != 'Pagada' && $estado != 'Pendiente')) {
+		$estado = 'Pendiente';
 	}
 
 	$notas = trim(GETPOST('notas', 'restricthtml'));
@@ -167,9 +167,8 @@ if ($action == 'create_factura' || $action == 'add_factura') {
 				$subprice = round($total / (1 + ($tva_tx / 100)), 2);
 				$fac->addline("Servicios de taller", $subprice, 1, $tva_tx, 0, 0, 0, 0, '', '', 0, 0, 0, 'HT', 0, 1);
 			}
-			if ($estado == 'Validada' || $estado == 'Pendiente' || $estado == 'Pagada') {
-				$fac->validate($user);
-			}
+			// En TallerPro toda factura se valida automáticamente (asignando número oficial)
+			$fac->validate($user);
 			if ($estado == 'Pagada') {
 				$fac->setPaid($user);
 			}
@@ -226,11 +225,13 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 
 			$res = $fac->update($user);
 			if ($res >= 0) {
-				if (($estado == 'Validada' || $estado == 'Pendiente' || $estado == 'Pagada') && $fac->statut == Facture::STATUS_DRAFT) {
+				if ($fac->statut == Facture::STATUS_DRAFT) {
 					$fac->validate($user);
 				}
 				if ($estado == 'Pagada' && $fac->paye == 0) {
 					$fac->setPaid($user);
+				} elseif ($estado == 'Pendiente' && $fac->paye == 1) {
+					$fac->setUnpaid($user);
 				}
 				setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
 				header("Location: " . $_SERVER['PHP_SELF'] . '?id=' . $rowid);
@@ -288,7 +289,7 @@ if ($action == 'get_factura_lineas') {
 		$fac = new Facture($db);
 		if ($fac->fetch($fk_factura) > 0) {
 			$fac->fetch_lines();
-			$estado_label = ($fac->statut == Facture::STATUS_DRAFT ? 'Borrador' : ($fac->paye == 1 || $fac->statut == Facture::STATUS_CLOSED ? 'Pagada' : ($fac->statut == Facture::STATUS_ABANDONED ? 'Anulada' : 'Validada')));
+			$estado_label = ($fac->paye == 1 || $fac->statut == Facture::STATUS_CLOSED) ? 'Pagada' : 'Pendiente';
 			$out['factura'] = (object) array(
 				'rowid' => (int) $fac->id,
 				'numero_factura' => $fac->ref,
@@ -545,7 +546,7 @@ if ($res_mc) {
 $facturas_list = array();
 $sql_f = "SELECT f.rowid, f.ref as numero_factura, f.datef as fecha, f.fk_soc, f.total_ttc as total, f.total_ht, f.total_tva, ";
 $sql_f .= "f.fk_statut, f.paye, COALESCE(f.remise_percent, 0) as descuento_global, 21.0 as iva_porcentaje, f.note_public as notas, ";
-$sql_f .= "(CASE WHEN f.fk_statut = 0 THEN 'Borrador' WHEN f.fk_statut = 1 AND f.paye = 0 THEN 'Validada' WHEN f.paye = 1 OR f.fk_statut = 2 THEN 'Pagada' WHEN f.fk_statut = 3 THEN 'Anulada' ELSE 'Pendiente' END) as estado, ";
+$sql_f .= "(CASE WHEN (f.paye = 1 OR f.fk_statut = 2) THEN 'Pagada' ELSE 'Pendiente' END) as estado, ";
 $sql_f .= "fe.fk_vehiculo, ";
 $sql_f .= "s.nom as cliente_nombre, ";
 $sql_f .= "v.matricula as vehiculo_matricula, v.marca as vehiculo_marca, v.modelo as vehiculo_modelo ";
@@ -584,7 +585,7 @@ $single_total = 0.0;
 if ($view_id > 0) {
 	$sql_single = "SELECT f.rowid, f.ref as numero_factura, f.datef as fecha, f.fk_soc, f.total_ttc as total, f.total_ht, f.total_tva, ";
 	$sql_single .= "f.fk_statut, f.paye, COALESCE(f.remise_percent, 0) as descuento_global, 21.0 as iva_porcentaje, f.note_public as notas, ";
-	$sql_single .= "(CASE WHEN f.fk_statut = 0 THEN 'Borrador' WHEN f.fk_statut = 1 AND f.paye = 0 THEN 'Validada' WHEN f.paye = 1 OR f.fk_statut = 2 THEN 'Pagada' WHEN f.fk_statut = 3 THEN 'Anulada' ELSE 'Pendiente' END) as estado, ";
+	$sql_single .= "(CASE WHEN (f.paye = 1 OR f.fk_statut = 2) THEN 'Pagada' ELSE 'Pendiente' END) as estado, ";
 	$sql_single .= "fe.fk_vehiculo, ";
 	$sql_single .= "s.nom as cliente_nombre, COALESCE(NULLIF(s.siren, ''), NULLIF(s.siret, ''), s.tva_intra) as cliente_cif, COALESCE(NULLIF(s.town, ''), s.address) as cliente_ciudad, s.phone as cliente_telefono, s.email as cliente_email, ";
 	$sql_single .= "v.matricula as vehiculo_matricula, v.marca as vehiculo_marca, v.modelo as vehiculo_modelo, v.anio as vehiculo_anio ";
@@ -1072,7 +1073,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								$is_pagada = (strtolower(trim($factura_single->estado)) == 'pagada');
 								$badge_style = $is_pagada
 									? 'background-color: #ecfdf5 !important; color: #047857 !important; border: 1px solid #a7f3d0 !important;'
-									: 'background-color: #f1f5f9 !important; color: #475569 !important; border: 1px solid #e2e8f0 !important;';
+									: 'background-color: #fffbeb !important; color: #b45309 !important; border: 1px solid #fde68a !important;';
 								?>
 								<span class="tallerpro-invoice-badge-status" style="<?php echo $badge_style; ?>">
 									<?php echo dol_escape_htmltag($factura_single->estado ?: 'Pendiente'); ?>
@@ -1485,7 +1486,6 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Estado</label>
 					<select name="estado" id="fac_estado" class="tallerpro-form-select">
-						<option value="Borrador">Borrador</option>
 						<option value="Pendiente" selected>Pendiente</option>
 						<option value="Pagada">Pagada</option>
 					</select>

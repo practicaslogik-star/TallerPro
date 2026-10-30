@@ -119,7 +119,7 @@ if (GETPOST('action', 'a_z09') == 'search_all') {
 		}
 		// Facturas
 		$sql_f = "SELECT f.rowid, f.ref as numero_factura, f.total_ttc as total, ";
-		$sql_f .= "(CASE WHEN f.fk_statut = 0 THEN 'Borrador' WHEN f.fk_statut = 1 AND f.paye = 0 THEN 'Validada' WHEN f.paye = 1 OR f.fk_statut = 2 THEN 'Pagada' WHEN f.fk_statut = 3 THEN 'Anulada' ELSE 'Pendiente' END) as estado ";
+		$sql_f .= "(CASE WHEN (f.paye = 1 OR f.fk_statut = 2) THEN 'Pagada' ELSE 'Pendiente' END) as estado ";
 		$sql_f .= "FROM " . MAIN_DB_PREFIX . "facture as f WHERE f.ref LIKE '%" . $q_esc . "%' AND f.entity IN (" . getEntity('facture') . ") LIMIT 5";
 		$res_f = $db->query($sql_f);
 		if ($res_f) {
