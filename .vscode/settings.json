@@ -1,0 +1,7 @@
+{
+    "intelephense.environment.includePaths": [
+        "../../",
+        "../../core"
+    ]
+}
+

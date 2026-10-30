@@ -294,7 +294,7 @@ $morehead .= '<script src="'.$js_url.'"></script>'."\n";
 llxHeader('', 'Seguros - TallerPro', '', '', 0, 0, array(), array(), $morehead, 'mod-taller page-tallerpro');
 
 $dolibarr_root_url = DOL_URL_ROOT . '/index.php';
-$setup_url = dol_buildpath('/taller/admin/setup.php', 1);
+$setup_url = dol_buildpath('/taller/configuracion.php', 1);
 $index_url = dol_buildpath('/taller/tallerindex.php', 1);
 $clientes_url = dol_buildpath('/taller/clientes.php', 1);
 $vehiculos_url = dol_buildpath('/taller/vehiculos.php', 1);
@@ -436,12 +436,17 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 		<!-- Top Bar -->
 		<header class="tallerpro-topbar">
 			<div class="tallerpro-topbar-left">
-				<span class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="Alternar menú">
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<button type="button" class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="Alternar menú" aria-label="Alternar menú">
+					<svg class="tallerpro-toggle-icon-desktop" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
 						<line x1="9" y1="3" x2="9" y2="21"></line>
 					</svg>
-				</span>
+					<svg class="tallerpro-toggle-icon-mobile" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+						<line x1="3" y1="6" x2="21" y2="6"></line>
+						<line x1="3" y1="12" x2="21" y2="12"></line>
+						<line x1="3" y1="18" x2="21" y2="18"></line>
+					</svg>
+				</button>
 				<span class="tallerpro-topbar-dot">•</span>
 				<span class="tallerpro-topbar-title">TallerPro</span>
 			</div>
