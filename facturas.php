@@ -405,11 +405,22 @@ if ($action == 'add_factura_linea') {
 		exit;
 	}
 
+	$saved_ref = $fac->ref;
+	$was_validated = ($fac->status == Facture::STATUS_VALIDATED || $fac->status == Facture::STATUS_CLOSED);
+	$was_paid = ($fac->status == Facture::STATUS_CLOSED || $fac->paye == 1);
+	if ($was_validated) {
+		$fac->setDraft($user);
+	}
+
 	// Anti-duplicate protection: avoid inserting the exact same line within 3 seconds
 	$fac->fetch_lines();
 	foreach ($fac->lines as $existing_line) {
 		if ($existing_line->desc == $descripcion && $existing_line->qty == $cantidad && $existing_line->subprice == $precio) {
 			if (abs(dol_now() - $existing_line->date_creation) <= 3) {
+				if ($was_validated) {
+					$fac->validate($user, $saved_ref);
+					if ($was_paid) $fac->setPaid($user);
+				}
 				header('Content-Type: application/json');
 				echo json_encode(array(
 					'status' => 'ok',
@@ -436,7 +447,14 @@ if ($action == 'add_factura_linea') {
 
 	$product_type = ($tipo == 'reparacion') ? 1 : 0;
 	$tva_tx = 21.0;
-	$line_id = $fac->addline($descripcion, $precio, $cantidad, $tva_tx, 0, 0, $fk_material, $descuento, '', '', 0, 0, 0, 'HT', 0, $product_type, -1, 0, '', 0, 0, null, 0, '', array(), 100, 0, null, 0, $codigo, 0);
+	$line_id = $fac->addline($descripcion, $precio, $cantidad, $tva_tx, 0, 0, 0, $descuento, '', '', 0, 0, 0, 'HT', 0, $product_type, -1, 0, '', 0, 0, null, 0, '', array(), 100, 0, null, 0, $codigo, 0);
+
+	if ($was_validated) {
+		$fac->validate($user, $saved_ref);
+		if ($was_paid) {
+			$fac->setPaid($user);
+		}
+	}
 
 	if ($line_id > 0) {
 		$fac->fetch($fk_factura);
@@ -448,8 +466,9 @@ if ($action == 'add_factura_linea') {
 			'new_total' => (float) $fac->total_ttc
 		));
 	} else {
+		$err_msg = !empty($fac->error) ? $fac->error : (!empty($fac->errors) ? implode(' ', $fac->errors) : 'Error desconocido');
 		header('Content-Type: application/json');
-		echo json_encode(array('status' => 'error', 'message' => 'Error al añadir línea en Dolibarr: ' . $fac->error));
+		echo json_encode(array('status' => 'error', 'message' => 'Error al añadir línea en Dolibarr: ' . $err_msg));
 	}
 	exit;
 }
@@ -468,7 +487,19 @@ if ($action == 'delete_factura_linea') {
 	if ($fk_factura > 0 && $linea_id > 0) {
 		$fac = new Facture($db);
 		if ($fac->fetch($fk_factura) > 0) {
-			$fac->deleteline($user, $linea_id);
+			$saved_ref = $fac->ref;
+			$was_validated = ($fac->status == Facture::STATUS_VALIDATED || $fac->status == Facture::STATUS_CLOSED);
+			$was_paid = ($fac->status == Facture::STATUS_CLOSED || $fac->paye == 1);
+			if ($was_validated) {
+				$fac->setDraft($user);
+			}
+			$fac->deleteline($linea_id, $fac->id);
+			if ($was_validated) {
+				$fac->validate($user, $saved_ref);
+				if ($was_paid) {
+					$fac->setPaid($user);
+				}
+			}
 			$fac->fetch($fk_factura);
 			header('Content-Type: application/json');
 			echo json_encode(array('status' => 'ok', 'new_total' => (float) $fac->total_ttc));
@@ -496,11 +527,23 @@ if ($action == 'save_factura_totales') {
 	if ($fk_factura > 0) {
 		$fac = new Facture($db);
 		if ($fac->fetch($fk_factura) > 0) {
-			if ($descuento_global > 0) {
+			$saved_ref = $fac->ref;
+			$was_validated = ($fac->status == Facture::STATUS_VALIDATED || $fac->status == Facture::STATUS_CLOSED);
+			$was_paid = ($fac->status == Facture::STATUS_CLOSED || $fac->paye == 1);
+			if ($was_validated) {
+				$fac->setDraft($user);
+			}
+			if ($descuento_global >= 0) {
 				$fac->remise_percent = $descuento_global;
 				$fac->update($user);
 			}
 			$fac->update_price();
+			if ($was_validated) {
+				$fac->validate($user, $saved_ref);
+				if ($was_paid) {
+					$fac->setPaid($user);
+				}
+			}
 			$fac->fetch($fk_factura);
 			header('Content-Type: application/json');
 			echo json_encode(array('status' => 'ok', 'new_total' => (float) $fac->total_ttc));
