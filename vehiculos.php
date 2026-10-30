@@ -161,28 +161,100 @@ if ($action == 'create_vehiculo' || $action == 'add_vehiculo') {
 				}
 			}
 
-			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
-			header("Location: " . $_SERVER['PHP_SELF']);
+			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=saved");
 			exit;
 		} else {
-			setEventMessages("Error al guardar el vehículo: " . $db->lasterror(), null, 'errors');
+			$errmsg = !empty($db->lasterror()) ? $db->lasterror() : 'Error al guardar el vehículo';
+			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=error&error=" . urlencode($errmsg));
+			exit;
 		}
 
 	}
 }
 
-// Acción: Eliminar Vehículo
+// Acción: Eliminar Vehículo (Efecto Cascada hacia abajo: Seguros y Reparaciones)
+// El cliente siempre se mantiene. Si el vehículo tiene facturas emitidas, se oculta (status = 0). Si no, se borra físicamente.
 if ($action == 'delete_vehiculo' || $action == 'delete') {
 	$rowid = GETPOSTINT('rowid');
 	if ($rowid > 0) {
-		$sql_del = "UPDATE " . $table_vehiculo . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_vehiculo') . ")";
-		$resql = $db->query($sql_del);
-		if ($resql) {
-			setEventMessages($langs->trans("RecordDeleted"), null, 'mesgs');
-			header("Location: " . $_SERVER['PHP_SELF']);
+		// 1. Comprobar si este vehículo tiene alguna factura emitida
+		$has_invoices = false;
+
+		// A) Facturas oficiales de Dolibarr vinculadas por extrafield fk_vehiculo
+		$sql_f_check1 = "SELECT COUNT(fe.rowid) as nb FROM " . MAIN_DB_PREFIX . "facture_extrafields as fe ";
+		$sql_f_check1 .= "JOIN " . MAIN_DB_PREFIX . "facture as f ON f.rowid = fe.fk_object ";
+		$sql_f_check1 .= "WHERE fe.fk_vehiculo = " . ((int) $rowid);
+		$res_f1 = $db->query($sql_f_check1);
+		if ($res_f1 && ($obj_f1 = $db->fetch_object($res_f1))) {
+			if ($obj_f1->nb > 0) {
+				$has_invoices = true;
+			}
+		}
+
+		// B) Reparaciones de este vehículo que tengan ref_factura generada
+		if (!$has_invoices) {
+			$sql_f_check2 = "SELECT COUNT(rowid) as nb FROM " . $table_reparacion . " ";
+			$sql_f_check2 .= "WHERE fk_vehiculo = " . ((int) $rowid) . " AND ref_factura IS NOT NULL AND ref_factura != ''";
+			$res_f2 = $db->query($sql_f_check2);
+			if ($res_f2 && ($obj_f2 = $db->fetch_object($res_f2))) {
+				if ($obj_f2->nb > 0) {
+					$has_invoices = true;
+				}
+			}
+		}
+
+		// C) Tabla llx_taller_factura si existiera vinculada a este vehículo
+		if (!$has_invoices) {
+			$table_taller_factura = MAIN_DB_PREFIX . "taller_factura";
+			$check_table = $db->query("SHOW TABLES LIKE '" . $table_taller_factura . "'");
+			if ($check_table && $db->num_rows($check_table) > 0) {
+				$sql_f_check3 = "SELECT COUNT(rowid) as nb FROM " . $table_taller_factura . " WHERE fk_vehiculo = " . ((int) $rowid) . " AND status = 1";
+				$res_f3 = $db->query($sql_f_check3);
+				if ($res_f3 && ($obj_f3 = $db->fetch_object($res_f3))) {
+					if ($obj_f3->nb > 0) {
+						$has_invoices = true;
+					}
+				}
+			}
+		}
+
+		if ($has_invoices) {
+			// =========================================================================
+			// CASO A: TIENE FACTURAS ASOCIADAS -> BORRADO LÓGICO (status = 0)
+			// Las facturas y el cliente se conservan intactos.
+			// =========================================================================
+			$db->query("UPDATE " . $table_seguro . " SET status = 0 WHERE fk_vehiculo = " . ((int) $rowid));
+			$db->query("UPDATE " . $table_reparacion . " SET status = 0 WHERE fk_vehiculo = " . ((int) $rowid));
+			$db->query("UPDATE " . $table_vehiculo . " SET status = 0 WHERE rowid = " . ((int) $rowid));
+
+			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=deleted");
 			exit;
+
 		} else {
-			setEventMessages("Error al eliminar el vehículo: " . $db->lasterror(), null, 'errors');
+			// =========================================================================
+			// CASO B: NO TIENE NINGUNA FACTURA -> BORRADO FÍSICO COMPLETO (DELETE)
+			// Se eliminan sus dependencias hacia abajo (seguros y reparaciones). El cliente se conserva.
+			// =========================================================================
+			$db->begin();
+
+			$res_seg = $db->query("DELETE FROM " . $table_seguro . " WHERE fk_vehiculo = " . ((int) $rowid));
+			$res_rep = $db->query("DELETE FROM " . $table_reparacion . " WHERE fk_vehiculo = " . ((int) $rowid));
+			$res_veh = $db->query("DELETE FROM " . $table_vehiculo . " WHERE rowid = " . ((int) $rowid));
+
+			if ($res_veh) {
+				$db->commit();
+				header("Location: " . $_SERVER['PHP_SELF'] . "?msg=deleted");
+				exit;
+			} else {
+				$db->rollback();
+				// Respaldo en caso de fallo en BD: aplicar borrado lógico
+				$db->query("UPDATE " . $table_seguro . " SET status = 0 WHERE fk_vehiculo = " . ((int) $rowid));
+				$db->query("UPDATE " . $table_reparacion . " SET status = 0 WHERE fk_vehiculo = " . ((int) $rowid));
+				$db->query("UPDATE " . $table_vehiculo . " SET status = 0 WHERE rowid = " . ((int) $rowid));
+
+				header("Location: " . $_SERVER['PHP_SELF'] . "?msg=deleted");
+				exit;
+			}
 		}
 	}
 }
@@ -987,7 +1059,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<label class="tallerpro-form-label">Marca</label>
 					<div class="tallerpro-autocomplete-wrapper">
 						<input type="text" name="marca" id="veh_marca" class="tallerpro-form-input"
-							placeholder="Ej: BMW, Renault..." autocomplete="off" />
+							placeholder="Ej: BMW, Renault..." autocomplete="off" required />
 						<div class="tallerpro-autocomplete-dropdown" id="dropdown_marcas"></div>
 					</div>
 
@@ -995,7 +1067,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Modelo</label>
 					<div class="tallerpro-autocomplete-wrapper">
-						<input type="text" name="modelo" id="veh_modelo" class="tallerpro-form-input"
+						<input type="text" name="modelo" id="veh_modelo" class="tallerpro-form-input" required
 							placeholder="Ej: 318 D, Mégane..." autocomplete="off" />
 						<div class="tallerpro-autocomplete-dropdown" id="dropdown_modelos"></div>
 					</div>

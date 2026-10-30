@@ -162,6 +162,9 @@ if ($action == 'create_factura' || $action == 'add_factura') {
 
 		$fac_id = $fac->create($user);
 		if ($fac_id > 0) {
+			if ($fk_vehiculo > 0) {
+				$db->query("UPDATE " . MAIN_DB_PREFIX . "facture_extrafields SET fk_vehiculo = " . ((int) $fk_vehiculo) . " WHERE fk_object = " . ((int) $fac_id));
+			}
 			if ($total > 0) {
 				$tva_tx = 21.0;
 				$subprice = round($total / (1 + ($tva_tx / 100)), 2);
@@ -225,6 +228,9 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 
 			$res = $fac->update($user);
 			if ($res >= 0) {
+				if ($fk_vehiculo > 0) {
+					$db->query("UPDATE " . MAIN_DB_PREFIX . "facture_extrafields SET fk_vehiculo = " . ((int) $fk_vehiculo) . " WHERE fk_object = " . ((int) $rowid));
+				}
 				if ($fac->statut == Facture::STATUS_DRAFT) {
 					$fac->validate($user);
 				}

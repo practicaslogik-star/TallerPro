@@ -231,7 +231,7 @@ if ($action == 'delete_client' || $action == 'delete') {
 				}
 
 				// Ocultar cliente en Dolibarr
-				$soc->set_status(0);
+				$soc->status = 0;
 				$db->query("UPDATE " . MAIN_DB_PREFIX . "societe SET status = 0 WHERE rowid = " . ((int) $socid));
 
 				header("Location: " . $_SERVER['PHP_SELF'] . "?msg=deleted");
@@ -272,7 +272,7 @@ if ($action == 'delete_client' || $action == 'delete') {
 						$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_reparacion SET status = 0 WHERE fk_vehiculo IN (" . $veh_in . ")");
 						$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_vehiculo SET status = 0 WHERE fk_soc = " . ((int) $socid));
 					}
-					$soc->set_status(0);
+					$soc->status = 0;
 					$db->query("UPDATE " . MAIN_DB_PREFIX . "societe SET status = 0 WHERE rowid = " . ((int) $socid));
 
 					header("Location: " . $_SERVER['PHP_SELF'] . "?msg=deleted");

@@ -2027,6 +2027,13 @@ if (window.__tallerProLoaded) {
             btnModalEmitirFactura.addEventListener('click', function (e) {
                 e.preventDefault();
                 const vehSelect = document.getElementById('orderVehiculoSelect');
+
+                console.log("oasdasdaosidas");
+
+                console.log(vehSelect);
+
+
+
                 if (!vehSelect || !vehSelect.value || parseInt(vehSelect.value) <= 0) {
                     alert('Debe seleccionar un vehículo válido para poder emitir la factura.');
                     return;
@@ -2045,9 +2052,7 @@ if (window.__tallerProLoaded) {
             });
         }
 
-        // =========================================================================
         // Dashboard Global Search (In-Page integrated results)
-        // =========================================================================
         const globalSearchInput = document.getElementById('tallerGlobalSearchInput');
         const searchResultsContainer = document.getElementById('tallerDashboardSearchResults');
         const defaultViewContainer = document.getElementById('tallerDashboardDefaultView');

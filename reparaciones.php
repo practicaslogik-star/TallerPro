@@ -293,6 +293,11 @@ if ($action == 'facturar_reparacion' || $action == 'facturar') {
 
 				$fac_id = $fac->create($user);
 				if ($fac_id > 0) {
+					// Guardar fk_vehiculo en facture_extrafields directamente para garantizar sincronización
+					if (!empty($rep->fk_vehiculo)) {
+						$db->query("UPDATE " . MAIN_DB_PREFIX . "facture_extrafields SET fk_vehiculo = " . ((int) $rep->fk_vehiculo) . " WHERE fk_object = " . ((int) $fac_id));
+					}
+
 					// Añadir línea de mano de obra / trabajo realizado
 					$desc_mo = !empty($rep->descripcion) ? $rep->descripcion : ("Mano de obra reparación " . $ot_num);
 					$coste_mo = (float) $rep->coste_mo;
