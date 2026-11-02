@@ -20,8 +20,16 @@ body.page-tallerpro .login_block_other,
 body.page-tallerpro .side-nav,
 body.page-tallerpro #id-footer,
 body.page-tallerpro div.bottommenu,
-body.page-tallerpro footer {
+body.page-tallerpro footer,
+body.page-tallerpro #jnotify-container,
+body.page-tallerpro .jnotify-container,
+body.page-tallerpro .jnotify-item,
+body.page-tallerpro .jnotify-notification,
+body.page-tallerpro div.jnotify-container,
+#jnotify-container,
+.jnotify-container {
     display: none !important;
+    visibility: hidden !important;
 }
 
 body.page-tallerpro #id-container,

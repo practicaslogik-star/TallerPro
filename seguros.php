@@ -153,8 +153,7 @@ if ($action == 'create_seguro' || $action == 'add_seguro') {
 
 		$resql = $db->query($sql_insert);
 		if ($resql) {
-			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
-			header("Location: " . $_SERVER['PHP_SELF']);
+			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=saved");
 			exit;
 		} else {
 			setEventMessages("Error al guardar el seguro: " . $db->lasterror(), null, 'errors');
@@ -227,8 +226,7 @@ if ($action == 'update_seguro' || $action == 'edit_seguro') {
 
 		$resql = $db->query($sql_update);
 		if ($resql) {
-			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
-			header("Location: " . $_SERVER['PHP_SELF']);
+			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=updated");
 			exit;
 		} else {
 			setEventMessages("Error al actualizar el seguro: " . $db->lasterror(), null, 'errors');
@@ -243,8 +241,7 @@ if ($action == 'delete_seguro' || $action == 'delete') {
 		$sql_del = "UPDATE " . $table_seguro . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_seguro') . ")";
 		$resql = $db->query($sql_del);
 		if ($resql) {
-			setEventMessages($langs->trans("RecordDeleted"), null, 'mesgs');
-			header("Location: " . $_SERVER['PHP_SELF']);
+			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=deleted");
 			exit;
 		} else {
 			setEventMessages("Error al eliminar el seguro: " . $db->lasterror(), null, 'errors');
@@ -473,7 +470,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					</div>
 				</div>
 
-				<?php echo dol_htmloutput_events(); ?>
+				<?php //echo dol_htmloutput_events(); ?>
 
 				<?php if (empty($seguros_list)): ?>
 					<!-- Empty State Card -->

@@ -294,8 +294,7 @@ if ($action == 'create_factura' || $action == 'add_factura') {
 					$fac->setPaid($user);
 				}
 			}
-			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
-			header("Location: " . $_SERVER['PHP_SELF'] . '?id=' . $fac_id);
+			header("Location: " . $_SERVER['PHP_SELF'] . '?id=' . $fac_id . '&msg=saved');
 			exit;
 		} else {
 			setEventMessages("Error al crear la factura: " . $fac->error . " " . implode(' ', $fac->errors), null, 'errors');
@@ -449,8 +448,7 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 						$fac->setPaid($user);
 					}
 				}
-				setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
-				header("Location: " . $_SERVER['PHP_SELF'] . '?id=' . $rowid);
+				header("Location: " . $_SERVER['PHP_SELF'] . '?id=' . $rowid . '&msg=updated');
 				exit;
 			} else {
 				setEventMessages("Error al actualizar la factura: " . $fac->error, null, 'errors');
@@ -1708,7 +1706,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						</div>
 					</div>
 
-					<?php echo dol_htmloutput_events(); ?>
+					<?php //echo dol_htmloutput_events(); ?>
 
 					<?php if (!$facture_enabled): ?>
 						<div

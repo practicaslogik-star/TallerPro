@@ -602,7 +602,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 			<main class="tallerpro-content">
 				<?php
 				// Mostrar alertas o mensajes de Dolibarr
-				echo dol_htmloutput_events();
+				// echo dol_htmloutput_events();
 				?>
 
 				<?php if ($veh_detail): ?>

@@ -151,7 +151,6 @@ if ($action == 'create_reparacion' || $action == 'add_reparacion') {
 
 		$resql = $db->query($sql_insert);
 		if ($resql) {
-			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
 			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=saved");
 			exit;
 		} else {
@@ -219,8 +218,7 @@ if ($action == 'update_reparacion' || $action == 'edit_reparacion') {
 
 		$resql = $db->query($sql_update);
 		if ($resql) {
-			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
-			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=saved");
+			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=updated");
 			exit;
 		} else {
 			setEventMessages("Error al actualizar la reparación: " . $db->lasterror(), null, 'errors');

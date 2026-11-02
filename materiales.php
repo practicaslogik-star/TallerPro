@@ -138,8 +138,7 @@ if ($action == 'create_material' || $action == 'add_material') {
 
 		$resql = $db->query($sql_insert);
 		if ($resql) {
-			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
-			header("Location: " . $_SERVER['PHP_SELF']);
+			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=saved");
 			exit;
 		} else {
 			setEventMessages("Error al guardar el material: " . $db->lasterror(), null, 'errors');
@@ -200,8 +199,7 @@ if ($action == 'update_material' || $action == 'edit_material') {
 
 		$resql = $db->query($sql_update);
 		if ($resql) {
-			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
-			header("Location: " . $_SERVER['PHP_SELF']);
+			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=updated");
 			exit;
 		} else {
 			setEventMessages("Error al actualizar el material: " . $db->lasterror(), null, 'errors');
@@ -216,8 +214,7 @@ if ($action == 'delete_material' || $action == 'delete') {
 		$sql_del = "UPDATE " . $table_material . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_material') . ")";
 		$resql = $db->query($sql_del);
 		if ($resql) {
-			setEventMessages($langs->trans("RecordDeleted"), null, 'mesgs');
-			header("Location: " . $_SERVER['PHP_SELF']);
+			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=deleted");
 			exit;
 		} else {
 			setEventMessages("Error al eliminar el material: " . $db->lasterror(), null, 'errors');

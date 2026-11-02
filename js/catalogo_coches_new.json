@@ -10,7 +10,6 @@
         "kj",
         "Punto Evo"
     ],
-    
     "Alfa Romeo": [
         "145",
         "146",
@@ -1158,6 +1157,8 @@
         "Caravelle",
         "CC",
         "Crafter",
+        "e-Golf",
+        "e-Up!",
         "Eos",
         "Fox",
         "Golf",
@@ -1165,12 +1166,13 @@
         "Golf Plus",
         "Golf Sportsvan",
         "Golf Variant",
-        "ID. Buzz",
+        "Golf VII",
         "ID.3",
         "ID.4",
         "ID.5",
         "ID.7",
         "ID.7 Tourer",
+        "ID. Buzz",
         "Jetta",
         "Lupo",
         "Multivan",
@@ -1196,9 +1198,7 @@
         "Touran",
         "Transporter",
         "Up!",
-        "Vento",
-        "e-Golf",
-        "e-Up!"
+        "Vento"
     ],
     "Volvo": [
         "C30",
