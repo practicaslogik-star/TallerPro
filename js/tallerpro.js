@@ -278,6 +278,21 @@ if (window.__tallerProLoaded) {
             });
         });
 
+        // Auto-activate tab from URL query param or hash (e.g., ?tab=seguros or #tab-materiales)
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const queryTab = urlParams.get('tab');
+            const hashTab = window.location.hash ? window.location.hash.replace('#', '') : '';
+            const activeTabName = hashTab || queryTab;
+            if (activeTabName) {
+                const targetBtn = document.querySelector(`.tallerpro-tab-btn[data-tab="${activeTabName}"]`) ||
+                                  document.querySelector(`.tallerpro-tab-btn[data-tab="tab-${activeTabName}"]`);
+                if (targetBtn) {
+                    targetBtn.click();
+                }
+            }
+        } catch (err) {}
+
         // Materiales Modal handling (Create & Edit)
         const matModal = document.getElementById('tallerMaterialModal');
         const matForm = document.getElementById('tallerMaterialForm');
@@ -341,6 +356,16 @@ if (window.__tallerProLoaded) {
                 if (segFormAction) segFormAction.value = 'create_seguro';
                 if (segFormRowid) segFormRowid.value = '0';
             });
+        }
+
+        const segVehiculo = document.getElementById('seg_fk_vehiculo');
+        if (segVehiculo && segVehiculo.dataset.preselected && segModal && segForm) {
+            segForm.reset();
+            segVehiculo.value = segVehiculo.dataset.preselected;
+            if (segModalTitle) segModalTitle.textContent = 'Nuevo registro';
+            if (segFormAction) segFormAction.value = 'create_seguro';
+            if (segFormRowid) segFormRowid.value = '0';
+            segModal.classList.add('active');
         }
 
         const editSegBtns = document.querySelectorAll('.btn-edit-seguro');
@@ -413,12 +438,90 @@ if (window.__tallerProLoaded) {
             });
         }
 
+        const facSoc = document.getElementById('fac_fk_soc');
+        const facVehiculo = document.getElementById('fac_fk_vehiculo');
+
+        // Caché de todos los vehículos con su cliente asociado (data-soc)
+        let allVehiclesCache = [];
+        if (facVehiculo) {
+            allVehiclesCache = Array.from(facVehiculo.options).map(function (opt) {
+                return {
+                    value: opt.value,
+                    text: opt.textContent,
+                    soc: opt.getAttribute('data-soc') || ''
+                };
+            });
+        }
+
+        function filterFacturaVehiclesByClient(selectedSocId, keepVehiculoId) {
+            if (!facVehiculo || allVehiclesCache.length === 0) return;
+
+            const socStr = selectedSocId ? String(selectedSocId).trim() : '';
+            const targetVehStr = (keepVehiculoId !== undefined && keepVehiculoId !== null) ? String(keepVehiculoId).trim() : String(facVehiculo.value || '').trim();
+
+            facVehiculo.innerHTML = '';
+
+            // Opción por defecto
+            const defaultOpt = document.createElement('option');
+            defaultOpt.value = '';
+            defaultOpt.textContent = '— Selecciona —';
+            facVehiculo.appendChild(defaultOpt);
+
+            let matchFound = false;
+
+            allVehiclesCache.forEach(function (item) {
+                if (!item.value) return;
+
+                const belongsToClient = (socStr !== '' && item.soc === socStr);
+                const isTargetVeh = (targetVehStr !== '' && item.value === targetVehStr);
+
+                // Si no hay cliente seleccionado, muestra todos los vehículos.
+                // Si hay cliente seleccionado, solo muestra los vehículos de ese cliente (o el actualmente asignado).
+                if (!socStr || belongsToClient || isTargetVeh) {
+                    const opt = document.createElement('option');
+                    opt.value = item.value;
+                    opt.textContent = item.text;
+                    opt.setAttribute('data-soc', item.soc);
+                    if (targetVehStr !== '' && item.value === targetVehStr) {
+                        opt.selected = true;
+                        matchFound = true;
+                    }
+                    facVehiculo.appendChild(opt);
+                }
+            });
+
+            if (!matchFound) {
+                facVehiculo.value = '';
+            }
+        }
+
+        if (facSoc) {
+            facSoc.addEventListener('change', function () {
+                filterFacturaVehiclesByClient(facSoc.value);
+            });
+        }
+
+        if (facVehiculo) {
+            facVehiculo.addEventListener('change', function () {
+                // Si el usuario elige un vehículo y aún no ha seleccionado cliente, auto-seleccionar el cliente asociado
+                if (facSoc && !facSoc.value && facVehiculo.value) {
+                    const selectedOpt = facVehiculo.selectedOptions[0];
+                    const vSoc = selectedOpt ? selectedOpt.getAttribute('data-soc') : '';
+                    if (vSoc) {
+                        facSoc.value = vSoc;
+                        filterFacturaVehiclesByClient(vSoc, facVehiculo.value);
+                    }
+                }
+            });
+        }
+
         if (addFacBtn && facForm) {
             addFacBtn.addEventListener('click', function () {
                 facForm.reset();
                 if (facModalTitle) facModalTitle.textContent = 'Nuevo registro';
                 if (facFormAction) facFormAction.value = 'create_factura';
                 if (facFormRowid) facFormRowid.value = '0';
+                filterFacturaVehiclesByClient('');
                 const todayStr = new Date().toISOString().split('T')[0];
                 if (facFecha) {
                     facFecha.value = todayStr;
@@ -444,8 +547,6 @@ if (window.__tallerProLoaded) {
                 if (facFormAction) facFormAction.value = 'update_factura';
                 if (facFormRowid) facFormRowid.value = btn.dataset.id || '0';
 
-                const facSoc = document.getElementById('fac_fk_soc');
-                const facVehiculo = document.getElementById('fac_fk_vehiculo');
                 const facTotal = document.getElementById('fac_total');
                 const facEstado = document.getElementById('fac_estado');
                 const facNotas = document.getElementById('fac_notas');
@@ -455,8 +556,13 @@ if (window.__tallerProLoaded) {
                     facNumero.readOnly = true;
                 }
                 if (facFecha) facFecha.value = btn.dataset.fecha || '';
-                if (facSoc) facSoc.value = btn.dataset.soc || '';
-                if (facVehiculo) facVehiculo.value = btn.dataset.vehiculo || '';
+
+                const clientSocId = btn.dataset.soc || '';
+                const vehicleId = btn.dataset.vehiculo || '';
+
+                if (facSoc) facSoc.value = clientSocId;
+                filterFacturaVehiclesByClient(clientSocId, vehicleId);
+
                 if (facTotal) facTotal.value = btn.dataset.total || '0.00';
                 if (facEstado) facEstado.value = btn.dataset.estado || 'Pendiente';
                 if (facNotas) facNotas.value = btn.dataset.notas || '';
@@ -478,609 +584,7 @@ if (window.__tallerProLoaded) {
             });
         });
 
-        // =========================================================================
-        // Modal Detalle de Factura (Materiales, Mano de obra, Desglose y Totales)
-        // =========================================================================
-        const detalleModal = document.getElementById('tallerFacturaDetalleModal');
-        const detalleModalTitle = document.getElementById('tallerDetalleModalTitle');
-        const closeDetalleModalBtn = document.getElementById('tallerCloseDetalleModalBtn');
-        const detalleFkFactura = document.getElementById('detalle_fk_factura');
-
-        // Elementos de Materiales
-        const detMatCatalogo = document.getElementById('det_mat_catalogo');
-        const detMatCodigo = document.getElementById('det_mat_codigo');
-        const detMatDescripcion = document.getElementById('det_mat_descripcion');
-        const detMatCantidad = document.getElementById('det_mat_cantidad');
-        const detMatPrecio = document.getElementById('det_mat_precio');
-        const detMatDescuento = document.getElementById('det_mat_descuento');
-        const detMatTotalNeto = document.getElementById('det_mat_total_neto');
-        const detMatGuardarCatalogo = document.getElementById('det_mat_guardar_catalogo');
-        const btnAddMaterialLine = document.getElementById('btnAddMaterialLine');
-        const detMatEmpty = document.getElementById('det_mat_empty');
-        const detMatList = document.getElementById('det_mat_list');
-
-        // Elementos de Reparaciones
-        const detRepDescripcion = document.getElementById('det_rep_descripcion');
-        const detRepPrecio = document.getElementById('det_rep_precio');
-        const detRepDescuento = document.getElementById('det_rep_descuento');
-        const detRepTotalNeto = document.getElementById('det_rep_total_neto');
-        const detRepNotas = document.getElementById('det_rep_notas');
-        const btnAddReparacionLine = document.getElementById('btnAddReparacionLine');
-        const detRepEmpty = document.getElementById('det_rep_empty');
-        const detRepList = document.getElementById('det_rep_list');
-
-        // Elementos de Totales y Desglose
-        const detTotDescuentoGlobal = document.getElementById('det_tot_descuento_global');
-        const detTotIva = document.getElementById('det_tot_iva');
-        const sumMateriales = document.getElementById('sum_materiales');
-        const sumReparaciones = document.getElementById('sum_reparaciones');
-        const sumSubtotal = document.getElementById('sum_subtotal');
-        const sumDescuento = document.getElementById('sum_descuento');
-        const sumBaseImponible = document.getElementById('sum_base_imponible');
-        const lblIva = document.getElementById('lbl_iva');
-        const sumIva = document.getElementById('sum_iva');
-        const sumTotal = document.getElementById('sum_total');
-        const btnSaveInvoiceTotals = document.getElementById('btnSaveInvoiceTotals');
-
-        let currentMatSum = 0;
-        let currentRepSum = 0;
-        let currentComputedTotal = 0;
-
-        // Cálculo dinámico para la fila de Material
-        function calcMaterialNet() {
-            if (!detMatTotalNeto) return;
-            const cant = parseFloat(detMatCantidad ? detMatCantidad.value : 1) || 0;
-            const precio = parseFloat(detMatPrecio ? detMatPrecio.value : 0) || 0;
-            const dto = parseFloat(detMatDescuento ? detMatDescuento.value : 0) || 0;
-            const net = Math.max(0, cant * precio * (1 - (dto / 100)));
-            detMatTotalNeto.value = net.toFixed(2) + ' €';
-        }
-
-        if (detMatCantidad) detMatCantidad.addEventListener('input', calcMaterialNet);
-        if (detMatPrecio) detMatPrecio.addEventListener('input', calcMaterialNet);
-        if (detMatDescuento) detMatDescuento.addEventListener('input', calcMaterialNet);
-
-        // Selección de material del catálogo
-        if (detMatCatalogo) {
-            detMatCatalogo.addEventListener('change', function () {
-                const selectedOpt = detMatCatalogo.selectedOptions ? detMatCatalogo.selectedOptions[0] : null;
-                if (selectedOpt && selectedOpt.value) {
-                    if (detMatCodigo) detMatCodigo.value = selectedOpt.dataset.codigo || '';
-                    if (detMatDescripcion) detMatDescripcion.value = selectedOpt.dataset.descripcion || '';
-                    if (detMatPrecio) detMatPrecio.value = selectedOpt.dataset.precio || '0';
-                }
-                calcMaterialNet();
-            });
-        }
-
-        // Cálculo dinámico para la fila de Reparación
-        function calcReparacionNet() {
-            if (!detRepTotalNeto) return;
-            const precio = parseFloat(detRepPrecio ? detRepPrecio.value : 0) || 0;
-            const dto = parseFloat(detRepDescuento ? detRepDescuento.value : 0) || 0;
-            const net = Math.max(0, precio * (1 - (dto / 100)));
-            detRepTotalNeto.value = net.toFixed(2) + ' €';
-        }
-
-        if (detRepPrecio) detRepPrecio.addEventListener('input', calcReparacionNet);
-        if (detRepDescuento) detRepDescuento.addEventListener('input', calcReparacionNet);
-
-        // Recalcular y pintar desglose de totales
-        function renderTotalsSummary() {
-            const subtotal = currentMatSum + currentRepSum;
-            const descuento = parseFloat(detTotDescuentoGlobal ? detTotDescuentoGlobal.value : 0) || 0;
-            const ivaPorcentaje = parseFloat(detTotIva ? detTotIva.value : 21) || 0;
-            const baseImponible = Math.max(0, subtotal - descuento);
-            const ivaImporte = baseImponible * (ivaPorcentaje / 100);
-            currentComputedTotal = baseImponible + ivaImporte;
-
-            if (sumMateriales) sumMateriales.textContent = currentMatSum.toFixed(2) + ' €';
-            if (sumReparaciones) sumReparaciones.textContent = currentRepSum.toFixed(2) + ' €';
-            if (sumSubtotal) sumSubtotal.textContent = subtotal.toFixed(2) + ' €';
-            if (sumDescuento) sumDescuento.textContent = '- ' + descuento.toFixed(2) + ' €';
-            if (sumBaseImponible) sumBaseImponible.textContent = baseImponible.toFixed(2) + ' €';
-            if (lblIva) lblIva.textContent = 'IVA (' + (Number.isInteger(ivaPorcentaje) ? ivaPorcentaje : ivaPorcentaje.toFixed(1)) + '%)';
-            if (sumIva) sumIva.textContent = ivaImporte.toFixed(2) + ' €';
-            if (sumTotal) sumTotal.textContent = currentComputedTotal.toFixed(2) + ' €';
-        }
-
-        if (detTotDescuentoGlobal) detTotDescuentoGlobal.addEventListener('input', renderTotalsSummary);
-        if (detTotIva) detTotIva.addEventListener('input', renderTotalsSummary);
-
-        function getCsrfToken() {
-            const inp = document.querySelector('input[name="token"]');
-            if (inp && inp.value) return inp.value;
-            const metaNew = document.querySelector('meta[name="anti-csrf-newtoken"]');
-            if (metaNew && metaNew.getAttribute('content')) return metaNew.getAttribute('content');
-            const metaCur = document.querySelector('meta[name="anti-csrf-currenttoken"]');
-            if (metaCur && metaCur.getAttribute('content')) return metaCur.getAttribute('content');
-            return '';
-        }
-
-        const ajaxUrl = window.location.pathname;
-
-        // Cargar líneas y datos de la factura por AJAX
-        function loadFacturaDetalle(facId) {
-            if (!facId) return;
-            fetch(ajaxUrl + '?action=get_factura_lineas&fk_factura=' + encodeURIComponent(facId))
-                .then(function (res) {
-                    if (!res.ok) throw new Error('HTTP ' + res.status);
-                    return res.json();
-                })
-                .then(function (data) {
-                    // Actualizar inputs de descuento global e IVA
-                    if (data.factura) {
-                        if (detTotDescuentoGlobal) detTotDescuentoGlobal.value = parseFloat(data.factura.descuento_global || 0).toFixed(2);
-                        if (detTotIva) detTotIva.value = parseFloat(data.factura.iva_porcentaje !== null && data.factura.iva_porcentaje !== undefined ? data.factura.iva_porcentaje : 21).toFixed(0);
-                    }
-
-                    // Renderizar Materiales (Formato tabla idéntico a referencia)
-                    currentMatSum = 0;
-                    if (detMatList && detMatEmpty) {
-                        const materiales = data.materiales || [];
-                        if (materiales.length === 0) {
-                            detMatEmpty.style.display = 'block';
-                            detMatList.style.display = 'none';
-                            detMatList.innerHTML = '';
-                        } else {
-                            detMatEmpty.style.display = 'none';
-                            detMatList.style.display = 'block';
-
-                            let tableHtml = '<table class="tallerpro-invoice-table">' +
-                                '<thead>' +
-                                '<tr>' +
-                                '<th style="width: 15%;">Código</th>' +
-                                '<th style="width: 44%;">Descripción</th>' +
-                                '<th style="width: 8%; text-align: center;">Cant.</th>' +
-                                '<th style="width: 12%; text-align: right;">P. unit.</th>' +
-                                '<th style="width: 8%; text-align: center;">Dto.</th>' +
-                                '<th style="width: 13%; text-align: right;">Total</th>' +
-                                '<th style="width: 32px; text-align: center;"></th>' +
-                                '</tr>' +
-                                '</thead>' +
-                                '<tbody>';
-
-                            materiales.forEach(function (mat) {
-                                const net = parseFloat(mat.total_neto) || 0;
-                                currentMatSum += net;
-                                const codeDisplay = (mat.codigo && mat.codigo.trim()) ? escapeHtml(mat.codigo) : '—';
-                                const qtyDisplay = parseFloat(mat.cantidad).toFixed(0);
-                                const priceDisplay = parseFloat(mat.precio).toFixed(2) + ' €';
-                                const dtoDisplay = parseFloat(mat.descuento).toFixed(0) + '%';
-                                const totalDisplay = net.toFixed(2) + ' €';
-
-                                tableHtml += '<tr>' +
-                                    '<td>' + codeDisplay + '</td>' +
-                                    '<td>' + escapeHtml(mat.descripcion) + '</td>' +
-                                    '<td style="text-align: center;">' + qtyDisplay + '</td>' +
-                                    '<td style="text-align: right;">' + priceDisplay + '</td>' +
-                                    '<td style="text-align: center;">' + dtoDisplay + '</td>' +
-                                    '<td style="text-align: right; font-weight: 700; color: #0f172a;">' + totalDisplay + '</td>' +
-                                    '<td style="text-align: center;">' +
-                                    '<button type="button" class="tallerpro-action-btn btn-delete-line" data-line-id="' + mat.rowid + '" title="Eliminar">' +
-                                    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-                                    '<polyline points="3 6 5 6 21 6"></polyline>' +
-                                    '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>' +
-                                    '</svg>' +
-                                    '</button>' +
-                                    '</td>' +
-                                    '</tr>';
-                            });
-
-                            tableHtml += '</tbody></table>';
-                            detMatList.innerHTML = tableHtml;
-                        }
-                    }
-
-                    // Renderizar Reparaciones (Formato tabla idéntico a referencia)
-                    currentRepSum = 0;
-                    if (detRepList && detRepEmpty) {
-                        const reparaciones = data.reparaciones || [];
-                        if (reparaciones.length === 0) {
-                            detRepEmpty.style.display = 'block';
-                            detRepList.style.display = 'none';
-                            detRepList.innerHTML = '';
-                        } else {
-                            detRepEmpty.style.display = 'none';
-                            detRepList.style.display = 'block';
-
-                            let tableHtml = '<table class="tallerpro-invoice-table">' +
-                                '<thead>' +
-                                '<tr>' +
-                                '<th style="width: 58%;">Descripción</th>' +
-                                '<th style="width: 14%; text-align: right;">Precio</th>' +
-                                '<th style="width: 10%; text-align: center;">Dto.</th>' +
-                                '<th style="width: 14%; text-align: right;">Total</th>' +
-                                '<th style="width: 32px; text-align: center;"></th>' +
-                                '</tr>' +
-                                '</thead>' +
-                                '<tbody>';
-
-                            reparaciones.forEach(function (rep) {
-                                const net = parseFloat(rep.total_neto) || 0;
-                                currentRepSum += net;
-                                const priceDisplay = parseFloat(rep.precio).toFixed(2) + ' €';
-                                const dtoDisplay = parseFloat(rep.descuento).toFixed(0) + '%';
-                                const totalDisplay = net.toFixed(2) + ' €';
-                                let descHtml = '<span>' + escapeHtml(rep.descripcion) + '</span>';
-                                if (rep.notas && rep.notas.trim()) {
-                                    descHtml += '<div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">' + escapeHtml(rep.notas.trim()) + '</div>';
-                                }
-
-                                tableHtml += '<tr>' +
-                                    '<td>' + descHtml + '</td>' +
-                                    '<td style="text-align: right;">' + priceDisplay + '</td>' +
-                                    '<td style="text-align: center;">' + dtoDisplay + '</td>' +
-                                    '<td style="text-align: right; font-weight: 700; color: #0f172a;">' + totalDisplay + '</td>' +
-                                    '<td style="text-align: center;">' +
-                                    '<button type="button" class="tallerpro-action-btn btn-delete-line" data-line-id="' + rep.rowid + '" title="Eliminar">' +
-                                    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-                                    '<polyline points="3 6 5 6 21 6"></polyline>' +
-                                    '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>' +
-                                    '</svg>' +
-                                    '</button>' +
-                                    '</td>' +
-                                    '</tr>';
-                            });
-
-                            tableHtml += '</tbody></table>';
-                            detRepList.innerHTML = tableHtml;
-                        }
-                    }
-
-                    // Pintar desglose
-                    renderTotalsSummary();
-
-                    // Actualizar total en la tabla principal en vivo
-                    updateTableRowTotal(facId, currentComputedTotal);
-                })
-                .catch(function (err) {
-                    console.error('Error al cargar detalle de factura:', err);
-                });
-        }
-
-        function updateTableRowTotal(facId, total) {
-            const tr = document.querySelector('tr[data-invoice-id="' + facId + '"]');
-            if (tr) {
-                const totalTd = tr.querySelector('.col-factura-total');
-                if (totalTd) {
-                    totalTd.textContent = total.toFixed(2) + ' €';
-                }
-                const editBtn = tr.querySelector('.btn-edit-factura');
-                if (editBtn) {
-                    editBtn.dataset.total = total.toFixed(2);
-                }
-            }
-        }
-
-        function escapeHtml(text) {
-            if (!text) return '';
-            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
-            return String(text).replace(/[&<>"']/g, function (m) { return map[m]; });
-        }
-
-        // Botones de acción "Detalle" en la tabla de facturas
-        const detalleFacBtns = document.querySelectorAll('.btn-detalle-factura');
-        detalleFacBtns.forEach(function (btn) {
-            btn.addEventListener('click', function (e) {
-                e.preventDefault();
-                const facId = btn.dataset.id || '';
-                const facNumero = btn.dataset.numero || '';
-
-                if (detalleModalTitle) {
-                    detalleModalTitle.textContent = 'Detalle de la factura ' + facNumero;
-                }
-                if (detalleFkFactura) {
-                    detalleFkFactura.value = facId;
-                }
-
-                // Resetear formularios de entrada
-                if (detMatCatalogo) detMatCatalogo.value = '';
-                if (detMatCodigo) detMatCodigo.value = '';
-                if (detMatDescripcion) detMatDescripcion.value = '';
-                if (detMatCantidad) detMatCantidad.value = '1';
-                if (detMatPrecio) detMatPrecio.value = '0';
-                if (detMatDescuento) detMatDescuento.value = '0';
-                if (detMatTotalNeto) detMatTotalNeto.value = '0.00 €';
-                if (detMatGuardarCatalogo) detMatGuardarCatalogo.checked = true;
-
-                if (detRepDescripcion) detRepDescripcion.value = '';
-                if (detRepPrecio) detRepPrecio.value = '0';
-                if (detRepDescuento) detRepDescuento.value = '0';
-                if (detRepTotalNeto) detRepTotalNeto.value = '0.00 €';
-                if (detRepNotas) detRepNotas.value = '';
-
-                // Mostrar modal
-                if (detalleModal) {
-                    detalleModal.classList.add('active');
-                }
-
-                // Cargar datos
-                loadFacturaDetalle(facId);
-            });
-        });
-
-        // Añadir línea de Material (con protección anti-duplicados y reanudación en finally)
-        let isSubmittingMaterial = false;
-        if (btnAddMaterialLine) {
-            btnAddMaterialLine.addEventListener('click', function (e) {
-                if (e) e.preventDefault();
-                if (isSubmittingMaterial) return;
-
-                const facId = detalleFkFactura ? detalleFkFactura.value : '';
-                const desc = detMatDescripcion ? detMatDescripcion.value.trim() : '';
-                if (!facId) {
-                    alert('No se ha detectado el identificador de la factura.');
-                    return;
-                }
-                if (!desc) {
-                    alert('Por favor, indica una descripción para el material.');
-                    if (detMatDescripcion) {
-                        detMatDescripcion.focus();
-                        detMatDescripcion.style.borderColor = '#ef4444';
-                        setTimeout(function () { detMatDescripcion.style.borderColor = ''; }, 2000);
-                    }
-                    return;
-                }
-
-                isSubmittingMaterial = true;
-                const origText = btnAddMaterialLine.innerHTML;
-                btnAddMaterialLine.disabled = true;
-                btnAddMaterialLine.innerHTML = '<span>Añadiendo...</span>';
-
-                const fd = new FormData();
-                fd.append('action', 'add_factura_linea');
-                fd.append('fk_factura', facId);
-                fd.append('tipo', 'material');
-                fd.append('fk_material', detMatCatalogo ? detMatCatalogo.value : '');
-                fd.append('codigo', detMatCodigo ? detMatCodigo.value : '');
-                fd.append('descripcion', desc);
-                fd.append('cantidad', detMatCantidad ? detMatCantidad.value : '1');
-                fd.append('precio', detMatPrecio ? detMatPrecio.value : '0');
-                fd.append('descuento', detMatDescuento ? detMatDescuento.value : '0');
-                fd.append('guardar_catalogo', (detMatGuardarCatalogo && detMatGuardarCatalogo.checked) ? '1' : '0');
-                const token = getCsrfToken();
-                if (token) fd.append('token', token);
-
-                fetch(ajaxUrl + '?action=add_factura_linea', {
-                    method: 'POST',
-                    body: fd
-                })
-                    .then(function (res) {
-                        if (!res.ok) throw new Error('HTTP ' + res.status);
-                        return res.json();
-                    })
-                    .then(function (data) {
-                        if (data && data.status === 'error') {
-                            alert('Error: ' + (data.message || 'No se pudo añadir el material'));
-                            return;
-                        }
-                        // Limpiar campos
-                        if (detMatCatalogo) detMatCatalogo.value = '';
-                        if (detMatCodigo) detMatCodigo.value = '';
-                        if (detMatDescripcion) detMatDescripcion.value = '';
-                        if (detMatCantidad) detMatCantidad.value = '1';
-                        if (detMatPrecio) detMatPrecio.value = '0';
-                        if (detMatDescuento) detMatDescuento.value = '0';
-                        if (detMatTotalNeto) detMatTotalNeto.value = '0.00 €';
-                        // Recargar listado
-                        loadFacturaDetalle(facId);
-                    })
-                    .catch(function (err) {
-                        console.error('Error al añadir material:', err);
-                        alert('Ocurrió un error al añadir el material: ' + err.message);
-                    })
-                    .finally(function () {
-                        isSubmittingMaterial = false;
-                        btnAddMaterialLine.disabled = false;
-                        btnAddMaterialLine.innerHTML = origText;
-                    });
-            });
-        }
-
-        // Añadir línea de Reparación (con protección anti-duplicados y reanudación en finally)
-        let isSubmittingReparacion = false;
-        if (btnAddReparacionLine) {
-            btnAddReparacionLine.addEventListener('click', function (e) {
-                if (e) e.preventDefault();
-                if (isSubmittingReparacion) return;
-
-                const facId = detalleFkFactura ? detalleFkFactura.value : '';
-                const desc = detRepDescripcion ? detRepDescripcion.value.trim() : '';
-                if (!facId) {
-                    alert('No se ha detectado el identificador de la factura.');
-                    return;
-                }
-                if (!desc) {
-                    alert('Por favor, indica una descripción para la reparación.');
-                    if (detRepDescripcion) {
-                        detRepDescripcion.focus();
-                        detRepDescripcion.style.borderColor = '#ef4444';
-                        setTimeout(function () { detRepDescripcion.style.borderColor = ''; }, 2000);
-                    }
-                    return;
-                }
-
-                isSubmittingReparacion = true;
-                const origText = btnAddReparacionLine.innerHTML;
-                btnAddReparacionLine.disabled = true;
-                btnAddReparacionLine.innerHTML = '<span>Añadiendo...</span>';
-
-                const fd = new FormData();
-                fd.append('action', 'add_factura_linea');
-                fd.append('fk_factura', facId);
-                fd.append('tipo', 'reparacion');
-                fd.append('descripcion', desc);
-                fd.append('precio', detRepPrecio ? detRepPrecio.value : '0');
-                fd.append('descuento', detRepDescuento ? detRepDescuento.value : '0');
-                fd.append('notas', detRepNotas ? detRepNotas.value : '');
-                const token = getCsrfToken();
-                if (token) fd.append('token', token);
-
-                fetch(ajaxUrl + '?action=add_factura_linea', {
-                    method: 'POST',
-                    body: fd
-                })
-                    .then(function (res) {
-                        if (!res.ok) throw new Error('HTTP ' + res.status);
-                        return res.json();
-                    })
-                    .then(function (data) {
-                        if (data && data.status === 'error') {
-                            alert('Error: ' + (data.message || 'No se pudo añadir la reparación'));
-                            return;
-                        }
-                        // Limpiar campos
-                        if (detRepDescripcion) detRepDescripcion.value = '';
-                        if (detRepPrecio) detRepPrecio.value = '0';
-                        if (detRepDescuento) detRepDescuento.value = '0';
-                        if (detRepTotalNeto) detRepTotalNeto.value = '0.00 €';
-                        if (detRepNotas) detRepNotas.value = '';
-                        // Recargar listado
-                        loadFacturaDetalle(facId);
-                    })
-                    .catch(function (err) {
-                        console.error('Error al añadir reparación:', err);
-                        alert('Ocurrió un error al añadir la reparación: ' + err.message);
-                    })
-                    .finally(function () {
-                        isSubmittingReparacion = false;
-                        btnAddReparacionLine.disabled = false;
-                        btnAddReparacionLine.innerHTML = origText;
-                    });
-            });
-        }
-
-        // Eliminar línea (Delegación sobre listas)
-        function handleLineDelete(e) {
-            const delBtn = e.target.closest('.btn-delete-line');
-            if (!delBtn) return;
-            const lineId = delBtn.dataset.lineId;
-            const facId = detalleFkFactura ? detalleFkFactura.value : '';
-            if (!lineId || !facId) return;
-
-            if (confirm('¿Deseas eliminar esta línea?')) {
-                const fd = new FormData();
-                fd.append('action', 'delete_factura_linea');
-                fd.append('linea_id', lineId);
-                fd.append('fk_factura', facId);
-                const token = getCsrfToken();
-                if (token) fd.append('token', token);
-
-                fetch(ajaxUrl + '?action=delete_factura_linea', {
-                    method: 'POST',
-                    body: fd
-                })
-                    .then(function (res) { return res.json(); })
-                    .then(function (data) {
-                        if (data && data.status === 'error') {
-                            alert('Error al eliminar: ' + (data.message || ''));
-                            return;
-                        }
-                        loadFacturaDetalle(facId);
-                    })
-                    .catch(function (err) {
-                        console.error('Error al eliminar línea:', err);
-                    });
-            }
-        }
-
-        if (detMatList) detMatList.addEventListener('click', handleLineDelete);
-        if (detRepList) detRepList.addEventListener('click', handleLineDelete);
-
-        // Guardar totales en la factura
-        if (btnSaveInvoiceTotals) {
-            btnSaveInvoiceTotals.addEventListener('click', function () {
-                const facId = detalleFkFactura ? detalleFkFactura.value : '';
-                if (!facId) return;
-
-                const fd = new FormData();
-                fd.append('action', 'save_factura_totales');
-                fd.append('fk_factura', facId);
-                fd.append('descuento_global', detTotDescuentoGlobal ? detTotDescuentoGlobal.value : '0');
-                fd.append('iva_porcentaje', detTotIva ? detTotIva.value : '21');
-                fd.append('total', currentComputedTotal.toFixed(2));
-                const token = getCsrfToken();
-                if (token) fd.append('token', token);
-
-                fetch(ajaxUrl + '?action=save_factura_totales', {
-                    method: 'POST',
-                    body: fd
-                })
-                    .then(function (res) { return res.json(); })
-                    .then(function (data) {
-                        updateTableRowTotal(facId, currentComputedTotal);
-                        const originalHtml = btnSaveInvoiceTotals.innerHTML;
-                        btnSaveInvoiceTotals.innerHTML = '<span>✓ ¡Totales guardados!</span>';
-                        btnSaveInvoiceTotals.style.backgroundColor = '#16a34a';
-                        setTimeout(function () {
-                            btnSaveInvoiceTotals.innerHTML = originalHtml;
-                            btnSaveInvoiceTotals.style.backgroundColor = '';
-                        }, 1800);
-                    })
-                    .catch(function (err) {
-                        console.error('Error al guardar totales:', err);
-                        alert('Error al guardar totales: ' + err.message);
-                    });
-            });
-        }
-
-        // Botón "Listo" en el modal de líneas de factura -> Abre la vista documental
-        const btnModalListo = document.getElementById('btnModalListo');
-        if (btnModalListo) {
-            btnModalListo.addEventListener('click', function () {
-                const facId = detalleFkFactura ? detalleFkFactura.value : '';
-                if (!facId) {
-                    if (detalleModal) detalleModal.classList.remove('active');
-                    return;
-                }
-
-                btnModalListo.disabled = true;
-                btnModalListo.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="tallerpro-spin"><line x1="12" y1="2" x2="12" y2="6"></line><line x1="12" y1="18" x2="12" y2="22"></line><line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line><line x1="16.24" y1="16.24" x2="19.07" y2="19.07"></line><line x1="2" y1="12" x2="6" y2="12"></line><line x1="18" y1="12" x2="22" y2="12"></line><line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line><line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line></svg> <span>Guardando...</span>';
-
-                const fd = new FormData();
-                fd.append('action', 'save_factura_totales');
-                fd.append('fk_factura', facId);
-                fd.append('descuento_global', detTotDescuentoGlobal ? detTotDescuentoGlobal.value : '0');
-                fd.append('iva_porcentaje', detTotIva ? detTotIva.value : '21');
-                fd.append('total', currentComputedTotal.toFixed(2));
-                const token = getCsrfToken();
-                if (token) fd.append('token', token);
-
-                fetch(ajaxUrl + '?action=save_factura_totales', {
-                    method: 'POST',
-                    body: fd
-                })
-                    .then(function () {
-                        window.location.href = 'facturas.php?id=' + encodeURIComponent(facId);
-                    })
-                    .catch(function (err) {
-                        console.warn('Error al guardar antes de redirigir:', err);
-                        window.location.href = 'facturas.php?id=' + encodeURIComponent(facId);
-                    });
-            });
-        }
-
-        // Cerrar modal Detalle
-        if (closeDetalleModalBtn) {
-            closeDetalleModalBtn.addEventListener('click', function () {
-                if (detalleModal) detalleModal.classList.remove('active');
-            });
-        }
-
-        if (detalleModal) {
-            detalleModal.addEventListener('click', function (e) {
-                if (e.target === detalleModal) {
-                    detalleModal.classList.remove('active');
-                }
-            });
-        }
-
-        document.addEventListener('keydown', function (e) {
-            if (e.key === 'Escape' && detalleModal && detalleModal.classList.contains('active')) {
-                detalleModal.classList.remove('active');
-            }
-        });
+        // (El modal de detalle de facturas ha sido eliminado; la gestión de líneas y totales se realiza centralizadamente en reparaciones)
 
         /* REPARACIONES VIEW (TallerPro)  */
 
@@ -1320,155 +824,513 @@ if (window.__tallerProLoaded) {
         if (searchInput) searchInput.addEventListener('input', filterReparaciones);
         if (stateFilter) stateFilter.addEventListener('change', filterReparaciones);
 
-        // Modal Order Calculations (Labor + Materials)
-        const laborBody = document.getElementById('laborTableBody');
-        const materialsBody = document.getElementById('materialsTableBody');
-        const summaryLabor = document.getElementById('summaryLabor');
-        const summaryMaterials = document.getElementById('summaryMaterials');
-        const summaryTotal = document.getElementById('summaryTotal');
+        // Cambio de estado de reparación directamente desde el selector de la tabla
+        document.addEventListener('change', function (e) {
+            const statusSelect = e.target.closest('.tallerpro-status-select');
+            if (!statusSelect) return;
 
-        function recalculateTotals() {
-            let totalLabor = 0;
-            if (laborBody) {
-                const costInputs = laborBody.querySelectorAll('.labor-cost');
-                costInputs.forEach(function (input) {
-                    const val = parseFloat(input.value) || 0;
-                    totalLabor += val;
-                });
+            const newEstado = statusSelect.value;
+            const rowid = statusSelect.getAttribute('data-id');
+            const tr = statusSelect.closest('tr');
+            if (!tr || !rowid) return;
+
+            // Actualizar apariencia visual del selector
+            if (newEstado === 'finalizada') {
+                statusSelect.classList.remove('status-en_curso');
+                statusSelect.classList.add('status-finalizada');
+            } else {
+                statusSelect.classList.remove('status-finalizada');
+                statusSelect.classList.add('status-en_curso');
             }
 
-            let totalMaterials = 0;
-            if (materialsBody) {
-                const matRows = materialsBody.querySelectorAll('tr');
-                matRows.forEach(function (tr) {
-                    const qtyInput = tr.querySelector('.mat-qty');
-                    const priceInput = tr.querySelector('.mat-price');
-                    const rowTotalCell = tr.querySelector('.mat-row-total');
-
-                    const qty = parseFloat(qtyInput ? qtyInput.value : 1) || 0;
-                    const price = parseFloat(priceInput ? priceInput.value : 0) || 0;
-                    const rowTot = qty * price;
-                    totalMaterials += rowTot;
-
-                    if (rowTotalCell) {
-                        rowTotalCell.textContent = rowTot.toFixed(2) + ' €';
-                    }
-                });
+            // Actualizar atributos de la fila para filtros y edición
+            tr.setAttribute('data-estado', newEstado);
+            const editBtn = tr.querySelector('.btn-edit-reparacion');
+            if (editBtn) {
+                editBtn.setAttribute('data-estado', newEstado);
             }
 
-            const grandTotal = totalLabor + totalMaterials;
-            if (summaryLabor) summaryLabor.textContent = totalLabor.toFixed(2) + ' €';
-            if (summaryMaterials) summaryMaterials.textContent = totalMaterials.toFixed(2) + ' €';
-            if (summaryTotal) summaryTotal.textContent = grandTotal.toFixed(2) + ' €';
+            // Actualizar botones de acción (Facturar)
+            const actionsDiv = tr.querySelector('.tallerpro-actions');
+            const existingFacturarBtn = tr.querySelector('.tallerpro-btn-facturar-action');
+            const hasFactura = tr.getAttribute('data-has-factura') === '1';
 
-            const costeMoHidden = document.getElementById('orderCosteMoHidden');
-            if (costeMoHidden) {
-                costeMoHidden.value = grandTotal.toFixed(2);
+            if (newEstado === 'finalizada' && !hasFactura) {
+                if (!existingFacturarBtn && actionsDiv) {
+                    const facturarBtn = document.createElement('a');
+                    facturarBtn.href = tr.getAttribute('data-facturar-url') || (window.location.pathname + '?action=facturar_reparacion&rowid=' + rowid);
+                    facturarBtn.className = 'tallerpro-btn-facturar-action';
+                    facturarBtn.title = 'Emitir Factura oficial de esta reparación';
+                    facturarBtn.onclick = function () {
+                        return confirm('¿Deseas generar la factura oficial de Dolibarr para esta reparación?');
+                    };
+                    facturarBtn.innerHTML = `
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                            <polyline points="14 2 14 8 20 8"></polyline>
+                            <line x1="16" y1="13" x2="8" y2="13"></line>
+                            <line x1="16" y1="17" x2="8" y2="17"></line>
+                            <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                        <span>Facturar</span>
+                    `;
+                    actionsDiv.insertBefore(facturarBtn, actionsDiv.firstChild);
+                }
+            } else if (newEstado === 'en_curso') {
+                if (existingFacturarBtn) {
+                    existingFacturarBtn.remove();
+                }
             }
-        }
 
-        if (laborBody) {
-            laborBody.addEventListener('input', function (e) {
-                if (e.target.classList.contains('labor-cost')) {
-                    recalculateTotals();
+            // Si hay un filtro de estado activo, re-filtrar
+            if (stateFilter && stateFilter.value !== 'all') {
+                filterReparaciones();
+            }
+
+            // Persistir en backend vía POST
+            const tokenInput = document.getElementById('reparacionFormToken');
+            const token = tokenInput ? tokenInput.value : '';
+            const formData = new FormData();
+            formData.append('action', 'update_estado');
+            formData.append('rowid', rowid);
+            formData.append('new_estado', newEstado);
+            formData.append('ajax', '1');
+            if (token) formData.append('token', token);
+
+            fetch(window.location.pathname, {
+                method: 'POST',
+                body: formData
+            }).then(function (res) {
+                return res.json();
+            }).then(function () {
+                if (typeof window.showTallerToast === 'function') {
+                    window.showTallerToast('Estado actualizado a ' + (newEstado === 'finalizada' ? 'Finalizada' : 'En curso'));
                 }
+            }).catch(function (err) {
+                console.error('Error al actualizar estado:', err);
             });
-            laborBody.addEventListener('click', function (e) {
-                if (e.target.classList.contains('tallerpro-order-del-btn')) {
-                    const tr = e.target.closest('tr');
-                    if (laborBody.querySelectorAll('tr').length > 1) {
-                        tr.remove();
-                    } else {
-                        const desc = tr.querySelector('.labor-desc');
-                        const cost = tr.querySelector('.labor-cost');
-                        if (desc) desc.value = '';
-                        if (cost) cost.value = '0.00';
-                    }
-                    recalculateTotals();
-                }
-            });
-        }
+        });
 
-        if (materialsBody) {
-            materialsBody.addEventListener('input', function (e) {
-                if (e.target.classList.contains('mat-qty') || e.target.classList.contains('mat-price')) {
-                    recalculateTotals();
-                }
-            });
-            materialsBody.addEventListener('change', function (e) {
-                if (e.target.classList.contains('mat-select')) {
-                    const price = parseFloat(e.target.value) || 0;
-                    const tr = e.target.closest('tr');
-                    const priceInput = tr.querySelector('.mat-price');
-                    if (priceInput) priceInput.value = price.toFixed(2);
-                    recalculateTotals();
-                }
-            });
-            materialsBody.addEventListener('click', function (e) {
-                if (e.target.classList.contains('tallerpro-order-del-btn')) {
-                    const tr = e.target.closest('tr');
-                    if (materialsBody.querySelectorAll('tr').length > 1) {
-                        tr.remove();
-                    } else {
-                        const qty = tr.querySelector('.mat-qty');
-                        const price = tr.querySelector('.mat-price');
-                        if (qty) qty.value = '1';
-                        if (price) price.value = '0.00';
-                    }
-                    recalculateTotals();
-                }
-            });
-        }
+        // =========================================================================
+        // Gestión de la Orden de Reparación (Materiales, Mano de obra, Desglose y Totales)
+        // =========================================================================
+        let currentRepMaterials = [];
+        let currentRepLabor = [];
 
-        // Add Trabajo row
-        const btnAddTrabajo = document.getElementById('btnAddTrabajoRow');
-        if (btnAddTrabajo && laborBody) {
-            btnAddTrabajo.addEventListener('click', function () {
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                <td><input type="text" class="tallerpro-order-input labor-desc" placeholder="Descripción de la tarea..." /></td>
-                <td><input type="number" step="0.01" min="0" class="tallerpro-order-input labor-cost" value="0.00" style="text-align: right;" /></td>
-                <td style="text-align: center;"><button type="button" class="tallerpro-order-del-btn" title="Eliminar trabajo">✕</button></td>
-            `;
-                laborBody.appendChild(tr);
-                recalculateTotals();
-            });
-        }
+        // Elementos de Materiales
+        const repMatCatalogo = document.getElementById('rep_mat_catalogo');
+        const repMatCodigo = document.getElementById('rep_mat_codigo');
+        const repMatDescripcion = document.getElementById('rep_mat_descripcion');
+        const repMatCantidad = document.getElementById('rep_mat_cantidad');
+        const repMatPrecio = document.getElementById('rep_mat_precio');
+        const repMatDescuento = document.getElementById('rep_mat_descuento');
+        const repMatTotalNeto = document.getElementById('rep_mat_total_neto');
+        const repMatGuardarCatalogo = document.getElementById('rep_mat_guardar_catalogo');
+        const btnAddRepMaterialLine = document.getElementById('btnAddRepMaterialLine');
+        const repMatEmpty = document.getElementById('rep_mat_empty');
+        const repMatList = document.getElementById('rep_mat_list');
 
-        // Add Material row
-        const btnAddMaterial = document.getElementById('btnAddMaterialRow');
-        if (btnAddMaterial && materialsBody) {
-            btnAddMaterial.addEventListener('click', function () {
-                const firstSelect = document.querySelector('.mat-select');
-                const optionsHtml = firstSelect ? firstSelect.innerHTML : '<option value="0.00">Sin materiales</option>';
-                const firstOpt = firstSelect ? firstSelect.options[firstSelect.selectedIndex >= 0 ? firstSelect.selectedIndex : 0] : null;
-                const defaultPrice = firstOpt ? (parseFloat(firstOpt.value) || 0).toFixed(2) : '0.00';
+        // Elementos de Mano de Obra
+        const repMoDescripcion = document.getElementById('rep_mo_descripcion');
+        const repMoPrecio = document.getElementById('rep_mo_precio');
+        const repMoDescuento = document.getElementById('rep_mo_descuento');
+        const repMoTotalNeto = document.getElementById('rep_mo_total_neto');
+        const repMoNotas = document.getElementById('rep_mo_notas');
+        const btnAddRepMoLine = document.getElementById('btnAddRepMoLine');
+        const repMoEmpty = document.getElementById('rep_mo_empty');
+        const repMoList = document.getElementById('rep_mo_list');
 
-                const tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td>
-                        <select class="tallerpro-order-select mat-select">
-                            ${optionsHtml}
-                        </select>
-                    </td>
-                    <td><input type="number" min="1" step="1" class="tallerpro-order-input mat-qty" value="1" style="text-align: center;" /></td>
-                    <td><input type="number" step="0.01" min="0" class="tallerpro-order-input mat-price" value="${defaultPrice}" style="text-align: right;" /></td>
-                    <td style="text-align: right; font-weight: 600; color: #1e293b;" class="mat-row-total">${defaultPrice} €</td>
-                    <td style="text-align: center;"><button type="button" class="tallerpro-order-del-btn" title="Eliminar repuesto">✕</button></td>
-                `;
-                materialsBody.appendChild(tr);
-                recalculateTotals();
-            });
-        }
+        // Elementos de Desglose y Totales
+        const repTotDescuentoGlobal = document.getElementById('rep_tot_descuento_global');
+        const repTotIva = document.getElementById('rep_tot_iva');
+        const repSumMateriales = document.getElementById('rep_sum_materiales');
+        const repSumReparaciones = document.getElementById('rep_sum_reparaciones');
+        const repSumSubtotal = document.getElementById('rep_sum_subtotal');
+        const repSumDescuento = document.getElementById('rep_sum_descuento');
+        const repSumBaseImponible = document.getElementById('rep_sum_base_imponible');
+        const repLblIva = document.getElementById('rep_lbl_iva');
+        const repSumIva = document.getElementById('rep_sum_iva');
+        const repSumTotal = document.getElementById('rep_sum_total');
 
+        const orderCosteMoHidden = document.getElementById('orderCosteMoHidden');
+        const orderLineasJsonHidden = document.getElementById('orderLineasJsonHidden');
         const repForm = document.getElementById('tallerReparacionForm');
-        if (repForm) {
-            repForm.addEventListener('submit', function () {
-                recalculateTotals();
+        const repFacturaBadgeContainer = document.getElementById('repFacturaBadgeContainer');
+        const btnModalEmitirFactura = document.getElementById('btnModalEmitirFactura');
+
+        function escapeRepHtml(text) {
+            if (!text) return '';
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return String(text).replace(/[&<>"']/g, function (m) { return map[m]; });
+        }
+
+        // Cálculo dinámico para la fila de Material
+        function calcRepMaterialNet() {
+            if (!repMatTotalNeto) return;
+            const cant = parseFloat(repMatCantidad ? repMatCantidad.value : 1) || 0;
+            const precio = parseFloat(repMatPrecio ? repMatPrecio.value : 0) || 0;
+            const dto = parseFloat(repMatDescuento ? repMatDescuento.value : 0) || 0;
+            const net = Math.max(0, cant * precio * (1 - (dto / 100)));
+            repMatTotalNeto.value = net.toFixed(2) + ' €';
+        }
+
+        if (repMatCantidad) repMatCantidad.addEventListener('input', calcRepMaterialNet);
+        if (repMatPrecio) repMatPrecio.addEventListener('input', calcRepMaterialNet);
+        if (repMatDescuento) repMatDescuento.addEventListener('input', calcRepMaterialNet);
+
+        // Selección de material del catálogo
+        if (repMatCatalogo) {
+            repMatCatalogo.addEventListener('change', function () {
+                const selectedOpt = repMatCatalogo.selectedOptions ? repMatCatalogo.selectedOptions[0] : null;
+                if (selectedOpt && selectedOpt.value) {
+                    if (repMatCodigo) repMatCodigo.value = selectedOpt.dataset.codigo || '';
+                    if (repMatDescripcion) repMatDescripcion.value = selectedOpt.dataset.descripcion || '';
+                    if (repMatPrecio) repMatPrecio.value = selectedOpt.dataset.precio || '0';
+                }
+                calcRepMaterialNet();
             });
         }
 
-        // Edit repair button
+        // Cálculo dinámico para la fila de Mano de Obra
+        function calcRepMoNet() {
+            if (!repMoTotalNeto) return;
+            const precio = parseFloat(repMoPrecio ? repMoPrecio.value : 0) || 0;
+            const dto = parseFloat(repMoDescuento ? repMoDescuento.value : 0) || 0;
+            const net = Math.max(0, precio * (1 - (dto / 100)));
+            repMoTotalNeto.value = net.toFixed(2) + ' €';
+        }
+
+        if (repMoPrecio) repMoPrecio.addEventListener('input', calcRepMoNet);
+        if (repMoDescuento) repMoDescuento.addEventListener('input', calcRepMoNet);
+
+        // Renderizar tabla de Materiales
+        function renderRepMaterialsTable() {
+            if (!repMatList || !repMatEmpty) return;
+            if (currentRepMaterials.length === 0) {
+                repMatEmpty.style.display = 'block';
+                repMatList.style.display = 'none';
+                repMatList.innerHTML = '';
+                return;
+            }
+
+            repMatEmpty.style.display = 'none';
+            repMatList.style.display = 'block';
+
+            let html = '<table class="tallerpro-invoice-table">' +
+                '<thead>' +
+                '<tr>' +
+                '<th style="width: 15%;">Código</th>' +
+                '<th style="width: 44%;">Descripción</th>' +
+                '<th style="width: 8%; text-align: center;">Cant.</th>' +
+                '<th style="width: 12%; text-align: right;">P. unit.</th>' +
+                '<th style="width: 8%; text-align: center;">Dto.</th>' +
+                '<th style="width: 13%; text-align: right;">Total</th>' +
+                '<th style="width: 32px; text-align: center;"></th>' +
+                '</tr>' +
+                '</thead>' +
+                '<tbody>';
+
+            currentRepMaterials.forEach(function (mat, idx) {
+                const net = parseFloat(mat.total_neto) || 0;
+                const codeDisplay = (mat.codigo && mat.codigo.trim()) ? escapeRepHtml(mat.codigo) : '—';
+                const qtyDisplay = (parseFloat(mat.cantidad) || 1).toFixed(0);
+                const priceDisplay = (parseFloat(mat.precio) || 0).toFixed(2) + ' €';
+                const dtoDisplay = (parseFloat(mat.descuento) || 0).toFixed(0) + '%';
+                const totalDisplay = net.toFixed(2) + ' €';
+
+                html += '<tr>' +
+                    '<td style="color: #64748b; font-family: monospace; font-size: 12.5px;">' + codeDisplay + '</td>' +
+                    '<td style="font-weight: 500; color: #0f172a;">' + escapeRepHtml(mat.descripcion) + '</td>' +
+                    '<td style="text-align: center;">' + qtyDisplay + '</td>' +
+                    '<td style="text-align: right;">' + priceDisplay + '</td>' +
+                    '<td style="text-align: center; color: #64748b;">' + dtoDisplay + '</td>' +
+                    '<td style="text-align: right; font-weight: 600; color: #0f172a;">' + totalDisplay + '</td>' +
+                    '<td style="text-align: center;">' +
+                    '<button type="button" class="tallerpro-btn-line-delete btn-delete-rep-mat" data-index="' + idx + '" title="Eliminar material">' +
+                    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                    '<polyline points="3 6 5 6 21 6"></polyline>' +
+                    '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>' +
+                    '</svg>' +
+                    '</button>' +
+                    '</td>' +
+                    '</tr>';
+            });
+
+            html += '</tbody></table>';
+            repMatList.innerHTML = html;
+        }
+
+        // Renderizar tabla de Mano de Obra
+        function renderRepLaborTable() {
+            if (!repMoList || !repMoEmpty) return;
+            if (currentRepLabor.length === 0) {
+                repMoEmpty.style.display = 'block';
+                repMoList.style.display = 'none';
+                repMoList.innerHTML = '';
+                return;
+            }
+
+            repMoEmpty.style.display = 'none';
+            repMoList.style.display = 'block';
+
+            let html = '<table class="tallerpro-invoice-table">' +
+                '<thead>' +
+                '<tr>' +
+                '<th style="width: 59%;">Descripción / Intervención</th>' +
+                '<th style="width: 15%; text-align: right;">Precio</th>' +
+                '<th style="width: 10%; text-align: center;">Dto.</th>' +
+                '<th style="width: 16%; text-align: right;">Total</th>' +
+                '<th style="width: 32px; text-align: center;"></th>' +
+                '</tr>' +
+                '</thead>' +
+                '<tbody>';
+
+            currentRepLabor.forEach(function (lab, idx) {
+                const net = parseFloat(lab.total_neto) || 0;
+                let descHtml = '<span>' + escapeRepHtml(lab.descripcion) + '</span>';
+                if (lab.notas && lab.notas.trim()) {
+                    descHtml += '<div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">' + escapeRepHtml(lab.notas.trim()) + '</div>';
+                }
+                const priceDisplay = (parseFloat(lab.precio) || 0).toFixed(2) + ' €';
+                const dtoDisplay = (parseFloat(lab.descuento) || 0).toFixed(0) + '%';
+                const totalDisplay = net.toFixed(2) + ' €';
+
+                html += '<tr>' +
+                    '<td style="font-weight: 500; color: #0f172a;">' + descHtml + '</td>' +
+                    '<td style="text-align: right;">' + priceDisplay + '</td>' +
+                    '<td style="text-align: center; color: #64748b;">' + dtoDisplay + '</td>' +
+                    '<td style="text-align: right; font-weight: 600; color: #0f172a;">' + totalDisplay + '</td>' +
+                    '<td style="text-align: center;">' +
+                    '<button type="button" class="tallerpro-btn-line-delete btn-delete-rep-mo" data-index="' + idx + '" title="Eliminar trabajo">' +
+                    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                    '<polyline points="3 6 5 6 21 6"></polyline>' +
+                    '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>' +
+                    '</svg>' +
+                    '</button>' +
+                    '</td>' +
+                    '</tr>';
+            });
+
+            html += '</tbody></table>';
+            repMoList.innerHTML = html;
+        }
+
+        // Recalcular totales y sincronizar inputs ocultos
+        function renderRepTotalsSummary() {
+            let matSum = 0;
+            currentRepMaterials.forEach(function (m) { matSum += (parseFloat(m.total_neto) || 0); });
+            let laborSum = 0;
+            currentRepLabor.forEach(function (l) { laborSum += (parseFloat(l.total_neto) || 0); });
+
+            const subtotal = matSum + laborSum;
+            const descuento = parseFloat(repTotDescuentoGlobal ? repTotDescuentoGlobal.value : 0) || 0;
+            const ivaPorcentaje = parseFloat(repTotIva ? repTotIva.value : 21) || 0;
+            const baseImponible = Math.max(0, subtotal - descuento);
+            const ivaImporte = baseImponible * (ivaPorcentaje / 100);
+            const grandTotal = baseImponible + ivaImporte;
+
+            if (repSumMateriales) repSumMateriales.textContent = matSum.toFixed(2) + ' €';
+            if (repSumReparaciones) repSumReparaciones.textContent = laborSum.toFixed(2) + ' €';
+            if (repSumSubtotal) repSumSubtotal.textContent = subtotal.toFixed(2) + ' €';
+            if (repSumDescuento) repSumDescuento.textContent = '- ' + descuento.toFixed(2) + ' €';
+            if (repSumBaseImponible) repSumBaseImponible.textContent = baseImponible.toFixed(2) + ' €';
+            if (repLblIva) repLblIva.textContent = 'IVA (' + (Number.isInteger(ivaPorcentaje) ? ivaPorcentaje : ivaPorcentaje.toFixed(1)) + '%)';
+            if (repSumIva) repSumIva.textContent = ivaImporte.toFixed(2) + ' €';
+            if (repSumTotal) repSumTotal.textContent = grandTotal.toFixed(2) + ' €';
+
+            if (orderCosteMoHidden) orderCosteMoHidden.value = laborSum.toFixed(2);
+            if (orderLineasJsonHidden) {
+                orderLineasJsonHidden.value = JSON.stringify({
+                    materiales: currentRepMaterials,
+                    reparaciones: currentRepLabor,
+                    descuento_global: descuento,
+                    iva_porcentaje: ivaPorcentaje,
+                    total: grandTotal.toFixed(2)
+                });
+            }
+        }
+
+        if (repTotDescuentoGlobal) repTotDescuentoGlobal.addEventListener('input', renderRepTotalsSummary);
+        if (repTotIva) repTotIva.addEventListener('input', renderRepTotalsSummary);
+
+        // Añadir línea de Material
+        if (btnAddRepMaterialLine) {
+            btnAddRepMaterialLine.addEventListener('click', function (e) {
+                if (e) e.preventDefault();
+                const desc = repMatDescripcion ? repMatDescripcion.value.trim() : '';
+                if (!desc) {
+                    alert('Por favor, indica una descripción para el material.');
+                    if (repMatDescripcion) {
+                        repMatDescripcion.focus();
+                        repMatDescripcion.style.borderColor = '#ef4444';
+                        setTimeout(function () { repMatDescripcion.style.borderColor = ''; }, 2000);
+                    }
+                    return;
+                }
+
+                const cant = parseFloat(repMatCantidad ? repMatCantidad.value : 1) || 0;
+                const precio = parseFloat(repMatPrecio ? repMatPrecio.value : 0) || 0;
+                const dto = parseFloat(repMatDescuento ? repMatDescuento.value : 0) || 0;
+                const net = Math.max(0, cant * precio * (1 - (dto / 100)));
+
+                currentRepMaterials.push({
+                    fk_material: repMatCatalogo ? repMatCatalogo.value : '',
+                    codigo: repMatCodigo ? repMatCodigo.value.trim() : '',
+                    descripcion: desc,
+                    cantidad: cant,
+                    precio: precio,
+                    descuento: dto,
+                    total_neto: net
+                });
+
+                // Limpiar inputs
+                if (repMatCatalogo) repMatCatalogo.value = '';
+                if (repMatCodigo) repMatCodigo.value = '';
+                if (repMatDescripcion) repMatDescripcion.value = '';
+                if (repMatCantidad) repMatCantidad.value = '1';
+                if (repMatPrecio) repMatPrecio.value = '0';
+                if (repMatDescuento) repMatDescuento.value = '0';
+                if (repMatTotalNeto) repMatTotalNeto.value = '0.00 €';
+                if (repMatGuardarCatalogo) repMatGuardarCatalogo.checked = false;
+
+                renderRepMaterialsTable();
+                renderRepTotalsSummary();
+            });
+        }
+
+        // Eliminar fila de material
+        if (repMatList) {
+            repMatList.addEventListener('click', function (e) {
+                const delBtn = e.target.closest('.btn-delete-rep-mat');
+                if (!delBtn) return;
+                const idx = parseInt(delBtn.dataset.index, 10);
+                if (!isNaN(idx) && idx >= 0 && idx < currentRepMaterials.length) {
+                    currentRepMaterials.splice(idx, 1);
+                    renderRepMaterialsTable();
+                    renderRepTotalsSummary();
+                }
+            });
+        }
+
+        // Añadir línea de Mano de Obra
+        if (btnAddRepMoLine) {
+            btnAddRepMoLine.addEventListener('click', function (e) {
+                if (e) e.preventDefault();
+                const desc = repMoDescripcion ? repMoDescripcion.value.trim() : '';
+                if (!desc) {
+                    alert('Por favor, indica la descripción de la reparación o tarea realizada.');
+                    if (repMoDescripcion) {
+                        repMoDescripcion.focus();
+                        repMoDescripcion.style.borderColor = '#ef4444';
+                        setTimeout(function () { repMoDescripcion.style.borderColor = ''; }, 2000);
+                    }
+                    return;
+                }
+
+                const precio = parseFloat(repMoPrecio ? repMoPrecio.value : 0) || 0;
+                const dto = parseFloat(repMoDescuento ? repMoDescuento.value : 0) || 0;
+                const net = Math.max(0, precio * (1 - (dto / 100)));
+                const notas = repMoNotas ? repMoNotas.value.trim() : '';
+
+                currentRepLabor.push({
+                    descripcion: desc,
+                    precio: precio,
+                    descuento: dto,
+                    total_neto: net,
+                    notas: notas
+                });
+
+                // Limpiar inputs
+                if (repMoDescripcion) repMoDescripcion.value = '';
+                if (repMoPrecio) repMoPrecio.value = '0';
+                if (repMoDescuento) repMoDescuento.value = '0';
+                if (repMoTotalNeto) repMoTotalNeto.value = '0.00 €';
+                if (repMoNotas) repMoNotas.value = '';
+
+                renderRepLaborTable();
+                renderRepTotalsSummary();
+            });
+        }
+
+        // Eliminar fila de mano de obra
+        if (repMoList) {
+            repMoList.addEventListener('click', function (e) {
+                const delBtn = e.target.closest('.btn-delete-rep-mo');
+                if (!delBtn) return;
+                const idx = parseInt(delBtn.dataset.index, 10);
+                if (!isNaN(idx) && idx >= 0 && idx < currentRepLabor.length) {
+                    currentRepLabor.splice(idx, 1);
+                    renderRepLaborTable();
+                    renderRepTotalsSummary();
+                }
+            });
+        }
+
+        // Resetear modal a estado inicial vacío
+        function resetReparacionModal() {
+            const actionInput = document.getElementById('reparacionFormAction');
+            const rowidInput = document.getElementById('reparacionFormRowid');
+            const titleEl = document.getElementById('orderModalTitle');
+            const vehSelect = document.getElementById('orderVehiculoSelect');
+            const fechaInput = document.getElementById('orderFecha');
+            const estadoSelect = document.getElementById('orderEstadoSelect');
+            const averiaInput = document.getElementById('orderAveria');
+
+            if (actionInput) actionInput.value = 'create_reparacion';
+            if (rowidInput) rowidInput.value = '0';
+            if (titleEl) titleEl.textContent = 'Nueva Orden de Reparación';
+
+            if (vehSelect) vehSelect.value = '';
+            if (fechaInput) {
+                const today = new Date().toISOString().split('T')[0];
+                fechaInput.value = today;
+            }
+            if (estadoSelect) estadoSelect.value = 'en_curso';
+            if (averiaInput) averiaInput.value = '';
+
+            if (repMatCatalogo) repMatCatalogo.value = '';
+            if (repMatCodigo) repMatCodigo.value = '';
+            if (repMatDescripcion) repMatDescripcion.value = '';
+            if (repMatCantidad) repMatCantidad.value = '1';
+            if (repMatPrecio) repMatPrecio.value = '0';
+            if (repMatDescuento) repMatDescuento.value = '0';
+            if (repMatTotalNeto) repMatTotalNeto.value = '0.00 €';
+            if (repMatGuardarCatalogo) repMatGuardarCatalogo.checked = false;
+
+            if (repMoDescripcion) repMoDescripcion.value = '';
+            if (repMoPrecio) repMoPrecio.value = '0';
+            if (repMoDescuento) repMoDescuento.value = '0';
+            if (repMoTotalNeto) repMoTotalNeto.value = '0.00 €';
+            if (repMoNotas) repMoNotas.value = '';
+
+            if (repTotDescuentoGlobal) repTotDescuentoGlobal.value = '0';
+            if (repTotIva) repTotIva.value = '21';
+
+            if (repFacturaBadgeContainer) {
+                repFacturaBadgeContainer.style.display = 'none';
+                repFacturaBadgeContainer.innerHTML = '';
+            }
+            if (btnModalEmitirFactura) {
+                btnModalEmitirFactura.style.display = 'none';
+            }
+
+            currentRepMaterials = [];
+            currentRepLabor = [];
+
+            renderRepMaterialsTable();
+            renderRepLaborTable();
+            renderRepTotalsSummary();
+        }
+
+        if (openRepModalBtn && repModal) {
+            openRepModalBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                resetReparacionModal();
+                repModal.classList.add('active');
+            });
+        }
+
+        // Editar reparación desde la tabla
         document.addEventListener('click', function (e) {
             const editBtn = e.target.closest('.btn-edit-reparacion');
             if (!editBtn) return;
@@ -1481,11 +1343,13 @@ if (window.__tallerProLoaded) {
             const descripcion = editBtn.getAttribute('data-descripcion') || '';
             const coste = editBtn.getAttribute('data-coste') || '0.00';
             const ref = editBtn.getAttribute('data-ref') || '';
+            const factura = editBtn.getAttribute('data-factura') || '';
+            const notas = editBtn.getAttribute('data-notas') || '';
 
             const actionInput = document.getElementById('reparacionFormAction');
             const rowidInput = document.getElementById('reparacionFormRowid');
             const titleEl = document.getElementById('orderModalTitle');
-            
+
             if (actionInput) actionInput.value = 'update_reparacion';
             if (rowidInput) rowidInput.value = id;
             if (titleEl) titleEl.textContent = ref ? ('Editar ' + ref) : 'Editar Orden de Reparación';
@@ -1494,94 +1358,105 @@ if (window.__tallerProLoaded) {
             if (vehSelect && vehiculo) vehSelect.value = vehiculo;
 
             const fechaInput = document.getElementById('orderFecha');
-            if (fechaInput) {
-                fechaInput.removeAttribute('min'); // Permite editar reparaciones que se abrieron días atrás
-                if (fecha) fechaInput.value = fecha;
-            }
+            if (fechaInput && fecha) fechaInput.value = fecha;
 
             const estadoSelect = document.getElementById('orderEstadoSelect');
             if (estadoSelect && estado) estadoSelect.value = estado;
 
-            const descInput = document.getElementById('orderAveria');
-            if (descInput) descInput.value = descripcion;
+            const averiaInput = document.getElementById('orderAveria');
+            if (averiaInput) averiaInput.value = descripcion;
 
-            const laborCostInput = document.querySelector('.labor-cost');
-            if (laborCostInput && coste) laborCostInput.value = coste;
+            // Mostrar u ocultar badge de factura / botón de emitir factura
+            if (factura && factura.trim()) {
+                if (repFacturaBadgeContainer) {
+                    repFacturaBadgeContainer.style.display = 'block';
+                    repFacturaBadgeContainer.innerHTML = '<span style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; border-radius: 9999px; font-size: 12px; font-weight: 600;">Facturada: ' + escapeRepHtml(factura) + '</span>';
+                }
+                if (btnModalEmitirFactura) btnModalEmitirFactura.style.display = 'none';
+            } else {
+                if (repFacturaBadgeContainer) {
+                    repFacturaBadgeContainer.style.display = 'none';
+                    repFacturaBadgeContainer.innerHTML = '';
+                }
+                if (btnModalEmitirFactura) btnModalEmitirFactura.style.display = 'inline-flex';
+            }
 
-            recalculateTotals();
+            // Parsear notas (JSON o texto plano)
+            let parsed = null;
+            if (notas && (notas.startsWith('{') || notas.startsWith('['))) {
+                try {
+                    parsed = JSON.parse(notas);
+                } catch (err) {
+                    parsed = null;
+                }
+            }
+
+            if (parsed && typeof parsed === 'object') {
+                currentRepMaterials = Array.isArray(parsed.materiales) ? parsed.materiales : [];
+                currentRepLabor = Array.isArray(parsed.reparaciones) ? parsed.reparaciones : [];
+                if (repTotDescuentoGlobal) repTotDescuentoGlobal.value = parsed.descuento_global !== undefined ? parsed.descuento_global : '0';
+                if (repTotIva) repTotIva.value = parsed.iva_porcentaje !== undefined ? parsed.iva_porcentaje : '21';
+            } else {
+                currentRepMaterials = [];
+                const costVal = parseFloat(coste) || 0;
+                if (costVal > 0) {
+                    currentRepLabor = [{
+                        descripcion: descripcion || 'Mano de obra reparación',
+                        precio: costVal,
+                        descuento: 0,
+                        total_neto: costVal,
+                        notas: ''
+                    }];
+                } else {
+                    currentRepLabor = [];
+                }
+                if (repTotDescuentoGlobal) repTotDescuentoGlobal.value = '0';
+                if (repTotIva) repTotIva.value = '21';
+            }
+
+            renderRepMaterialsTable();
+            renderRepLaborTable();
+            renderRepTotalsSummary();
 
             if (repModal) repModal.classList.add('active');
         });
 
-        // Change state directly from Table select (silent, no toast notification)
-        document.addEventListener('change', function (e) {
-            const select = e.target.closest('.tallerpro-status-select');
-            if (!select) return;
-
-            const row = select.closest('.rep-row');
-            const rowid = select.getAttribute('data-id');
-            const newEstado = select.value;
-
-            // Update select visual class
-            select.className = 'tallerpro-status-select status-' + newEstado;
-
-            // Update row and edit button data-estado attributes
-            if (row) {
-                row.setAttribute('data-estado', newEstado);
-                const editBtn = row.querySelector('.btn-edit-reparacion');
-                if (editBtn) editBtn.setAttribute('data-estado', newEstado);
-            }
-
-            // Update Facturar button in actions
-            const actionsDiv = row ? row.querySelector('.tallerpro-actions') : null;
-            if (actionsDiv) {
-                let facturarBtn = actionsDiv.querySelector('.tallerpro-btn-facturar-action');
-                const facturadaLink = actionsDiv.querySelector('.tallerpro-btn-facturada-link');
-                if (newEstado === 'finalizada' && !facturadaLink) {
-                    if (!facturarBtn) {
-                        const token = document.getElementById('reparacionFormToken')?.value || '';
-                        facturarBtn = document.createElement('a');
-                        facturarBtn.href = 'reparaciones.php?action=facturar_reparacion&rowid=' + encodeURIComponent(rowid) + '&token=' + encodeURIComponent(token);
-                        facturarBtn.setAttribute('onclick', "return confirm('¿Deseas generar la factura oficial de Dolibarr para esta reparación?');");
-
-                        facturarBtn.className = 'tallerpro-btn-facturar-action';
-                        facturarBtn.title = 'Emitir Factura oficial de esta reparación';
-                        facturarBtn.innerHTML = `
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                            <polyline points="14 2 14 8 20 8"></polyline>
-                            <line x1="16" y1="13" x2="8" y2="13"></line>
-                            <line x1="16" y1="17" x2="8" y2="17"></line>
-                            <polyline points="10 9 9 9 8 9"></polyline>
-                        </svg>
-                        <span>Facturar</span>
-                    `;
-                        actionsDiv.insertBefore(facturarBtn, actionsDiv.firstChild);
-                    }
-                } else {
-                    if (facturarBtn) {
-                        facturarBtn.remove();
-                    }
+        // Submit form normal (Guardar)
+        if (repForm) {
+            repForm.addEventListener('submit', function (e) {
+                const vehSelect = document.getElementById('orderVehiculoSelect');
+                if (!vehSelect || !vehSelect.value || parseInt(vehSelect.value) <= 0) {
+                    e.preventDefault();
+                    alert('Por favor, selecciona el vehículo al que se le realiza la reparación.');
+                    if (vehSelect) vehSelect.focus();
+                    return false;
                 }
-            }
+                const averiaInput = document.getElementById('orderAveria');
+                if (!averiaInput || !averiaInput.value.trim()) {
+                    e.preventDefault();
+                    alert('Por favor, indica la avería o trabajo solicitado.');
+                    if (averiaInput) averiaInput.focus();
+                    return false;
+                }
 
-            // Persist to database silently if numeric rowid
-            const token = document.getElementById('reparacionFormToken')?.value || '';
-            if (rowid && !isNaN(rowid) && parseInt(rowid) > 0) {
-                fetch('reparaciones.php?action=toggle_estado&ajax=1&rowid=' + rowid + '&new_estado=' + newEstado + '&token=' + encodeURIComponent(token), {
-                    method: 'POST'
-                }).catch(console.error);
-            }
-        });
-        // =========================================================================
-        // Modal "Emitir Factura Ahora": guarda los datos y genera la factura oficial en Dolibarr
-        const btnModalEmitirFactura = document.getElementById('btnModalEmitirFactura');
+                renderRepTotalsSummary();
+            });
+        }
+
+        // Botón "Guardar y Emitir Factura"
         if (btnModalEmitirFactura && repForm) {
             btnModalEmitirFactura.addEventListener('click', function (e) {
                 e.preventDefault();
                 const vehSelect = document.getElementById('orderVehiculoSelect');
                 if (!vehSelect || !vehSelect.value || parseInt(vehSelect.value) <= 0) {
-                    alert('Debe seleccionar un vehículo válido para poder emitir la factura.');
+                    alert('Por favor, selecciona un vehículo válido para poder emitir la factura.');
+                    if (vehSelect) vehSelect.focus();
+                    return;
+                }
+                const averiaInput = document.getElementById('orderAveria');
+                if (!averiaInput || !averiaInput.value.trim()) {
+                    alert('Por favor, indica la avería o trabajo solicitado.');
+                    if (averiaInput) averiaInput.focus();
                     return;
                 }
                 if (!confirm('¿Deseas guardar los cambios y emitir la factura oficial de Dolibarr para esta reparación?')) {
@@ -1593,9 +1468,19 @@ if (window.__tallerProLoaded) {
                 const estadoSelect = document.getElementById('orderEstadoSelect');
                 if (estadoSelect) estadoSelect.value = 'finalizada';
 
-                recalculateTotals();
+                renderRepTotalsSummary();
                 repForm.submit();
             });
+        }
+
+        // Auto-abrir modal si viene un vehículo preseleccionado en la URL
+        const preselectedVeh = document.getElementById('orderVehiculoSelect')?.getAttribute('data-preselected');
+        if (preselectedVeh && parseInt(preselectedVeh) > 0) {
+            setTimeout(function () {
+                if (openRepModalBtn) openRepModalBtn.click();
+                const vehSelect = document.getElementById('orderVehiculoSelect');
+                if (vehSelect) vehSelect.value = preselectedVeh;
+            }, 100);
         }
 
         // Dashboard Global Search (In-Page integrated results)

@@ -203,6 +203,7 @@ $client_detail = null;
 $veh_invoices = array();
 $veh_repairs = array();
 $veh_seguros = array();
+$veh_materiales = array();
 
 if ($veh_id > 0 || !empty($veh_matricula)) {
 	$sql_vd = "SELECT v.rowid, v.fk_soc, v.matricula, v.marca, v.modelo, v.anio, v.color, v.vin, v.km, v.notas, ";
@@ -227,19 +228,6 @@ if ($veh_id > 0 || !empty($veh_matricula)) {
 			if ($soc->fetch($veh_detail->fk_soc) > 0) {
 				$client_detail = $soc;
 			}
-
-			// Invoices of this vehicle
-			$sql_inv = "SELECT f.rowid, f.ref, f.total_ttc, f.datef, f.paye, f.fk_statut ";
-			$sql_inv .= "FROM " . MAIN_DB_PREFIX . "facture as f ";
-			$sql_inv .= "LEFT JOIN " . MAIN_DB_PREFIX . "facture_extrafields as fe ON fe.fk_object = f.rowid ";
-			$sql_inv .= "WHERE (fe.fk_vehiculo = " . ((int) $id) . " OR (fe.fk_vehiculo IS NULL AND f.fk_soc = " . ((int) $veh_detail->fk_soc) . ")) ";
-			$sql_inv .= "ORDER BY f.datef DESC";
-			$res_inv = $db->query($sql_inv);
-			if ($res_inv) {
-				while ($inv_obj = $db->fetch_object($res_inv)) {
-					$veh_invoices[] = $inv_obj;
-				}
-			}
 		}
 
 		// Repairs of this vehicle
@@ -254,10 +242,88 @@ if ($veh_id > 0 || !empty($veh_matricula)) {
 			}
 		}
 
+		// Invoices of this vehicle (via extrafield fk_vehiculo OR via repair ref_factura)
+		$sql_inv = "SELECT DISTINCT f.rowid, f.ref, f.total_ttc, f.datef, f.paye, f.fk_statut ";
+		$sql_inv .= "FROM " . MAIN_DB_PREFIX . "facture as f ";
+		$sql_inv .= "LEFT JOIN " . MAIN_DB_PREFIX . "facture_extrafields as fe ON fe.fk_object = f.rowid ";
+		$sql_inv .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_reparacion as tr ON tr.ref_factura = f.ref ";
+		$sql_inv .= "WHERE (fe.fk_vehiculo = " . ((int) $veh_detail->rowid) . " OR tr.fk_vehiculo = " . ((int) $veh_detail->rowid);
+		if (!empty($veh_detail->fk_soc)) {
+			$sql_inv .= " OR (fe.fk_vehiculo IS NULL AND f.fk_soc = " . ((int) $veh_detail->fk_soc) . ")";
+		}
+		$sql_inv .= ") ORDER BY f.datef DESC, f.rowid DESC";
+		$res_inv = $db->query($sql_inv);
+		if ($res_inv) {
+			while ($inv_obj = $db->fetch_object($res_inv)) {
+				$veh_invoices[] = $inv_obj;
+			}
+		}
+
+		// Materials of this vehicle (from Dolibarr invoice lines and uninvoiced repairs)
+		if (!empty($veh_invoices)) {
+			$fac_ids = array();
+			foreach ($veh_invoices as $vi) {
+				$fac_ids[] = (int) $vi->rowid;
+			}
+			if (!empty($fac_ids)) {
+				$sql_lines = "SELECT fd.rowid, fd.fk_facture, fd.description, fd.label, fd.subprice, fd.qty, fd.total_ht, fd.product_type, ";
+				$sql_lines .= "f.ref as fac_ref, f.datef, p.ref as prod_ref, p.label as prod_label ";
+				$sql_lines .= "FROM " . MAIN_DB_PREFIX . "facturedet as fd ";
+				$sql_lines .= "LEFT JOIN " . MAIN_DB_PREFIX . "facture as f ON f.rowid = fd.fk_facture ";
+				$sql_lines .= "LEFT JOIN " . MAIN_DB_PREFIX . "product as p ON p.rowid = fd.fk_product ";
+				$sql_lines .= "WHERE fd.fk_facture IN (" . implode(',', $fac_ids) . ") ";
+				$sql_lines .= "AND (fd.product_type = 0 OR fd.product_type IS NULL) ";
+				$sql_lines .= "ORDER BY f.datef DESC, fd.rowid ASC";
+				$res_lines = $db->query($sql_lines);
+				if ($res_lines) {
+					while ($line = $db->fetch_object($res_lines)) {
+						$desc = trim(!empty($line->description) ? $line->description : (!empty($line->prod_label) ? $line->prod_label : (!empty($line->label) ? $line->label : '')));
+						if (empty($desc) || stripos($desc, 'mano de obra') !== false || stripos($desc, 'servicios de taller') !== false) {
+							continue;
+						}
+						$code = !empty($line->prod_ref) ? trim($line->prod_ref) : '';
+						$sub_label = ($code ? ($code . ' · ') : '') . ('Fact. ' . $line->fac_ref);
+						$veh_materiales[] = (object) array(
+							'nombre' => $desc,
+							'sub' => $sub_label,
+							'cantidad' => (float) $line->qty,
+							'precio' => (float) $line->subprice,
+							'total' => (float) $line->total_ht,
+							'date' => $db->jdate($line->datef)
+						);
+					}
+				}
+			}
+		}
+
+		if (!empty($veh_repairs)) {
+			foreach ($veh_repairs as $rep) {
+				// Only include repair materials if the repair is not yet invoiced
+				if (empty($rep->ref_factura) && !empty($rep->notas) && ($rep->notas[0] === '{' || $rep->notas[0] === '[')) {
+					$p_rep = json_decode($rep->notas, true);
+					if (!empty($p_rep['materiales']) && is_array($p_rep['materiales'])) {
+						foreach ($p_rep['materiales'] as $m) {
+							$m_code = !empty($m['codigo']) ? trim($m['codigo']) : '';
+							$m_ot = 'OT #' . str_pad($rep->rowid, 4, '0', STR_PAD_LEFT);
+							$m_sub = ($m_code ? ($m_code . ' · ') : '') . $m_ot;
+							$veh_materiales[] = (object) array(
+								'nombre' => !empty($m['descripcion']) ? $m['descripcion'] : 'Material',
+								'sub' => $m_sub,
+								'cantidad' => !empty($m['cantidad']) ? (float)$m['cantidad'] : 1,
+								'precio' => !empty($m['precio']) ? (float)$m['precio'] : 0,
+								'total' => !empty($m['total_neto']) ? (float)$m['total_neto'] : ((float)$m['precio'] * (float)($m['cantidad'] ?? 1)),
+								'date' => $rep->fecha
+							);
+						}
+					}
+				}
+			}
+		}
+
 		// Insurance of this vehicle
 		$sql_vs = "SELECT rowid, compania, poliza, tipo, fecha_inicio, fecha_fin, telefono, notas ";
 		$sql_vs .= "FROM " . MAIN_DB_PREFIX . "taller_seguro ";
-		$sql_vs .= "WHERE fk_vehiculo = " . ((int) $veh_detail->rowid) . " AND status = 1 ";
+		$sql_vs .= "WHERE fk_vehiculo = " . ((int) $veh_detail->rowid) . " AND (status = 1 OR status IS NULL) ";
 		$sql_vs .= "ORDER BY rowid DESC";
 		$res_vs = $db->query($sql_vs);
 		if ($res_vs) {
@@ -617,21 +683,45 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<!-- Contenido Pestaña 2: Reparaciones -->
 						<div class="tallerpro-tab-pane" id="tab-reparaciones">
 							<div class="tallerpro-vehicle-detail-card">
-								<h2 class="tallerpro-vehicle-detail-card-title">Reparaciones del vehículo</h2>
+								<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+									<h2 class="tallerpro-vehicle-detail-card-title" style="margin: 0;">Reparaciones del vehículo</h2>
+									<a href="<?php echo $reparaciones_url; ?>?new_vehiculo=<?php echo (int) $veh_detail->rowid; ?>" class="tallerpro-btn-primary" style="font-size: 13px; padding: 7px 14px; text-decoration: none !important;">
+										<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+											<line x1="12" y1="5" x2="12" y2="19"></line>
+											<line x1="5" y1="12" x2="19" y2="12"></line>
+										</svg>
+										<span>+ Nueva Reparación</span>
+									</a>
+								</div>
 								<?php if (!empty($veh_repairs)): ?>
 									<div class="tallerpro-detail-list">
 										<?php foreach ($veh_repairs as $vr): ?>
+											<?php
+											$vr_total = (float) $vr->coste_mo;
+											$vr_summary_text = '';
+											if (!empty($vr->notas) && ($vr->notas[0] === '{' || $vr->notas[0] === '[')) {
+												$p_n = json_decode($vr->notas, true);
+												if (!empty($p_n)) {
+													if (isset($p_n['total'])) $vr_total = (float) $p_n['total'];
+													$n_mat = count($p_n['materiales'] ?? []);
+													$n_rep = count($p_n['reparaciones'] ?? []);
+													$vr_summary_text = $n_mat . ' material(es) · ' . $n_rep . ' intervención(es)';
+												}
+											} elseif (!empty($vr->notas)) {
+												$vr_summary_text = $vr->notas;
+											}
+											?>
 											<div class="tallerpro-detail-item">
 												<div class="tallerpro-detail-item-main">
 													<span class="tallerpro-detail-item-title"><?php echo dol_escape_htmltag(!empty($vr->descripcion) ? $vr->descripcion : 'Mantenimiento / Reparación'); ?></span>
 													<span class="tallerpro-detail-item-sub">
 														Fecha: <?php echo dol_escape_htmltag($vr->fecha); ?>
-														<?php if (!empty($vr->ref_factura)) echo ' • ' . dol_escape_htmltag($vr->ref_factura); ?>
-														<?php if (!empty($vr->notas)) echo ' • ' . dol_escape_htmltag($vr->notas); ?>
+														<?php if (!empty($vr->ref_factura)) echo ' • <span style="color: #047857; font-weight: 500;">' . dol_escape_htmltag($vr->ref_factura) . '</span>'; ?>
+														<?php if (!empty($vr_summary_text)) echo ' • ' . dol_escape_htmltag($vr_summary_text); ?>
 													</span>
 												</div>
 												<div class="tallerpro-detail-item-end">
-													<span class="tallerpro-detail-item-price"><?php echo number_format((float) $vr->coste_mo, 2, '.', '') . ' €'; ?></span>
+													<span class="tallerpro-detail-item-price"><?php echo number_format($vr_total, 2, '.', '') . ' €'; ?></span>
 												</div>
 											</div>
 										<?php endforeach; ?>
@@ -645,27 +735,60 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<!-- Contenido Pestaña 3: Materiales -->
 						<div class="tallerpro-tab-pane" id="tab-materiales">
 							<div class="tallerpro-vehicle-detail-card">
-								<h2 class="tallerpro-vehicle-detail-card-title">Materiales y repuestos</h2>
-								<div class="tallerpro-empty-message">No hay materiales registrados para este vehículo.</div>
+								<h2 class="tallerpro-vehicle-detail-card-title">Materiales utilizados</h2>
+								<?php if (!empty($veh_materiales)): ?>
+									<div class="tallerpro-detail-list">
+										<?php foreach ($veh_materiales as $mat): ?>
+											<div class="tallerpro-detail-item">
+												<div class="tallerpro-detail-item-main">
+													<span class="tallerpro-detail-item-title"><?php echo dol_escape_htmltag($mat->nombre); ?></span>
+													<span class="tallerpro-detail-item-sub"><?php echo dol_escape_htmltag($mat->sub); ?></span>
+												</div>
+												<div class="tallerpro-detail-item-end" style="text-align: right;">
+													<span style="font-size: 13px; color: #64748b;">x<?php echo (int) $mat->cantidad == $mat->cantidad ? (int) $mat->cantidad : number_format($mat->cantidad, 2, '.', ''); ?></span>
+													<span class="tallerpro-detail-item-price"><?php echo number_format($mat->precio, 2, '.', '') . ' €/ud'; ?></span>
+												</div>
+											</div>
+										<?php endforeach; ?>
+									</div>
+								<?php else: ?>
+									<div class="tallerpro-empty-message">No hay materiales registrados para este vehículo.</div>
+								<?php endif; ?>
 							</div>
 						</div>
 
 						<!-- Contenido Pestaña 4: Seguros -->
 						<div class="tallerpro-tab-pane" id="tab-seguros">
 							<div class="tallerpro-vehicle-detail-card">
-								<h2 class="tallerpro-vehicle-detail-card-title">Seguro del vehículo</h2>
+								<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
+									<h2 class="tallerpro-vehicle-detail-card-title" style="margin: 0;">Seguro del vehículo</h2>
+									<a href="<?php echo $seguros_url; ?>?new_vehiculo=<?php echo (int) $veh_detail->rowid; ?>" class="tallerpro-btn-primary" style="font-size: 13px; padding: 7px 14px; text-decoration: none !important;">
+										<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+											<line x1="12" y1="5" x2="12" y2="19"></line>
+											<line x1="5" y1="12" x2="19" y2="12"></line>
+										</svg>
+										<span>+ Registrar Seguro</span>
+									</a>
+								</div>
 								<?php if (!empty($veh_seguros)): ?>
 									<div class="tallerpro-detail-list">
 										<?php foreach ($veh_seguros as $vs): ?>
-											<div class="tallerpro-seguro-item">
+											<div class="tallerpro-seguro-item" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px 20px; margin-bottom: 12px;">
 												<div class="tallerpro-seguro-main">
-													<div class="tallerpro-seguro-header">
-														<span class="tallerpro-seguro-company"><?php echo dol_escape_htmltag($vs->compania); ?></span>
-														<?php if (!empty($vs->tipo)): ?>
-															<span class="tallerpro-badge"><?php echo dol_escape_htmltag($vs->tipo); ?></span>
-														<?php endif; ?>
+													<div class="tallerpro-seguro-header" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+														<div style="display: flex; align-items: center; gap: 10px;">
+															<span class="tallerpro-seguro-company" style="font-size: 15px; font-weight: 700; color: #0f172a;"><?php echo dol_escape_htmltag($vs->compania); ?></span>
+															<?php if (!empty($vs->tipo)): ?>
+																<span class="tallerpro-badge"><?php echo dol_escape_htmltag($vs->tipo); ?></span>
+															<?php endif; ?>
+														</div>
+														<a href="<?php echo $seguros_url; ?>" class="tallerpro-action-btn" title="Gestionar seguros">
+															<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+																<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
+															</svg>
+														</a>
 													</div>
-													<div class="tallerpro-seguro-details">
+													<div class="tallerpro-seguro-details" style="display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: #475569; margin-bottom: 6px;">
 														<?php if (!empty($vs->poliza)): ?>
 															<span><strong>Póliza:</strong> <?php echo dol_escape_htmltag($vs->poliza); ?></span>
 														<?php endif; ?>
@@ -685,7 +808,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 														<?php endif; ?>
 													</div>
 													<?php if (!empty($vs->notas)): ?>
-														<div class="tallerpro-seguro-notes">
+														<div class="tallerpro-seguro-notes" style="font-size: 13px; color: #64748b; background: #f8fafc; padding: 8px 12px; border-radius: 6px; margin-top: 8px;">
 															<?php echo nl2br(dol_escape_htmltag($vs->notas)); ?>
 														</div>
 													<?php endif; ?>
@@ -710,30 +833,36 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<!-- Contenido Pestaña 6: Facturas -->
 						<div class="tallerpro-tab-pane" id="tab-facturas">
 							<div class="tallerpro-vehicle-detail-card">
-								<h2 class="tallerpro-vehicle-detail-card-title">Facturas del cliente</h2>
+								<h2 class="tallerpro-vehicle-detail-card-title">Facturas del vehículo</h2>
 								<?php if (!empty($veh_invoices)): ?>
 									<div class="tallerpro-detail-list">
 										<?php foreach ($veh_invoices as $f): ?>
 											<?php
-											$is_paid = !empty($f->paye);
-											$status_label = $is_paid ? 'Pagada' : 'Pendiente';
-											$status_class = $is_paid ? 'pagada' : 'pendiente';
-											$date_str = dol_print_date($db->jdate($f->datef), 'day');
+											$f_date = !empty($f->datef) ? date('Y-m-d', $db->jdate($f->datef)) : '';
+											$f_total = number_format((float) $f->total_ttc, 2, '.', '') . ' €';
 											?>
 											<div class="tallerpro-detail-item">
 												<div class="tallerpro-detail-item-main">
-													<span class="tallerpro-detail-item-title"><?php echo dol_escape_htmltag($f->ref); ?></span>
-													<span class="tallerpro-detail-item-sub">Fecha: <?php echo dol_escape_htmltag($date_str); ?></span>
+													<span class="tallerpro-detail-item-title">Factura <?php echo dol_escape_htmltag($f->ref); ?></span>
+													<span class="tallerpro-detail-item-sub"><?php echo dol_escape_htmltag($f_date . ' · ' . $f_total); ?></span>
 												</div>
 												<div class="tallerpro-detail-item-end">
-													<span class="tallerpro-detail-item-price"><?php echo price($f->total_ttc, 0, $langs, 1, -1, -1, $conf->currency); ?></span>
-													<span class="tallerpro-badge-status-<?php echo $status_class; ?>"><?php echo $status_label; ?></span>
+													<a href="<?php echo $facturas_url . '?id=' . ((int) $f->rowid); ?>" class="tallerpro-btn-ver-factura" title="Ver factura">
+														<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+															<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+															<polyline points="14 2 14 8 20 8"></polyline>
+															<line x1="16" y1="13" x2="8" y2="13"></line>
+															<line x1="16" y1="17" x2="8" y2="17"></line>
+															<line x1="10" y1="9" x2="8" y2="9"></line>
+														</svg>
+														<span>Ver factura</span>
+													</a>
 												</div>
 											</div>
 										<?php endforeach; ?>
 									</div>
 								<?php else: ?>
-									<div class="tallerpro-empty-message">No hay facturas asociadas a este cliente.</div>
+									<div class="tallerpro-empty-message">No hay facturas asociadas a este vehículo.</div>
 								<?php endif; ?>
 							</div>
 						</div>

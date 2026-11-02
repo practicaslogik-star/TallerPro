@@ -253,6 +253,11 @@ if ($action == 'delete_seguro' || $action == 'delete') {
 }
 
 // Consultar vehículos para el desplegable
+$preselected_veh = GETPOSTINT('new_vehiculo');
+if ($preselected_veh <= 0 && !empty($_GET['new_vehiculo'])) {
+	$preselected_veh = (int) $_GET['new_vehiculo'];
+}
+
 $vehicles_list = array();
 $sql_v = "SELECT rowid, matricula, marca, modelo FROM " . $table_vehiculo;
 $sql_v .= " WHERE status = 1 AND entity IN (" . getEntity('taller_vehiculo') . ") ORDER BY matricula ASC";
@@ -607,10 +612,10 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Vehículo</label>
-					<select name="fk_vehiculo" id="seg_fk_vehiculo" class="tallerpro-form-select">
+					<select name="fk_vehiculo" id="seg_fk_vehiculo" class="tallerpro-form-select"<?php if ($preselected_veh > 0) echo ' data-preselected="' . $preselected_veh . '"'; ?>>
 						<option value="">— Seleccionar vehículo —</option>
 						<?php foreach ($vehicles_list as $veh): ?>
-							<option value="<?php echo (int) $veh->rowid; ?>">
+							<option value="<?php echo (int) $veh->rowid; ?>"<?php if ($preselected_veh == (int) $veh->rowid) echo ' selected'; ?>>
 								<?php echo dol_escape_htmltag($veh->matricula . (!empty($veh->marca) ? ' - ' . $veh->marca : '') . (!empty($veh->modelo) ? ' ' . $veh->modelo : '')); ?>
 							</option>
 						<?php endforeach; ?>

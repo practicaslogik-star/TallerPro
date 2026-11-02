@@ -118,7 +118,8 @@ if ($action == 'create_reparacion' || $action == 'add_reparacion') {
 		$coste_mo = isset($_POST['coste_mo']) ? (float) $_POST['coste_mo'] : 0;
 	}
 
-	$notas = trim(GETPOST('notas', 'restricthtml'));
+	$lineas_json = !empty($_POST['lineas_json']) ? trim($_POST['lineas_json']) : '';
+	$notas = !empty($lineas_json) ? $lineas_json : trim(GETPOST('notas', 'restricthtml'));
 	if (empty($notas) && !empty($_POST['notas'])) {
 		$notas = trim($_POST['notas']);
 	}
@@ -190,7 +191,8 @@ if ($action == 'update_reparacion' || $action == 'edit_reparacion') {
 		$coste_mo = isset($_POST['coste_mo']) ? (float) $_POST['coste_mo'] : 0;
 	}
 
-	$notas = trim(GETPOST('notas', 'restricthtml'));
+	$lineas_json = !empty($_POST['lineas_json']) ? trim($_POST['lineas_json']) : '';
+	$notas = !empty($lineas_json) ? $lineas_json : trim(GETPOST('notas', 'restricthtml'));
 	if (empty($notas) && !empty($_POST['notas'])) {
 		$notas = trim($_POST['notas']);
 	}
@@ -231,7 +233,13 @@ if ($action == 'update_reparacion' || $action == 'edit_reparacion') {
 // Acción: Cambiar Estado directamente desde la tabla
 if ($action == 'toggle_estado' || $action == 'update_estado') {
 	$rowid = GETPOSTINT('rowid');
+	if (empty($rowid) && !empty($_POST['rowid'])) {
+		$rowid = (int) $_POST['rowid'];
+	}
 	$new_estado = trim(GETPOST('new_estado', 'alpha'));
+	if (empty($new_estado) && !empty($_POST['new_estado'])) {
+		$new_estado = trim($_POST['new_estado']);
+	}
 	if ($rowid > 0) {
 		if (empty($new_estado)) {
 			$res_chk = $db->query("SELECT estado FROM " . $table_reparacion . " WHERE rowid = " . ((int) $rowid));
@@ -243,7 +251,7 @@ if ($action == 'toggle_estado' || $action == 'update_estado') {
 		}
 		$db->query("UPDATE " . $table_reparacion . " SET estado = '" . $db->escape($new_estado) . "' WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_reparacion') . ")");
 	}
-	if (GETPOST('ajax', 'int') || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+	if (GETPOST('ajax', 'int') || !empty($_POST['ajax']) || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
 		header('Content-Type: application/json');
 		echo json_encode(array('success' => true, 'new_estado' => $new_estado));
 		exit;
@@ -293,12 +301,33 @@ if ($action == 'facturar_reparacion' || $action == 'facturar') {
 
 				$fac_id = $fac->create($user);
 				if ($fac_id > 0) {
-					// Añadir línea de mano de obra / trabajo realizado
-					$desc_mo = !empty($rep->descripcion) ? $rep->descripcion : ("Mano de obra reparación " . $ot_num);
-					$coste_mo = (float) $rep->coste_mo;
-					if ($coste_mo <= 0) $coste_mo = 50.0;
-					$tva_tx = 21.0;
-					$fac->addline($desc_mo, $coste_mo, 1, $tva_tx, 0, 0, 0, 0, '', '', 0, 0, 0, 'HT', 0, 1);
+					$lineas = !empty($rep->notas) ? json_decode($rep->notas, true) : null;
+					if (!empty($lineas) && is_array($lineas) && (!empty($lineas['materiales']) || !empty($lineas['reparaciones']))) {
+						if (!empty($lineas['materiales'])) {
+							foreach ($lineas['materiales'] as $m) {
+								$p_cant = (float) (!empty($m['cantidad']) ? $m['cantidad'] : 1);
+								$p_precio = (float) (!empty($m['precio']) ? $m['precio'] : 0);
+								$p_desc = (float) (!empty($m['descuento']) ? $m['descuento'] : 0);
+								$p_desc_txt = !empty($m['descripcion']) ? $m['descripcion'] : 'Material';
+								$fac->addline($p_desc_txt, $p_precio, $p_cant, 21.0, 0, 0, 0, $p_desc, '', '', 0, 0, 0, 'HT', 0, 0);
+							}
+						}
+						if (!empty($lineas['reparaciones'])) {
+							foreach ($lineas['reparaciones'] as $r) {
+								$r_precio = (float) (!empty($r['precio']) ? $r['precio'] : 0);
+								$r_desc = (float) (!empty($r['descuento']) ? $r['descuento'] : 0);
+								$r_desc_txt = !empty($r['descripcion']) ? $r['descripcion'] : 'Mano de obra';
+								$fac->addline($r_desc_txt, $r_precio, 1, 21.0, 0, 0, 0, $r_desc, '', '', 0, 0, 0, 'HT', 0, 1);
+							}
+						}
+					} else {
+						// Añadir línea de mano de obra / trabajo realizado
+						$desc_mo = !empty($rep->descripcion) ? $rep->descripcion : ("Mano de obra reparación " . $ot_num);
+						$coste_mo = (float) $rep->coste_mo;
+						if ($coste_mo <= 0) $coste_mo = 50.0;
+						$tva_tx = 21.0;
+						$fac->addline($desc_mo, $coste_mo, 1, $tva_tx, 0, 0, 0, 0, '', '', 0, 0, 0, 'HT', 0, 1);
+					}
 
 					// Validar factura (asigna numeración oficial definitiva y queda en estado Pendiente)
 					$fac->validate($user);
@@ -339,7 +368,8 @@ if ($action == 'save_and_facturar') {
 	$coste_mo = GETPOSTFLOAT('coste_mo');
 	if ($coste_mo === null || $coste_mo === '') $coste_mo = isset($_POST['coste_mo']) ? (float) $_POST['coste_mo'] : 0;
 
-	$notas = trim(GETPOST('notas', 'restricthtml'));
+	$lineas_json = !empty($_POST['lineas_json']) ? trim($_POST['lineas_json']) : '';
+	$notas = !empty($lineas_json) ? $lineas_json : trim(GETPOST('notas', 'restricthtml'));
 	if (empty($notas) && !empty($_POST['notas'])) $notas = trim($_POST['notas']);
 
 	if ($fk_vehiculo <= 0) {
@@ -383,10 +413,12 @@ if ($action == 'delete_reparacion' || $action == 'delete') {
 	}
 }
 
-// Consultar vehículos para el desplegable
+// Consultar vehículos con su cliente para el desplegable
 $vehicles_list = array();
-$sql_v = "SELECT rowid, matricula, marca, modelo FROM " . $table_vehiculo;
-$sql_v .= " WHERE status = 1 AND entity IN (" . getEntity('taller_vehiculo') . ") ORDER BY matricula ASC";
+$sql_v = "SELECT v.rowid, v.matricula, v.marca, v.modelo, s.nom as cliente_nombre ";
+$sql_v .= "FROM " . $table_vehiculo . " as v ";
+$sql_v .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON v.fk_soc = s.rowid ";
+$sql_v .= "WHERE v.status = 1 AND v.entity IN (" . getEntity('taller_vehiculo') . ") ORDER BY v.matricula ASC";
 $res_v = $db->query($sql_v);
 if ($res_v) {
 	while ($v = $db->fetch_object($res_v)) {
@@ -405,12 +437,14 @@ if ($res_m) {
 	}
 }
 
-// Consultar reparaciones con JOIN a vehículos
+// Consultar reparaciones con JOIN a vehículos y cliente
 $reparaciones_list = array();
 $sql_r = "SELECT r.rowid, r.fk_vehiculo, r.fecha, r.ref_factura, r.descripcion, r.coste_mo, r.notas, r.estado, ";
-$sql_r .= "v.matricula as vehiculo_matricula, v.marca as vehiculo_marca, v.modelo as vehiculo_modelo ";
+$sql_r .= "v.matricula as vehiculo_matricula, v.marca as vehiculo_marca, v.modelo as vehiculo_modelo, ";
+$sql_r .= "s.nom as cliente_nombre ";
 $sql_r .= "FROM " . $table_reparacion . " as r ";
 $sql_r .= "LEFT JOIN " . $table_vehiculo . " as v ON r.fk_vehiculo = v.rowid ";
+$sql_r .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON v.fk_soc = s.rowid ";
 $sql_r .= "WHERE r.status = 1 AND r.entity IN (" . getEntity('taller_reparacion') . ") ";
 $sql_r .= "ORDER BY r.fecha DESC, r.rowid DESC";
 $res_r = $db->query($sql_r);
@@ -420,6 +454,7 @@ if ($res_r) {
 	}
 }
 $total_reparaciones = count($reparaciones_list);
+$preselected_vehiculo = GETPOSTINT('new_vehiculo');
 
 $css_file = __DIR__ . '/css/tallerpro.css';
 $js_file = __DIR__ . '/js/tallerpro.js';
@@ -658,10 +693,35 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									<?php
 									$rep_estado = !empty($rep->estado) ? $rep->estado : 'en_curso';
 									$is_finalizada = ($rep_estado === 'finalizada' || $rep_estado === 'finalizado');
-									$search_text = strtolower(dol_escape_htmltag(($rep->vehiculo_matricula ?: '') . ' ' . ($rep->vehiculo_marca ?: '') . ' ' . ($rep->descripcion ?: '')));
+									$search_text = strtolower(dol_escape_htmltag(($rep->vehiculo_matricula ?: '') . ' ' . ($rep->vehiculo_marca ?: '') . ' ' . ($rep->cliente_nombre ?: '') . ' ' . ($rep->descripcion ?: '')));
 									$rep_ref = !empty($rep->ref_factura) ? dol_escape_htmltag($rep->ref_factura) : ('OT #' . str_pad($rep->rowid, 4, '0', STR_PAD_LEFT));
+
+									$rep_total_display = (float) $rep->coste_mo;
+									if (!empty($rep->notas) && ($rep->notas[0] === '{' || $rep->notas[0] === '[')) {
+										$p_notas = json_decode($rep->notas, true);
+										if (!empty($p_notas)) {
+											if (isset($p_notas['total'])) {
+												$rep_total_display = (float) $p_notas['total'];
+											} else {
+												$m_tot = 0;
+												if (!empty($p_notas['materiales'])) {
+													foreach ($p_notas['materiales'] as $m) $m_tot += (float) ($m['total_neto'] ?? 0);
+												}
+												$r_tot = 0;
+												if (!empty($p_notas['reparaciones'])) {
+													foreach ($p_notas['reparaciones'] as $r) $r_tot += (float) ($r['total_neto'] ?? 0);
+												}
+												$desc = (float) ($p_notas['descuento_global'] ?? 0);
+												$iva_p = (float) ($p_notas['iva_porcentaje'] ?? 21);
+												$base = max(0, ($m_tot + $r_tot) - $desc);
+												$rep_total_display = $base * (1 + ($iva_p / 100));
+											}
+										}
+									}
+									$token_val = (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : (function_exists('newToken') ? newToken() : '')));
+									$facturar_url = $_SERVER['PHP_SELF'] . '?action=facturar_reparacion&rowid=' . ((int) $rep->rowid) . '&token=' . $token_val;
 									?>
-									<tr class="rep-row" data-id="<?php echo (int) $rep->rowid; ?>" data-estado="<?php echo $is_finalizada ? 'finalizada' : 'en_curso'; ?>" data-search="<?php echo $search_text; ?>">
+									<tr class="rep-row" data-id="<?php echo (int) $rep->rowid; ?>" data-estado="<?php echo $is_finalizada ? 'finalizada' : 'en_curso'; ?>" data-has-factura="<?php echo !empty($rep->ref_factura) ? '1' : '0'; ?>" data-facturar-url="<?php echo $facturar_url; ?>" data-search="<?php echo $search_text; ?>">
 										<td>
 											<div style="font-weight: 600; color: #1e293b;"><?php echo dol_escape_htmltag($rep->fecha); ?></div>
 											<div style="font-size: 11.5px; color: #94a3b8; margin-top: 2px;">
@@ -671,7 +731,10 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<td>
 											<div style="font-weight: 700; color: #0f172a;"><?php echo dol_escape_htmltag($rep->vehiculo_matricula ?: '—'); ?></div>
 											<div style="font-size: 12px; color: #64748b; margin-top: 2px;">
-												<?php echo dol_escape_htmltag(trim(($rep->vehiculo_marca ?: '') . ' ' . ($rep->vehiculo_modelo ?: '')) ?: 'Cliente'); ?>
+												<?php echo dol_escape_htmltag(trim(($rep->vehiculo_marca ?: '') . ' ' . ($rep->vehiculo_modelo ?: ''))); ?>
+												<?php if (!empty($rep->cliente_nombre)): ?>
+													<span style="color: #cbd5e1;">·</span> <span style="color: #0f3ba8; font-weight: 500;"><?php echo dol_escape_htmltag($rep->cliente_nombre); ?></span>
+												<?php endif; ?>
 											</div>
 										</td>
 										
@@ -687,7 +750,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 												<option value="finalizada" <?php echo $is_finalizada ? 'selected' : ''; ?>>Finalizada</option>
 											</select>
 										</td>
-										<td style="font-weight: 600; color: #1e293b;"><?php echo number_format((float) $rep->coste_mo, 2, '.', '') . ' €'; ?></td>
+										<td style="font-weight: 600; color: #1e293b;"><?php echo number_format($rep_total_display, 2, '.', '') . ' €'; ?></td>
 										<td>
 
 
@@ -722,6 +785,8 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 													data-estado="<?php echo dol_escape_htmltag($rep_estado); ?>"
 													data-descripcion="<?php echo dol_escape_htmltag($rep->descripcion); ?>"
 													data-coste="<?php echo number_format((float) $rep->coste_mo, 2, '.', ''); ?>"
+													data-notas="<?php echo dol_escape_htmltag($rep->notas); ?>"
+													data-factura="<?php echo dol_escape_htmltag($rep->ref_factura ?: ''); ?>"
 													data-ref="<?php echo $rep_ref; ?>">
 													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 														<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
@@ -933,14 +998,11 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 		</div>
 	</div>
 
-	<!-- Modal Orden de Reparación -->
+	<!-- Modal Orden de Reparación (Diseño idéntico a Detalle de Factura) -->
 	<div class="tallerpro-modal-backdrop" id="tallerReparacionModal">
-		<div class="tallerpro-modal-card tallerpro-modal-order-card">
-			<div class="tallerpro-modal-header" style="margin-bottom: 16px;">
-				<div>
-					<h2 class="tallerpro-modal-title" id="orderModalTitle">Orden de Reparación</h2>
-					<div class="tallerpro-modal-subtitle">Registra el diagnóstico, mano de obra y repuestos utilizados</div>
-				</div>
+		<form class="tallerpro-modal-card tallerpro-modal-card-lg" id="tallerReparacionForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
+			<div class="tallerpro-modal-header">
+				<h2 class="tallerpro-modal-title" id="orderModalTitle">Detalle de la reparación</h2>
 				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="Cerrar">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<line x1="18" y1="6" x2="6" y2="18"></line>
@@ -949,201 +1011,257 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				</button>
 			</div>
 
-			<form class="tallerpro-modal-form" id="tallerReparacionForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
-				<input type="hidden" name="action" id="reparacionFormAction" value="create_reparacion">
-				<input type="hidden" name="rowid" id="reparacionFormRowid" value="0">
-				<input type="hidden" name="token" id="reparacionFormToken" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : (function_exists('newToken') ? newToken() : ''))); ?>">
-				<input type="hidden" name="coste_mo" id="orderCosteMoHidden" value="128.55">
+			<input type="hidden" name="action" id="reparacionFormAction" value="create_reparacion">
+			<input type="hidden" name="rowid" id="reparacionFormRowid" value="0">
+			<input type="hidden" name="token" id="reparacionFormToken" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : (function_exists('newToken') ? newToken() : ''))); ?>">
+			<input type="hidden" name="coste_mo" id="orderCosteMoHidden" value="0.00">
+			<input type="hidden" name="lineas_json" id="orderLineasJsonHidden" value="">
 
-				<!-- Row 1: 3 columns -->
-				<div class="tallerpro-order-top-row">
-					<div class="tallerpro-form-group">
-						<label class="tallerpro-form-label">Vehículo &amp; Cliente <span class="tallerpro-required">*</span></label>
-						<select class="tallerpro-form-select" id="orderVehiculoSelect" name="fk_vehiculo" required>
-							<?php if (!empty($vehicles_list)): ?>
-								<?php foreach ($vehicles_list as $veh): ?>
-									<option value="<?php echo (int) $veh->rowid; ?>">
-										<?php echo dol_escape_htmltag($veh->matricula . (!empty($veh->marca) ? ' — ' . $veh->marca : '') . (!empty($veh->modelo) ? ' (' . $veh->modelo . ')' : '')); ?>
-									</option>
-								<?php endforeach; ?>
-							<?php else: ?>
-								<option value="1" selected>7422NJY — Ivan López (Audi A3)</option>
-								<option value="2">7412NJY — John Miller (Ford Focus)</option>
-								<option value="3">3569 JPB — Prealuma S.L. (Seat León)</option>
-								<option value="4">6721 HPB — Fernández &amp; Outeiro (Renault Megane)</option>
-							<?php endif; ?>
-						</select>
-					</div>
-					<div class="tallerpro-form-group">
-						<label class="tallerpro-form-label">Fecha de Recepción</label>
-						<div class="tallerpro-input-with-icon">
-							<input type="date" class="tallerpro-form-input" id="orderFecha" name="fecha" value="<?php echo date('Y-m-d'); ?>" min="<?php echo date('Y-m-d'); ?>" required />						</div>
-					</div>
-
-					<div class="tallerpro-form-group">
-						<label class="tallerpro-form-label">Estado de la Reparación</label>
-						<select class="tallerpro-form-select" id="orderEstadoSelect" name="estado">
-							<option value="en_curso" selected>En curso</option>
-							<option value="finalizada">Finalizada</option>
-						</select>
-					</div>
-				</div>
-
-				<!-- Row 2: Trabajo Solicitado / Avería Reportada -->
-				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Trabajo Solicitado / Avería Reportada <span class="tallerpro-required">*</span></label>
-					<textarea class="tallerpro-form-textarea" maxlength="300" id="orderAveria" name="descripcion" rows="2" style="min-height: 54px;" required></textarea>
-				</div>
-
-				<!-- Section: Mano de Obra & Operaciones -->
-				<div class="tallerpro-order-section-box">
-					<div class="tallerpro-order-section-header">
-						<div class="tallerpro-order-section-title">
-							<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-								<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
-							</svg>
-							<span>Mano de Obra &amp; Operaciones</span>
+			<div class="tallerpro-modal-body">
+					<!-- Sección 0: Datos del Vehículo y Recepción -->
+					<div class="tallerpro-invoice-section" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 20px;">
+						<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px;">
+							<h3 class="tallerpro-invoice-section-title" style="margin: 0;">
+								<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+									<rect x="1" y="3" width="15" height="13"></rect>
+									<polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon>
+									<circle cx="5.5" cy="18.5" r="2.5"></circle>
+									<circle cx="18.5" cy="18.5" r="2.5"></circle>
+								</svg>
+								<span>Datos del Vehículo y Recepción</span>
+							</h3>
+							<div id="repFacturaBadgeContainer" style="display: none;"></div>
 						</div>
 
-						<button type="button" class="tallerpro-order-btn-add" id="btnAddTrabajoRow">
-							<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-								<line x1="12" y1="5" x2="12" y2="19"></line>
-								<line x1="5" y1="12" x2="19" y2="12"></line>
-							</svg>
-							<span>Añadir Trabajo</span>
-						</button>
-					</div>
-					<table class="tallerpro-order-table">
-						<thead>
-							<tr>
-								<th>DESCRIPCIÓN DEL TRABAJO</th>
-								<th style="width: 140px; text-align: right;">COSTE (€)</th>
-								<th style="width: 36px; text-align: center;"></th>
-							</tr>
-						</thead>
-						<tbody id="laborTableBody">
-							<tr>
-								<td>
-									<input type="text" class="tallerpro-order-input labor-desc" placeholder="Descripción de la tarea..." />
-								</td>
-								<td>
-									<input type="number" step="0.01" min="0" class="tallerpro-order-input labor-cost" style="text-align: right;" />
-								</td>
-								<td style="text-align: center;">
-									<button type="button" class="tallerpro-order-del-btn" title="Eliminar trabajo">✕</button>
-								</td>
-							</tr>
-						</tbody>
-					</table>
-				</div>
+						<div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 14px;">
+							<div class="tallerpro-form-group">
+								<label class="tallerpro-form-label">Vehículo &amp; Cliente <span class="tallerpro-required" style="color: #ef4444;">*</span></label>
+								<select class="tallerpro-form-select" id="orderVehiculoSelect" name="fk_vehiculo" required style="font-weight: 500;" <?php if ($preselected_vehiculo > 0) echo 'data-preselected="' . $preselected_vehiculo . '"'; ?>>
+									<option value="">— Seleccionar vehículo —</option>
+									<?php foreach ($vehicles_list as $veh): ?>
+										<option value="<?php echo (int) $veh->rowid; ?>">
+											<?php 
+											$vlabel = dol_escape_htmltag($veh->matricula . ' — ' . trim($veh->marca . ' ' . $veh->modelo));
+											if (!empty($veh->cliente_nombre)) {
+												$vlabel .= ' (' . dol_escape_htmltag($veh->cliente_nombre) . ')';
+											}
+											echo $vlabel;
+											?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+							</div>
 
-				<!-- Section: Materiales & Repuestos Consumidos -->
-				<div class="tallerpro-order-section-box">
-					<div class="tallerpro-order-section-header">
-						<div class="tallerpro-order-section-title">
-							<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<div class="tallerpro-form-group">
+								<label class="tallerpro-form-label">Fecha de Entrada <span class="tallerpro-required" style="color: #ef4444;">*</span></label>
+								<input type="date" class="tallerpro-form-input" id="orderFecha" name="fecha" value="<?php echo date('Y-m-d'); ?>" required />
+							</div>
+
+							<div class="tallerpro-form-group">
+								<label class="tallerpro-form-label">Estado</label>
+								<select class="tallerpro-form-select" id="orderEstadoSelect" name="estado">
+									<option value="en_curso" selected>En curso</option>
+									<option value="finalizada">Finalizada</option>
+								</select>
+							</div>
+						</div>
+
+						<div class="tallerpro-form-group" style="margin-top: 10px;">
+							<label class="tallerpro-form-label">Avería reportada / Trabajo solicitado <span class="tallerpro-required" style="color: #ef4444;">*</span></label>
+							<input type="text" class="tallerpro-form-input" id="orderAveria" name="descripcion" placeholder="Ej: Revisión 60.000 km, ruido en frenos al frenar, cambio de aceite y filtros..." required />
+						</div>
+					</div>
+					<!-- Sección 1: Materiales (Diseño Idéntico a Factura) -->
+					<div class="tallerpro-invoice-section">
+						<h3 class="tallerpro-invoice-section-title">
+							<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
 								<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
 								<polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
 								<line x1="12" y1="22.08" x2="12" y2="12"></line>
 							</svg>
-							<span>Materiales &amp; Repuestos Consumidos</span>
+							<span>Materiales</span>
+						</h3>
+						<div class="tallerpro-grid-mat-row1" style="margin-top: 12px;">
+							<div class="tallerpro-form-group">
+								<label class="tallerpro-form-label">Material del catálogo</label>
+								<select id="rep_mat_catalogo" class="tallerpro-form-select">
+									<option value="">— Nuevo / escribir manualmente —</option>
+									<?php foreach ($materials_list as $mcat): ?>
+										<option value="<?php echo (int) $mcat->rowid; ?>"
+											data-codigo="<?php echo dol_escape_htmltag($mcat->ref); ?>"
+											data-descripcion="<?php echo dol_escape_htmltag($mcat->nombre); ?>"
+											data-precio="<?php echo number_format((float) $mcat->precio, 2, '.', ''); ?>">
+											<?php echo dol_escape_htmltag($mcat->nombre . ' (' . number_format((float) $mcat->precio, 2, '.', '') . ' €)'); ?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+							</div>
+							<div class="tallerpro-form-group">
+								<label class="tallerpro-form-label">Código</label>
+								<input type="text" id="rep_mat_codigo" class="tallerpro-form-input" />
+							</div>
+							<div class="tallerpro-form-group">
+								<label class="tallerpro-form-label">Descripción</label>
+								<input type="text" id="rep_mat_descripcion" class="tallerpro-form-input" />
+							</div>
 						</div>
-						<button type="button" class="tallerpro-order-btn-add" id="btnAddMaterialRow">
-							<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-								<line x1="12" y1="5" x2="12" y2="19"></line>
-								<line x1="5" y1="12" x2="19" y2="12"></line>
+
+						<div class="tallerpro-grid-mat-row2" style="margin-top: 10px;">
+							<div class="tallerpro-form-group">
+								<label class="tallerpro-form-label">Cantidad</label>
+								<input type="number" step="1" min="1" id="rep_mat_cantidad" class="tallerpro-form-input" value="1" />
+							</div>
+							<div class="tallerpro-form-group">
+								<label class="tallerpro-form-label">Precio unit. (€)</label>
+								<input type="number" step="0.01" min="0" id="rep_mat_precio" class="tallerpro-form-input" value="0" />
+							</div>
+							<div class="tallerpro-form-group">
+								<label class="tallerpro-form-label">Descuento (%)</label>
+								<input type="number" step="1" min="0" max="100" id="rep_mat_descuento" class="tallerpro-form-input" value="0" />
+							</div>
+							<div class="tallerpro-form-group">
+								<label class="tallerpro-form-label">Total neto</label>
+								<input type="text" id="rep_mat_total_neto" class="tallerpro-form-input" value="0.00 €" readonly />
+							</div>
+							<div class="tallerpro-form-group" style="justify-content: flex-end;">
+								<label class="tallerpro-checkbox-label">
+									<input type="checkbox" id="rep_mat_guardar_catalogo" />
+									<span>Guardar en catálogo</span>
+								</label>
+							</div>
+							<div class="tallerpro-form-group" style="justify-content: flex-end;">
+								<button type="button" class="tallerpro-btn-add-line" id="btnAddRepMaterialLine">
+									<span>+ Añadir</span>
+								</button>
+							</div>
+						</div>
+
+						<!-- Listado de Materiales o estado vacío -->
+						<div id="rep_mat_empty" class="tallerpro-invoice-empty-box" style="margin-top: 12px;">
+							Sin materiales todavía.
+						</div>
+						<div id="rep_mat_list" class="tallerpro-invoice-lines-list" style="display: none; margin-top: 12px;"></div>
+					</div>
+
+					<!-- Sección 2: Reparaciones / Mano de obra (Diseño Idéntico a Factura) -->
+					<div class="tallerpro-invoice-section">
+						<h3 class="tallerpro-invoice-section-title">
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
 							</svg>
-							<span>Añadir Repuesto</span>
-						</button>
-					</div>
-					<table class="tallerpro-order-table">
-						<thead>
-							<tr>
-								<th>MATERIAL / REFERENCIA DEL CATÁLOGO</th>
-								<th style="width: 70px; text-align: center;">CANT.</th>
-								<th style="width: 110px; text-align: right;">P. UNIT (€)</th>
-								<th style="width: 100px; text-align: right;">TOTAL</th>
-								<th style="width: 36px; text-align: center;"></th>
-							</tr>
-						</thead>
-
-						<tbody id="materialsTableBody">
-							<?php
-							$first_mat_price = !empty($materials_list) ? number_format((float) $materials_list[0]->precio, 2, '.', '') : '0.00';
-							?>
-						
-							<tr>
-								<td>
-									<select class="tallerpro-order-select mat-select">
-										<?php if (!empty($materials_list)): ?>
-											<?php foreach ($materials_list as $mat): ?>
-												<?php
-												$mat_label = $mat->nombre . (!empty($mat->ref) ? ' (Ref. ' . $mat->ref . ')' : '');
-												$mat_price = number_format((float) $mat->precio, 2, '.', '');
-												?>
-												<option value="<?php echo $mat_price; ?>" data-id="<?php echo (int) $mat->rowid; ?>" data-price="<?php echo $mat_price; ?>">
-													<?php echo dol_escape_htmltag($mat_label); ?>
-												</option>
-											<?php endforeach; ?>
-										<?php else: ?>
-											<option value="0.00">Sin materiales registrados en catálogo</option>
-										<?php endif; ?>
-									</select>
-								</td>
-								<td>
-									<input type="number" min="1" step="1" class="tallerpro-order-input mat-qty" value="1" style="text-align: center;" />
-								</td>
-								<td>
-									<input type="number" step="0.01" min="0" class="tallerpro-order-input mat-price" value="<?php echo $first_mat_price; ?>" style="text-align: right;" />
-								</td>
-								<td style="text-align: right; font-weight: 600; color: #1e293b;" class="mat-row-total">
-									<?php echo $first_mat_price; ?> €
-								</td>
-								<td style="text-align: center;">
-									<button type="button" class="tallerpro-order-del-btn" title="Eliminar repuesto">✕</button>
-								</td>
-							</tr>
-						</tbody>
-					</table>
-				</div>
-
-				<!-- Section: Totals Summary -->
-				<div style="display: flex; justify-content: flex-end; margin-top: 6px;">
-					<div class="tallerpro-order-summary-box">
-						<div class="tallerpro-order-summary-row">
-							<span>Mano de obra:</span>
-							<span id="summaryLabor">100.00 €</span>
+							<span>Reparaciones / Mano de obra</span>
+						</h3>
+						<div class="tallerpro-grid-rep-row1" style="margin-top: 12px;">
+							<div class="tallerpro-form-group">
+								<label class="tallerpro-form-label">Descripción de la reparación</label>
+								<input type="text" id="rep_mo_descripcion" class="tallerpro-form-input" placeholder="Ej: Cambio de embrague" />
+							</div>
+							<div class="tallerpro-form-group">
+								<label class="tallerpro-form-label">Precio (€)</label>
+								<input type="number" step="0.01" min="0" id="rep_mo_precio" class="tallerpro-form-input" value="0" />
+							</div>
+							<div class="tallerpro-form-group">
+								<label class="tallerpro-form-label">Descuento (%)</label>
+								<input type="number" step="1" min="0" max="100" id="rep_mo_descuento" class="tallerpro-form-input" value="0" />
+							</div>
+							<div class="tallerpro-form-group">
+								<label class="tallerpro-form-label">Total neto</label>
+								<input type="text" id="rep_mo_total_neto" class="tallerpro-form-input" value="0.00 €" readonly />
+							</div>
 						</div>
-						<div class="tallerpro-order-summary-row">
-							<span>Materiales:</span>
-							<span id="summaryMaterials">28.55 €</span>
-						</div>
-						<div class="tallerpro-order-summary-row total">
-							<span>Total Estimado:</span>
-							<span id="summaryTotal">128.55 €</span>
-						</div>
-					</div>
-				</div>
 
-				<!-- Modal Footer: Dual actions -->
-				<div class="tallerpro-order-footer-dual">
-					<button type="button" class="tallerpro-btn-emitir-factura" id="btnModalEmitirFactura" title="Emitir Factura oficial de esta reparación">
-						<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-							<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-							<polyline points="14 2 14 8 20 8"></polyline>
-							<line x1="16" y1="13" x2="8" y2="13"></line>
-							<line x1="16" y1="17" x2="8" y2="17"></line>
-							<polyline points="10 9 9 9 8 9"></polyline>
-						</svg>
-						<span>Emitir Factura Ahora</span>
-					</button>
-					<div style="display: flex; align-items: center; gap: 10px;">
-						<button type="button" class="tallerpro-btn-cancel-text" id="tallerCancelModalBtn">Cancelar</button>
-						<button type="submit" class="tallerpro-btn-submit" id="tallerSaveOrderBtn" style="padding: 9px 20px;">Guardar Reparación</button>
+						<div class="tallerpro-grid-rep-row2" style="margin-top: 10px;">
+							<div class="tallerpro-form-group">
+								<label class="tallerpro-form-label">Notas</label>
+								<textarea id="rep_mo_notas" class="tallerpro-form-textarea" rows="2"></textarea>
+							</div>
+							<div class="tallerpro-form-group" style="justify-content: flex-end;">
+								<button type="button" class="tallerpro-btn-add-line" id="btnAddRepMoLine">
+									<span>+ Añadir</span>
+								</button>
+							</div>
+						</div>
+
+						<!-- Listado de Reparaciones o estado vacío -->
+						<div id="rep_mo_empty" class="tallerpro-invoice-empty-box" style="margin-top: 12px;">
+							Sin reparaciones todavía.
+						</div>
+						<div id="rep_mo_list" class="tallerpro-invoice-lines-list" style="display: none; margin-top: 12px;"></div>
+					</div>
+
+					<!-- Sección 3: Totales y Acciones (Diseño Idéntico a Factura) -->
+					<div class="tallerpro-invoice-totals-card">
+						<div class="tallerpro-invoice-totals-grid">
+							<!-- Lado izquierdo: Descuento global e IVA -->
+							<div class="tallerpro-totals-inputs">
+								<div class="tallerpro-form-group">
+									<label class="tallerpro-form-label">Descuento global (€)</label>
+									<input type="number" step="0.01" min="0" id="rep_tot_descuento_global" class="tallerpro-form-input" value="0" />
+								</div>
+								<div class="tallerpro-form-group">
+									<label class="tallerpro-form-label">IVA (%)</label>
+									<input type="number" step="0.01" min="0" id="rep_tot_iva" class="tallerpro-form-input" value="21" />
+								</div>
+							</div>
+
+							<!-- Lado derecho: Desglose dinámico -->
+							<div class="tallerpro-totals-summary">
+								<div class="tallerpro-totals-row">
+									<span>Materiales</span>
+									<span id="rep_sum_materiales">0.00 €</span>
+								</div>
+								<div class="tallerpro-totals-row">
+									<span>Reparaciones</span>
+									<span id="rep_sum_reparaciones">0.00 €</span>
+								</div>
+								<div class="tallerpro-totals-divider"></div>
+								<div class="tallerpro-totals-row">
+									<span>Subtotal</span>
+									<span id="rep_sum_subtotal">0.00 €</span>
+								</div>
+								<div class="tallerpro-totals-row">
+									<span>Descuento</span>
+									<span id="rep_sum_descuento">- 0.00 €</span>
+								</div>
+								<div class="tallerpro-totals-divider"></div>
+								<div class="tallerpro-totals-row">
+									<span>Base imponible</span>
+									<span id="rep_sum_base_imponible">0.00 €</span>
+								</div>
+								<div class="tallerpro-totals-row">
+									<span id="rep_lbl_iva">IVA (21%)</span>
+									<span id="rep_sum_iva">0.00 €</span>
+								</div>
+								<div class="tallerpro-totals-divider"></div>
+								<div class="tallerpro-totals-row tallerpro-totals-final">
+									<span>TOTAL</span>
+									<span id="rep_sum_total">0.00 €</span>
+								</div>
+
+								<button type="submit" class="tallerpro-btn-save-totals" id="tallerSaveOrderBtn" title="Guardar orden de reparación">
+									<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+										<polyline points="17 21 17 13 7 13 7 21"></polyline>
+										<polyline points="7 3 7 8 15 8"></polyline>
+									</svg>
+									<span>Guardar reparación</span>
+								</button>
+
+								<button type="button" class="tallerpro-btn-emitir-factura" id="btnModalEmitirFactura" style="display: none;" title="Guardar y emitir factura oficial de Dolibarr">
+									<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+										<polyline points="14 2 14 8 20 8"></polyline>
+										<line x1="16" y1="13" x2="8" y2="13"></line>
+										<line x1="16" y1="17" x2="8" y2="17"></line>
+										<polyline points="10 9 9 9 8 9"></polyline>
+									</svg>
+									<span>Guardar y Emitir Factura</span>
+								</button>
+							</div>
+						</div>
 					</div>
 				</div>
-			</form>
-		</div>
+		</form>
 	</div>
 
 	<!-- modal eliminacion confirmacion -->
