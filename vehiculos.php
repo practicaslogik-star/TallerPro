@@ -172,68 +172,115 @@ if ($action == 'create_vehiculo' || $action == 'add_vehiculo') {
 	}
 }
 
-// Acción: Eliminar Vehículo (Efecto Cascada hacia abajo: Seguros y Reparaciones)
-// El cliente siempre se mantiene. Si el vehículo tiene facturas emitidas, se oculta (status = 0). Si no, se borra físicamente.
+// Acción: Actualizar Vehículo Existente
+if ($action == 'update_vehiculo') {
+	$rowid = GETPOSTINT('vehiculo_id');
+	if (empty($rowid))
+		$rowid = GETPOSTINT('rowid');
+
+	$fk_soc = GETPOSTINT('fk_soc');
+	$matricula = trim(GETPOST('matricula', 'alphanohtml'));
+	$marca = trim(GETPOST('marca', 'alphanohtml'));
+	$modelo = trim(GETPOST('modelo', 'alphanohtml'));
+	$anio = trim(GETPOST('anio', 'alphanohtml'));
+	$color = trim(GETPOST('color', 'alphanohtml'));
+	$vin = trim(GETPOST('vin', 'alphanohtml'));
+	$km = GETPOSTINT('km');
+	$notas = trim(GETPOST('notas', 'restricthtml'));
+
+	if (empty($matricula)) {
+		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("Matrícula")), null, 'errors');
+	} elseif ($fk_soc <= 0) {
+		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("Propietario / Cliente")), null, 'errors');
+	} elseif ($rowid <= 0) {
+		setEventMessages("Identificador de vehículo no válido", null, 'errors');
+	} else {
+		$sql_upd = "UPDATE " . $table_vehiculo . " SET ";
+		$sql_upd .= "fk_soc = " . ((int) $fk_soc) . ", ";
+		$sql_upd .= "matricula = '" . $db->escape(strtoupper($matricula)) . "', ";
+		$sql_upd .= "marca = '" . $db->escape($marca) . "', ";
+		$sql_upd .= "modelo = '" . $db->escape($modelo) . "', ";
+		$sql_upd .= "anio = '" . $db->escape($anio) . "', ";
+		$sql_upd .= "color = '" . $db->escape($color) . "', ";
+		$sql_upd .= "vin = '" . $db->escape($vin) . "', ";
+		$sql_upd .= "km = " . ((int) $km) . ", ";
+		$sql_upd .= "notas = '" . $db->escape($notas) . "' ";
+		$sql_upd .= "WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_vehiculo') . ")";
+
+		$resql = $db->query($sql_upd);
+		if ($resql) {
+			// Si el usuario eligió incorporar el modelo/marca al catálogo JSON permanente
+			$guardar_en_cat = GETPOSTINT('guardar_en_catalogo');
+			if ($guardar_en_cat == 1 && !empty($marca) && !empty($modelo)) {
+				$json_path = __DIR__ . '/js/catalogo_coches_new.json';
+				if (file_exists($json_path) && is_writable($json_path)) {
+					$json_content = file_get_contents($json_path);
+					$cat_data = json_decode($json_content, true);
+					if (is_array($cat_data)) {
+						if (!isset($cat_data[$marca])) {
+							$cat_data[$marca] = array();
+						}
+						$modelos_existentes_lower = array_map('mb_strtolower', $cat_data[$marca]);
+						if (!in_array(mb_strtolower($modelo), $modelos_existentes_lower)) {
+							$cat_data[$marca][] = $modelo;
+							sort($cat_data[$marca], SORT_NATURAL | SORT_FLAG_CASE);
+							ksort($cat_data, SORT_NATURAL | SORT_FLAG_CASE);
+							file_put_contents($json_path, json_encode($cat_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+						}
+					}
+				}
+			}
+
+			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=updated");
+			exit;
+		} else {
+			$errmsg = !empty($db->lasterror()) ? $db->lasterror() : 'Error al actualizar el vehículo';
+			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=error&error=" . urlencode($errmsg));
+			exit;
+		}
+	}
+}
+
+// Acción: Eliminar Vehículo (Bloqueo si tiene facturas emitidas, Borrado Físico si no tiene)
 if ($action == 'delete_vehiculo' || $action == 'delete') {
 	$rowid = GETPOSTINT('rowid');
 	if ($rowid > 0) {
 		// 1. Comprobar si este vehículo tiene alguna factura emitida
 		$has_invoices = false;
+		$invoice_ref = '';
 
 		// A) Facturas oficiales de Dolibarr vinculadas por extrafield fk_vehiculo
-		$sql_f_check1 = "SELECT COUNT(fe.rowid) as nb FROM " . MAIN_DB_PREFIX . "facture_extrafields as fe ";
+		$sql_f_check1 = "SELECT f.ref FROM " . MAIN_DB_PREFIX . "facture_extrafields as fe ";
 		$sql_f_check1 .= "JOIN " . MAIN_DB_PREFIX . "facture as f ON f.rowid = fe.fk_object ";
-		$sql_f_check1 .= "WHERE fe.fk_vehiculo = " . ((int) $rowid);
+		$sql_f_check1 .= "WHERE fe.fk_vehiculo = " . ((int) $rowid) . " LIMIT 1";
 		$res_f1 = $db->query($sql_f_check1);
 		if ($res_f1 && ($obj_f1 = $db->fetch_object($res_f1))) {
-			if ($obj_f1->nb > 0) {
-				$has_invoices = true;
-			}
+			$has_invoices = true;
+			$invoice_ref = $obj_f1->ref;
 		}
 
 		// B) Reparaciones de este vehículo que tengan ref_factura generada
 		if (!$has_invoices) {
-			$sql_f_check2 = "SELECT COUNT(rowid) as nb FROM " . $table_reparacion . " ";
-			$sql_f_check2 .= "WHERE fk_vehiculo = " . ((int) $rowid) . " AND ref_factura IS NOT NULL AND ref_factura != ''";
+			$sql_f_check2 = "SELECT ref_factura FROM " . $table_reparacion . " ";
+			$sql_f_check2 .= "WHERE fk_vehiculo = " . ((int) $rowid) . " AND ref_factura IS NOT NULL AND ref_factura != '' LIMIT 1";
 			$res_f2 = $db->query($sql_f_check2);
 			if ($res_f2 && ($obj_f2 = $db->fetch_object($res_f2))) {
-				if ($obj_f2->nb > 0) {
-					$has_invoices = true;
-				}
-			}
-		}
-
-		// C) Tabla llx_taller_factura si existiera vinculada a este vehículo
-		if (!$has_invoices) {
-			$table_taller_factura = MAIN_DB_PREFIX . "taller_factura";
-			$check_table = $db->query("SHOW TABLES LIKE '" . $table_taller_factura . "'");
-			if ($check_table && $db->num_rows($check_table) > 0) {
-				$sql_f_check3 = "SELECT COUNT(rowid) as nb FROM " . $table_taller_factura . " WHERE fk_vehiculo = " . ((int) $rowid) . " AND status = 1";
-				$res_f3 = $db->query($sql_f_check3);
-				if ($res_f3 && ($obj_f3 = $db->fetch_object($res_f3))) {
-					if ($obj_f3->nb > 0) {
-						$has_invoices = true;
-					}
-				}
+				$has_invoices = true;
+				$invoice_ref = $obj_f2->ref_factura;
 			}
 		}
 
 		if ($has_invoices) {
 			// =========================================================================
-			// CASO A: TIENE FACTURAS ASOCIADAS -> BORRADO LÓGICO (status = 0)
-			// Las facturas y el cliente se conservan intactos.
+			// BLOQUEO DE SEGURIDAD (ESTILO DOLIBARR): No se permite destruir elementos facturados
 			// =========================================================================
-			$db->query("UPDATE " . $table_seguro . " SET status = 0 WHERE fk_vehiculo = " . ((int) $rowid));
-			$db->query("UPDATE " . $table_reparacion . " SET status = 0 WHERE fk_vehiculo = " . ((int) $rowid));
-			$db->query("UPDATE " . $table_vehiculo . " SET status = 0 WHERE rowid = " . ((int) $rowid));
-
-			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=deleted");
+			$msg_error = "No se puede eliminar el vehículo porque tiene facturación emitida (" . $invoice_ref . "). Por motivos fiscales y contables, los registros facturados no pueden eliminarse.";
+			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=error&error=" . urlencode($msg_error));
 			exit;
 
 		} else {
 			// =========================================================================
-			// CASO B: NO TIENE NINGUNA FACTURA -> BORRADO FÍSICO COMPLETO (DELETE)
-			// Se eliminan sus dependencias hacia abajo (seguros y reparaciones). El cliente se conserva.
+			// BORRADO FÍSICO REAL (No tiene facturas)
 			// =========================================================================
 			$db->begin();
 
@@ -247,12 +294,8 @@ if ($action == 'delete_vehiculo' || $action == 'delete') {
 				exit;
 			} else {
 				$db->rollback();
-				// Respaldo en caso de fallo en BD: aplicar borrado lógico
-				$db->query("UPDATE " . $table_seguro . " SET status = 0 WHERE fk_vehiculo = " . ((int) $rowid));
-				$db->query("UPDATE " . $table_reparacion . " SET status = 0 WHERE fk_vehiculo = " . ((int) $rowid));
-				$db->query("UPDATE " . $table_vehiculo . " SET status = 0 WHERE rowid = " . ((int) $rowid));
-
-				header("Location: " . $_SERVER['PHP_SELF'] . "?msg=deleted");
+				$errmsg = !empty($db->lasterror()) ? $db->lasterror() : 'Error al eliminar el vehículo';
+				header("Location: " . $_SERVER['PHP_SELF'] . "?msg=error&error=" . urlencode($errmsg));
 				exit;
 			}
 		}
@@ -269,9 +312,11 @@ if ($res_c) {
 	}
 }
 
-// Consultar vehículos con JOIN de cliente
+// Consultar vehículos con JOIN de cliente y comprobación de facturación vinculada
 $sql_veh = "SELECT v.rowid, v.fk_soc, v.matricula, v.marca, v.modelo, v.anio, v.color, v.vin, v.km, v.notas, ";
-$sql_veh .= "s.nom as cliente_nombre ";
+$sql_veh .= "s.nom as cliente_nombre, ";
+$sql_veh .= "(SELECT COUNT(fe.rowid) FROM " . MAIN_DB_PREFIX . "facture_extrafields as fe WHERE fe.fk_vehiculo = v.rowid) as nb_facturas_directas, ";
+$sql_veh .= "(SELECT COUNT(r.rowid) FROM " . MAIN_DB_PREFIX . "taller_reparacion as r WHERE r.fk_vehiculo = v.rowid AND r.ref_factura IS NOT NULL AND r.ref_factura != '') as nb_reparaciones_facturadas ";
 $sql_veh .= "FROM " . $table_vehiculo . " as v ";
 $sql_veh .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON v.fk_soc = s.rowid ";
 $sql_veh .= "WHERE v.status = 1 AND v.entity IN (" . getEntity('taller_vehiculo') . ") ";
@@ -388,7 +433,6 @@ $index_url = dol_buildpath('/taller/tallerindex.php', 1);
 $clientes_url = dol_buildpath('/taller/clientes.php', 1);
 $vehiculos_url = dol_buildpath('/taller/vehiculos.php', 1);
 $reparaciones_url = dol_buildpath('/taller/reparaciones.php', 1);
-$materiales_url = dol_buildpath('/taller/materiales.php', 1);
 $seguros_url = dol_buildpath('/taller/seguros.php', 1);
 $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 ?>
@@ -472,21 +516,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<span class="tallerpro-nav-text"><?php echo $langs->trans("Reparaciones"); ?></span>
 						</a>
 					</li>
-					<li>
-						<a href="<?php echo $materiales_url; ?>" class="tallerpro-nav-item">
-							<span class="tallerpro-nav-icon">
-								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-									stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-									<path
-										d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
-									</path>
-									<polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-									<line x1="12" y1="22.08" x2="12" y2="12"></line>
-								</svg>
-							</span>
-							<span class="tallerpro-nav-text"><?php echo $langs->trans("Materiales"); ?></span>
-						</a>
-					</li>
+
 					<li>
 						<a href="<?php echo $seguros_url; ?>" class="tallerpro-nav-item">
 							<span class="tallerpro-nav-icon">
@@ -698,33 +728,14 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								</svg>
 								<span>Reparaciones</span>
 							</button>
-							<button type="button" class="tallerpro-tab-btn" data-tab="tab-materiales">
-								<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-									stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-									<path
-										d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
-									</path>
-									<polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
-									<line x1="12" y1="22.08" x2="12" y2="12"></line>
-								</svg>
-								<span>Materiales</span>
-							</button>
+
+
 							<button type="button" class="tallerpro-tab-btn" data-tab="tab-seguros">
 								<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
 									stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 									<circle cx="12" cy="12" r="9"></circle>
 								</svg>
 								<span>Seguros</span>
-							</button>
-							<button type="button" class="tallerpro-tab-btn" data-tab="tab-documentos">
-								<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-									stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-									<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-									<polyline points="14 2 14 8 20 8"></polyline>
-									<line x1="16" y1="13" x2="8" y2="13"></line>
-									<line x1="16" y1="17" x2="8" y2="17"></line>
-								</svg>
-								<span>Documentos</span>
 							</button>
 							<button type="button" class="tallerpro-tab-btn" data-tab="tab-facturas">
 								<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -735,6 +746,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										d="M9.5 9.5a1.5 1.5 0 0 1 1.5-1.5h2a1.5 1.5 0 0 1 1.5 1.5c0 1.5-3 1.5-3 3a1.5 1.5 0 0 0 1.5 1.5h2a1.5 1.5 0 0 0 1.5-1.5">
 									</path>
 								</svg>
+								
 								<span>Facturas</span>
 							</button>
 						</div>
@@ -806,13 +818,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							</div>
 						</div>
 
-						<!-- Contenido Pestaña 3: Materiales -->
-						<div class="tallerpro-tab-pane" id="tab-materiales">
-							<div class="tallerpro-vehicle-detail-card">
-								<h2 class="tallerpro-vehicle-detail-card-title">Materiales y repuestos</h2>
-								<div class="tallerpro-empty-message">No hay materiales registrados para este vehículo.</div>
-							</div>
-						</div>
+
 
 						<!-- Contenido Pestaña 4: Seguros -->
 						<div class="tallerpro-tab-pane" id="tab-seguros">
@@ -869,15 +875,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							</div>
 						</div>
 
-						<!-- Contenido Pestaña 5: Documentos -->
-						<div class="tallerpro-tab-pane" id="tab-documentos">
-							<div class="tallerpro-vehicle-detail-card">
-								<h2 class="tallerpro-vehicle-detail-card-title">Documentos</h2>
-								<div class="tallerpro-empty-message">No hay documentos adjuntos para este vehículo.</div>
-							</div>
-						</div>
-
-						<!-- Contenido Pestaña 6: Facturas -->
+						<!-- Contenido Pestaña Facturas -->
 						<div class="tallerpro-tab-pane" id="tab-facturas">
 							<div class="tallerpro-vehicle-detail-card">
 								<h2 class="tallerpro-vehicle-detail-card-title">Facturas del cliente</h2>
@@ -988,16 +986,51 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															<line x1="10" y1="14" x2="21" y2="3"></line>
 														</svg>
 													</a>
-													<a href="<?php echo $del_url; ?>" class="tallerpro-action-btn btn-delete-action"
-														title="Eliminar vehículo">
-														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444"
+													<button type="button" class="tallerpro-action-btn btn-edit-vehiculo"
+														title="Editar vehículo" data-id="<?php echo (int) $veh->rowid; ?>"
+														data-soc="<?php echo (int) $veh->fk_soc; ?>"
+														data-matricula="<?php echo dol_escape_htmltag($veh->matricula); ?>"
+														data-marca="<?php echo dol_escape_htmltag($veh->marca); ?>"
+														data-modelo="<?php echo dol_escape_htmltag($veh->modelo); ?>"
+														data-anio="<?php echo dol_escape_htmltag($veh->anio); ?>"
+														data-color="<?php echo dol_escape_htmltag($veh->color); ?>"
+														data-vin="<?php echo dol_escape_htmltag($veh->vin); ?>"
+														data-km="<?php echo (int) $veh->km; ?>"
+														data-notas="<?php echo dol_escape_htmltag($veh->notas); ?>">
+														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b"
 															stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-															<polyline points="3 6 5 6 21 6"></polyline>
-															<path
-																d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+															<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7">
+															</path>
+															<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z">
 															</path>
 														</svg>
-													</a>
+													</button>
+													<?php
+													$tiene_facturas_veh = (!empty($veh->nb_facturas_directas) && $veh->nb_facturas_directas > 0) || (!empty($veh->nb_reparaciones_facturadas) && $veh->nb_reparaciones_facturadas > 0);
+													if ($tiene_facturas_veh): ?>
+														<button type="button" class="tallerpro-action-btn"
+															title="No se puede eliminar: este vehículo tiene facturación emitida"
+															style="opacity: 0.35; cursor: not-allowed;" disabled>
+															<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8"
+																stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+																<polyline points="3 6 5 6 21 6"></polyline>
+																<path
+																	d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+																</path>
+															</svg>
+														</button>
+													<?php else: ?>
+														<a href="<?php echo $del_url; ?>" class="tallerpro-action-btn btn-delete-action"
+															title="Eliminar vehículo">
+															<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444"
+																stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+																<polyline points="3 6 5 6 21 6"></polyline>
+																<path
+																	d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+																</path>
+															</svg>
+														</a>
+													<?php endif; ?>
 												</div>
 											</td>
 										</tr>
@@ -1022,7 +1055,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 	<div class="tallerpro-modal-backdrop" id="tallerVehiculoModal">
 		<div class="tallerpro-modal-card">
 			<div class="tallerpro-modal-header">
-				<h2 class="tallerpro-modal-title">Nuevo registro de vehículo</h2>
+				<h2 class="tallerpro-modal-title" id="vehiculoModalTitle">Nuevo registro de vehículo</h2>
 				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="Cerrar">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
 						stroke-linecap="round" stroke-linejoin="round">
@@ -1035,7 +1068,8 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				action="<?php echo $_SERVER['PHP_SELF']; ?>">
 				<input type="hidden" name="token"
 					value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
-				<input type="hidden" name="action" value="create_vehiculo">
+				<input type="hidden" name="action" id="vehiculoFormAction" value="create_vehiculo">
+				<input type="hidden" name="vehiculo_id" id="vehiculoFormRowid" value="0">
 
 				<input type="hidden" name="guardar_en_catalogo" id="veh_guardar_en_catalogo" value="0">
 
@@ -1115,19 +1149,17 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<line x1="14" y1="11" x2="14" y2="17"></line>
 				</svg>
 			</div>
-			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">¿Estás seguro de que
+			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 24px 0;">¿Estás seguro de que
 				deseas borrar?</h3>
-			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;">Este vehículo dejará de
-				mostrarse en la lista activa, pero sus datos se conservarán en el sistema.</p>
 
 			<div style="display: flex; gap: 12px; justify-content: center;">
 				<button type="button" id="btnCancelDelete"
 					style="flex: 1; padding: 10px 16px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px;">
-					Rechazar
+					No
 				</button>
 				<button type="button" id="btnConfirmDelete"
 					style="flex: 1; padding: 10px 16px; border: none; background: #ef4444; color: #ffffff; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);">
-					Confirmar
+					Sí
 				</button>
 			</div>
 		</div>

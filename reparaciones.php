@@ -287,15 +287,19 @@ if ($action == 'facturar_reparacion' || $action == 'facturar') {
 				$fac->socid = (int) $rep->fk_soc;
 				$fac->date = dol_now();
 				$fac->type = Facture::TYPE_STANDARD;
-				$ot_num = 'OT #' . str_pad($rep->rowid, 4, '0', STR_PAD_LEFT);
-				$fac->note_public = "Factura de reparación " . $ot_num . " (" . $rep->matricula . ")" . (!empty($rep->notas) ? "\n" . $rep->notas : "");
+				$fac->note_public = "";
 				$fac->array_options['options_fk_vehiculo'] = (int) $rep->fk_vehiculo;
 
 				$fac_id = $fac->create($user);
 				if ($fac_id > 0) {
 					// Guardar fk_vehiculo en facture_extrafields directamente para garantizar sincronización
 					if (!empty($rep->fk_vehiculo)) {
-						$db->query("UPDATE " . MAIN_DB_PREFIX . "facture_extrafields SET fk_vehiculo = " . ((int) $rep->fk_vehiculo) . " WHERE fk_object = " . ((int) $fac_id));
+						$check_ef = $db->query("SELECT rowid FROM " . MAIN_DB_PREFIX . "facture_extrafields WHERE fk_object = " . ((int) $fac_id));
+						if ($check_ef && $db->num_rows($check_ef) > 0) {
+							$db->query("UPDATE " . MAIN_DB_PREFIX . "facture_extrafields SET fk_vehiculo = " . ((int) $rep->fk_vehiculo) . " WHERE fk_object = " . ((int) $fac_id));
+						} else {
+							$db->query("INSERT INTO " . MAIN_DB_PREFIX . "facture_extrafields (fk_object, fk_vehiculo) VALUES (" . ((int) $fac_id) . ", " . ((int) $rep->fk_vehiculo) . ")");
+						}
 					}
 
 					// Añadir línea de mano de obra / trabajo realizado
@@ -305,13 +309,13 @@ if ($action == 'facturar_reparacion' || $action == 'facturar') {
 					$tva_tx = 21.0;
 					$fac->addline($desc_mo, $coste_mo, 1, $tva_tx, 0, 0, 0, 0, '', '', 0, 0, 0, 'HT', 0, 1);
 
-					// Validar factura (asigna numeración oficial definitiva y queda en estado Pendiente)
-					$fac->validate($user);
+					// La factura se crea en estado Borrador (PROV) para que el taller pueda revisar y editar líneas antes de validar
+					$fac->fetch($fac_id);
 
-					// Actualizar la reparación con la referencia de la factura y marcarla como finalizada
+					// Actualizar la reparación con la referencia (provisional de borrador) y marcarla como finalizada
 					$db->query("UPDATE " . $table_reparacion . " SET ref_factura = '" . $db->escape($fac->ref) . "', estado = 'finalizada' WHERE rowid = " . ((int) $rowid));
 
-					setEventMessages("Factura " . $fac->ref . " emitida con éxito a partir de la reparación", null, 'mesgs');
+					setEventMessages("Borrador de factura " . $fac->ref . " creado a partir de la reparación. Puede revisar o añadir materiales y pulsar 'Validar y Emitir' para asignarle el número legal definitivo.", null, 'mesgs');
 					header("Location: " . dol_buildpath('/taller/facturas.php', 1) . '?id=' . $fac_id);
 					exit;
 				} else {
@@ -370,21 +374,40 @@ if ($action == 'save_and_facturar') {
 // Acción: Eliminar Reparación
 if ($action == 'delete_reparacion' || $action == 'delete') {
 	$rowid = GETPOSTINT('rowid');
+	$is_ajax = GETPOST('ajax', 'int') || !empty($_SERVER['HTTP_X_REQUESTED_WITH']);
 	if ($rowid > 0) {
-		$sql_del = "UPDATE " . $table_reparacion . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_reparacion') . ")";
+		// Comprobar si la reparación ya tiene factura emitida
+		$sql_check_f = "SELECT ref_factura FROM " . $table_reparacion . " WHERE rowid = " . ((int) $rowid);
+		$res_check_f = $db->query($sql_check_f);
+		if ($res_check_f && ($obj_r = $db->fetch_object($res_check_f))) {
+			if (!empty($obj_r->ref_factura)) {
+				$msg_bloqueo = "No se puede eliminar la reparación porque ya tiene la Factura " . $obj_r->ref_factura . " emitida.";
+				if ($is_ajax) {
+					header('Content-Type: application/json');
+					echo json_encode(array('success' => false, 'error' => $msg_bloqueo));
+					exit;
+				}
+				header("Location: " . $_SERVER['PHP_SELF'] . "?msg=error&error=" . urlencode($msg_bloqueo));
+				exit;
+			}
+		}
+
+		// Si no tiene factura, se borra físicamente
+		$sql_del = "DELETE FROM " . $table_reparacion . " WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_reparacion') . ")";
 		$resql = $db->query($sql_del);
 	}
-	if (GETPOST('ajax', 'int') || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+	if ($is_ajax) {
 		header('Content-Type: application/json');
-		echo json_encode(array('success' => true));
+		echo json_encode(array('success' => ($resql ? true : false)));
 		exit;
 	}
 	if ($resql) {
-		setEventMessages($langs->trans("RecordDeleted"), null, 'mesgs');
 		header("Location: " . $_SERVER['PHP_SELF'] . "?msg=deleted");
 		exit;
 	} else {
-		setEventMessages("Error al eliminar la reparación: " . $db->lasterror(), null, 'errors');
+		$errmsg = !empty($db->lasterror()) ? $db->lasterror() : 'Error al eliminar la reparación';
+		header("Location: " . $_SERVER['PHP_SELF'] . "?msg=error&error=" . urlencode($errmsg));
+		exit;
 	}
 }
 
@@ -732,12 +755,21 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 														<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
 													</svg>
 												</button>
-												<button type="button" class="tallerpro-action-btn btn-delete-reparacion" data-id="<?php echo (int) $rep->rowid; ?>" title="Eliminar reparación">
-													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-														<polyline points="3 6 5 6 21 6"></polyline>
-														<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-													</svg>
-												</button>
+												<?php if (!empty($rep->ref_factura)): ?>
+													<button type="button" class="tallerpro-action-btn" title="No se puede eliminar: tiene la factura <?php echo dol_escape_htmltag($rep->ref_factura); ?> emitida" style="opacity: 0.35; cursor: not-allowed;" disabled>
+														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+															<polyline points="3 6 5 6 21 6"></polyline>
+															<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+														</svg>
+													</button>
+												<?php else: ?>
+													<button type="button" class="tallerpro-action-btn btn-delete-reparacion" data-id="<?php echo (int) $rep->rowid; ?>" title="Eliminar reparación">
+														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+															<polyline points="3 6 5 6 21 6"></polyline>
+															<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+														</svg>
+													</button>
+												<?php endif; ?>
 											</div>
 										</td>
 									</tr>
@@ -1164,15 +1196,14 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<line x1="14" y1="11" x2="14" y2="17"></line>
 				</svg>
 			</div>
-			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">¿Estás seguro de que deseas borrar?</h3>
-			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;">Esta reparación dejará de mostrarse en la lista activa, pero sus datos se conservarán en el sistema.</p>
+			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 24px 0;">¿Estás seguro de que deseas borrar?</h3>
 
 			<div style="display: flex; gap: 12px; justify-content: center;">
 				<button type="button" id="btnCancelDelete" style="flex: 1; padding: 10px 16px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px;">
-					Rechazar
+					No
 				</button>
 				<button type="button" id="btnConfirmDelete" style="flex: 1; padding: 10px 16px; border: none; background: #ef4444; color: #ffffff; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);">
-					Confirmar
+					Sí
 				</button>
 			</div>
 		</div>

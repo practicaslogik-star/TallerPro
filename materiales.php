@@ -575,15 +575,14 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<line x1="14" y1="11" x2="14" y2="17"></line>
 				</svg>
 			</div>
-			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">¿Estás seguro de que deseas borrar?</h3>
-			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;">Este material dejará de mostrarse en la lista activa, pero sus datos se conservarán en el sistema.</p>
+			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 24px 0;">¿Estás seguro de que deseas borrar?</h3>
 
 			<div style="display: flex; gap: 12px; justify-content: center;">
 				<button type="button" id="btnCancelDelete" style="flex: 1; padding: 10px 16px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px;">
-					Rechazar
+					No
 				</button>
 				<button type="button" id="btnConfirmDelete" style="flex: 1; padding: 10px 16px; border: none; background: #ef4444; color: #ffffff; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);">
-					Confirmar
+					Sí
 				</button>
 			</div>
 		</div>

@@ -458,7 +458,7 @@ if (window.__tallerProLoaded) {
                 if (facSoc) facSoc.value = btn.dataset.soc || '';
                 if (facVehiculo) facVehiculo.value = btn.dataset.vehiculo || '';
                 if (facTotal) facTotal.value = btn.dataset.total || '0.00';
-                if (facEstado) facEstado.value = btn.dataset.estado || 'Pendiente';
+                if (facEstado) facEstado.value = btn.dataset.estado || 'Borrador';
                 if (facNotas) facNotas.value = btn.dataset.notas || '';
 
                 facModal.classList.add('active');
@@ -612,7 +612,28 @@ if (window.__tallerProLoaded) {
                     if (data.factura) {
                         if (detTotDescuentoGlobal) detTotDescuentoGlobal.value = parseFloat(data.factura.descuento_global || 0).toFixed(2);
                         if (detTotIva) detTotIva.value = parseFloat(data.factura.iva_porcentaje !== null && data.factura.iva_porcentaje !== undefined ? data.factura.iva_porcentaje : 21).toFixed(0);
+
+                        // Si la factura está congelada (Validada/Pagada), bloquear la adición/eliminación de líneas
+                        const isFrozen = !!data.factura.is_frozen;
+                        const matForm = document.getElementById('tallerMatForm');
+                        const repForm = document.getElementById('tallerRepForm');
+                        const saveTotalsBtn = document.getElementById('btnSaveInvoiceTotals');
+
+                        if (matForm) {
+                            matForm.style.display = isFrozen ? 'none' : '';
+                        }
+                        if (repForm) {
+                            repForm.style.display = isFrozen ? 'none' : '';
+                        }
+                        if (saveTotalsBtn) {
+                            saveTotalsBtn.style.display = isFrozen ? 'none' : '';
+                        }
+                        if (detTotDescuentoGlobal) {
+                            detTotDescuentoGlobal.readOnly = isFrozen;
+                        }
                     }
+
+                    const isFrozen = (data.factura && data.factura.is_frozen);
 
                     // Renderizar Materiales (Formato tabla idéntico a referencia)
                     currentMatSum = 0;
@@ -635,7 +656,7 @@ if (window.__tallerProLoaded) {
                                 '<th style="width: 12%; text-align: right;">P. unit.</th>' +
                                 '<th style="width: 8%; text-align: center;">Dto.</th>' +
                                 '<th style="width: 13%; text-align: right;">Total</th>' +
-                                '<th style="width: 32px; text-align: center;"></th>' +
+                                (isFrozen ? '' : '<th style="width: 32px; text-align: center;"></th>') +
                                 '</tr>' +
                                 '</thead>' +
                                 '<tbody>';
@@ -656,6 +677,7 @@ if (window.__tallerProLoaded) {
                                     '<td style="text-align: right;">' + priceDisplay + '</td>' +
                                     '<td style="text-align: center;">' + dtoDisplay + '</td>' +
                                     '<td style="text-align: right; font-weight: 700; color: #0f172a;">' + totalDisplay + '</td>' +
+                                    (isFrozen ? '' :
                                     '<td style="text-align: center;">' +
                                     '<button type="button" class="tallerpro-action-btn btn-delete-line" data-line-id="' + mat.rowid + '" title="Eliminar">' +
                                     '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
@@ -663,7 +685,7 @@ if (window.__tallerProLoaded) {
                                     '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>' +
                                     '</svg>' +
                                     '</button>' +
-                                    '</td>' +
+                                    '</td>') +
                                     '</tr>';
                             });
 
@@ -691,7 +713,7 @@ if (window.__tallerProLoaded) {
                                 '<th style="width: 14%; text-align: right;">Precio</th>' +
                                 '<th style="width: 10%; text-align: center;">Dto.</th>' +
                                 '<th style="width: 14%; text-align: right;">Total</th>' +
-                                '<th style="width: 32px; text-align: center;"></th>' +
+                                (isFrozen ? '' : '<th style="width: 32px; text-align: center;"></th>') +
                                 '</tr>' +
                                 '</thead>' +
                                 '<tbody>';
@@ -712,6 +734,7 @@ if (window.__tallerProLoaded) {
                                     '<td style="text-align: right;">' + priceDisplay + '</td>' +
                                     '<td style="text-align: center;">' + dtoDisplay + '</td>' +
                                     '<td style="text-align: right; font-weight: 700; color: #0f172a;">' + totalDisplay + '</td>' +
+                                    (isFrozen ? '' :
                                     '<td style="text-align: center;">' +
                                     '<button type="button" class="tallerpro-action-btn btn-delete-line" data-line-id="' + rep.rowid + '" title="Eliminar">' +
                                     '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
@@ -719,7 +742,7 @@ if (window.__tallerProLoaded) {
                                     '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>' +
                                     '</svg>' +
                                     '</button>' +
-                                    '</td>' +
+                                    '</td>') +
                                     '</tr>';
                             });
 
@@ -1279,6 +1302,38 @@ if (window.__tallerProLoaded) {
                 pendingDeleteRowId = null;
             }
         });
+
+        // Modal de Validación / Emisión Oficial de Factura
+        const triggerValidateBtn = document.getElementById('btnTriggerValidateModal');
+        const validateModal = document.getElementById('validateConfirmModal');
+        const btnCancelValidate = document.getElementById('btnCancelValidate');
+        const btnConfirmValidate = document.getElementById('btnConfirmValidate');
+
+        if (triggerValidateBtn && validateModal) {
+            triggerValidateBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                const facId = triggerValidateBtn.getAttribute('data-id');
+                if (btnConfirmValidate && facId) {
+                    btnConfirmValidate.href = 'facturas.php?action=validar_factura&rowid=' + encodeURIComponent(facId);
+                }
+                validateModal.classList.add('active');
+            });
+        }
+
+        if (btnCancelValidate && validateModal) {
+            btnCancelValidate.addEventListener('click', function (e) {
+                e.preventDefault();
+                validateModal.classList.remove('active');
+            });
+        }
+
+        if (validateModal) {
+            validateModal.addEventListener('click', function (e) {
+                if (e.target === validateModal) {
+                    validateModal.classList.remove('active');
+                }
+            });
+        }
 
         document.addEventListener('click', function (e) {
             const confirmBtn = e.target.closest('#btnConfirmDelete');
@@ -2019,25 +2074,90 @@ if (window.__tallerProLoaded) {
             if (modal) modal.classList.add('active');
         });
 
-        // =========================================================================
+        // ==========================================================================
+        // VISTA VEHÍCULOS: Control del Modal de Alta y Edición
+        // ==========================================================================
+        const modalVehForm = document.getElementById('tallerVehiculoForm');
+        const vehTitle = document.getElementById('vehiculoModalTitle');
+        const vehAction = document.getElementById('vehiculoFormAction');
+        const vehRowid = document.getElementById('vehiculoFormRowid');
+        const btnAddVeh = document.getElementById('tallerOpenModalBtn');
+
+        // Al pulsar "+ Añadir": limpiar formulario para nuevo registro
+        if (btnAddVeh && modalVehForm) {
+            btnAddVeh.addEventListener('click', function () {
+                modalVehForm.reset();
+                if (vehTitle) vehTitle.textContent = 'Nuevo registro de vehículo';
+                if (vehAction) vehAction.value = 'create_vehiculo';
+                if (vehRowid) vehRowid.value = '0';
+            });
+        }
+
+        // Al pulsar "Editar vehículo" (icono lápiz): rellenar datos y abrir modal
+        document.addEventListener('click', function (e) {
+            const editBtn = e.target.closest('.btn-edit-vehiculo');
+            if (!editBtn) return;
+            e.preventDefault();
+
+            const modal = document.getElementById('tallerVehiculoModal');
+            const title = document.getElementById('vehiculoModalTitle');
+            const action = document.getElementById('vehiculoFormAction');
+            const rowidInput = document.getElementById('vehiculoFormRowid');
+
+            const id = editBtn.getAttribute('data-id') || '0';
+            const soc = editBtn.getAttribute('data-soc') || '';
+            const matricula = editBtn.getAttribute('data-matricula') || '';
+            const marca = editBtn.getAttribute('data-marca') || '';
+            const modelo = editBtn.getAttribute('data-modelo') || '';
+            const anio = editBtn.getAttribute('data-anio') || '';
+            const color = editBtn.getAttribute('data-color') || '';
+            const vin = editBtn.getAttribute('data-vin') || '';
+            const km = editBtn.getAttribute('data-km') || '';
+            const notas = editBtn.getAttribute('data-notes') || '';
+
+            if (title) title.textContent = 'Editar vehículo';
+            if (action) action.value = 'update_vehiculo';
+            if (rowidInput) rowidInput.value = id;
+
+            const inputMatricula = document.getElementById('veh_matricula');
+            const selectSoc = document.getElementById('veh_fk_soc');
+            const inputMarca = document.getElementById('veh_marca');
+            const inputModelo = document.getElementById('veh_modelo');
+            const inputAnio = document.getElementById('veh_anio');
+            const inputColor = document.getElementById('veh_color');
+            const inputVin = document.getElementById('veh_vin');
+            const inputKm = document.getElementById('veh_km');
+            const inputNotas = document.getElementById('veh_notas');
+
+            if (inputMatricula) inputMatricula.value = matricula;
+            if (selectSoc && soc) selectSoc.value = soc;
+            if (inputMarca) inputMarca.value = marca;
+            if (inputModelo) inputModelo.value = modelo;
+            if (inputAnio) inputAnio.value = anio;
+            if (inputColor) inputColor.value = color;
+            if (inputVin) inputVin.value = vin;
+            if (inputKm) inputKm.value = km;
+            if (inputNotas) inputNotas.value = notas;
+
+            if (modal) modal.classList.add('active');
+        });
+
         // Modal "Emitir Factura Ahora": guarda los datos y genera la factura oficial en Dolibarr
-        // =========================================================================
         const btnModalEmitirFactura = document.getElementById('btnModalEmitirFactura');
         if (btnModalEmitirFactura && repForm) {
             btnModalEmitirFactura.addEventListener('click', function (e) {
                 e.preventDefault();
                 const vehSelect = document.getElementById('orderVehiculoSelect');
-
+                
                 console.log("oasdasdaosidas");
-
+                
                 console.log(vehSelect);
-
-
 
                 if (!vehSelect || !vehSelect.value || parseInt(vehSelect.value) <= 0) {
                     alert('Debe seleccionar un vehículo válido para poder emitir la factura.');
                     return;
                 }
+
                 if (!confirm('¿Deseas guardar los cambios y emitir la factura oficial de Dolibarr para esta reparación?')) {
                     return;
                 }

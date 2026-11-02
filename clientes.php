@@ -174,8 +174,7 @@ if ($action == 'update_client') {
 
 
 
-
-// Acción: Eliminar Cliente (Borrado inteligente: Físico si no tiene facturas, Lógico si tiene facturas)
+// Eliminar Cliente (Borrado inteligente: Físico si no tiene facturas, Lógico si tiene facturas)
 if ($action == 'delete_client' || $action == 'delete') {
 	$socid = GETPOST('socid', 'int');
 	if ($socid > 0) {
@@ -218,29 +217,15 @@ if ($action == 'delete_client' || $action == 'delete') {
 
 			if ($has_invoices) {
 				// =========================================================================
-				// CASO A: EL CLIENTE TIENE FACTURAS
-				// -> BORRADO LÓGICO (status = 0). Las facturas se conservan intactas por ley.
+				// BLOQUEO DE SEGURIDAD (ESTILO DOLIBARR): No se permite destruir clientes con facturas
 				// =========================================================================
-				if (!empty($veh_in)) {
-					// Ocultar seguros de sus vehículos
-					$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_seguro SET status = 0 WHERE fk_vehiculo IN (" . $veh_in . ")");
-					// Ocultar reparaciones de sus vehículos
-					$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_reparacion SET status = 0 WHERE fk_vehiculo IN (" . $veh_in . ")");
-					// Ocultar los vehículos
-					$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_vehiculo SET status = 0 WHERE fk_soc = " . ((int) $socid));
-				}
-
-				// Ocultar cliente en Dolibarr
-				$soc->status = 0;
-				$db->query("UPDATE " . MAIN_DB_PREFIX . "societe SET status = 0 WHERE rowid = " . ((int) $socid));
-
-				header("Location: " . $_SERVER['PHP_SELF'] . "?msg=deleted");
+				$msg_error = "No se puede eliminar el cliente porque tiene facturas emitidas a su nombre. Por normativa legal y fiscal, los clientes facturados deben conservarse.";
+				header("Location: " . $_SERVER['PHP_SELF'] . "?msg=error&error=" . urlencode($msg_error));
 				exit;
 
 			} else {
 				// =========================================================================
-				// CASO B: EL CLIENTE NO TIENE NINGUNA FACTURA
-				// -> BORRADO FÍSICO COMPLETO (DELETE). Se elimina totalmente sin dejar rastro.
+				// CASO B: EL CLIENTE NO TIENE NINGUNA FACTURA -> BORRADO FÍSICO COMPLETO (DELETE)
 				// =========================================================================
 				$db->begin();
 
@@ -264,18 +249,9 @@ if ($action == 'delete_client' || $action == 'delete') {
 					header("Location: " . $_SERVER['PHP_SELF'] . "?msg=deleted");
 					exit;
 				} else {
-					// Si Dolibarr impide el borrado físico por alguna dependencia externa, aplicamos borrado lógico de respaldo
 					$db->rollback();
-
-					if (!empty($veh_in)) {
-						$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_seguro SET status = 0 WHERE fk_vehiculo IN (" . $veh_in . ")");
-						$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_reparacion SET status = 0 WHERE fk_vehiculo IN (" . $veh_in . ")");
-						$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_vehiculo SET status = 0 WHERE fk_soc = " . ((int) $socid));
-					}
-					$soc->status = 0;
-					$db->query("UPDATE " . MAIN_DB_PREFIX . "societe SET status = 0 WHERE rowid = " . ((int) $socid));
-
-					header("Location: " . $_SERVER['PHP_SELF'] . "?msg=deleted");
+					$errmsg = !empty($soc->error) ? $soc->error : (!empty($soc->errors) ? implode(', ', $soc->errors) : 'Error al eliminar el cliente');
+					header("Location: " . $_SERVER['PHP_SELF'] . "?msg=error&error=" . urlencode($errmsg));
 					exit;
 				}
 			}
@@ -348,11 +324,13 @@ if ($socid > 0) {
 	}
 }
 
-// Consultar clientes reales de la base de datos (llx_societe) con conteo de vehículos
+// Consultar clientes reales de la base de datos (llx_societe) con conteo de vehículos y verificación de facturas
 $sql = "SELECT s.rowid, s.nom as name, s.phone, s.email, s.address, s.siren as cif, s.note_private, ";
-$sql .= "COUNT(v.rowid) as nb_vehiculos ";
+$sql .= "COUNT(DISTINCT v.rowid) as nb_vehiculos, ";
+$sql .= "COUNT(DISTINCT f.rowid) as nb_facturas ";
 $sql .= " FROM " . MAIN_DB_PREFIX . "societe as s";
 $sql .= " LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON (v.fk_soc = s.rowid AND v.status = 1)";
+$sql .= " LEFT JOIN " . MAIN_DB_PREFIX . "facture as f ON f.fk_soc = s.rowid";
 $sql .= " WHERE s.client IN (1, 2, 3)";
 $sql .= " AND s.status = 1";
 $sql .= " AND s.entity IN (" . getEntity('societe') . ")";
@@ -1102,16 +1080,25 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															</path>
 														</svg>
 													</button>
-													<a href="<?php echo $del_url; ?>" class="tallerpro-action-btn btn-delete-action"
-														title="Eliminar">
-														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444"
-															stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-															<polyline points="3 6 5 6 21 6"></polyline>
-															<path
-																d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
-															</path>
-														</svg>
-													</a>
+													<?php if (!empty($obj->nb_facturas) && $obj->nb_facturas > 0): ?>
+														<button type="button" class="tallerpro-action-btn" title="No se puede eliminar: el cliente tiene <?php echo (int) $obj->nb_facturas; ?> factura(s) emitida(s)" style="opacity: 0.35; cursor: not-allowed;" disabled>
+															<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+																<polyline points="3 6 5 6 21 6"></polyline>
+																<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+															</svg>
+														</button>
+													<?php else: ?>
+														<a href="<?php echo $del_url; ?>" class="tallerpro-action-btn btn-delete-action"
+															title="Eliminar cliente">
+															<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444"
+																stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+																<polyline points="3 6 5 6 21 6"></polyline>
+																<path
+																	d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+																</path>
+															</svg>
+														</a>
+													<?php endif; ?>
 												</div>
 											</td>
 										</tr>
@@ -1207,19 +1194,16 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<line x1="14" y1="11" x2="14" y2="17"></line>
 				</svg>
 			</div>
-			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">¿Estás seguro de que
-				deseas borrar?</h3>
-			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;">Este cliente dejará de
-				mostrarse en la lista activa, pero sus datos se conservarán en el sistema.</p>
+			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 24px 0;">¿Estás seguro de que deseas borrar?</h3>
 
 			<div style="display: flex; gap: 12px; justify-content: center;">
 				<button type="button" id="btnCancelDelete"
 					style="flex: 1; padding: 10px 16px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px;">
-					Rechazar
+					No
 				</button>
 				<button type="button" id="btnConfirmDelete"
 					style="flex: 1; padding: 10px 16px; border: none; background: #ef4444; color: #ffffff; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);">
-					Confirmar
+					Sí
 				</button>
 			</div>
 		</div>
