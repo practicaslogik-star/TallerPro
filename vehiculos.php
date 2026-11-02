@@ -377,8 +377,8 @@ if ($veh_id > 0 || !empty($veh_matricula)) {
 			$sql_inv = "SELECT f.rowid, f.ref, f.total_ttc, f.datef, f.paye, f.fk_statut ";
 			$sql_inv .= "FROM " . MAIN_DB_PREFIX . "facture as f ";
 			$sql_inv .= "LEFT JOIN " . MAIN_DB_PREFIX . "facture_extrafields as fe ON fe.fk_object = f.rowid ";
-			$sql_inv .= "WHERE (fe.fk_vehiculo = " . ((int) $id) . " OR (fe.fk_vehiculo IS NULL AND f.fk_soc = " . ((int) $veh_detail->fk_soc) . ")) ";
-			$sql_inv .= "ORDER BY f.datef DESC";
+			$sql_inv .= "WHERE (fe.fk_vehiculo = " . ((int) $veh_detail->rowid) . " OR fe.snapshot_matricula = '" . $db->escape($veh_detail->matricula) . "') ";
+			$sql_inv .= "ORDER BY f.datef DESC, f.rowid DESC";
 			$res_inv = $db->query($sql_inv);
 			if ($res_inv) {
 				while ($inv_obj = $db->fetch_object($res_inv)) {
@@ -746,7 +746,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										d="M9.5 9.5a1.5 1.5 0 0 1 1.5-1.5h2a1.5 1.5 0 0 1 1.5 1.5c0 1.5-3 1.5-3 3a1.5 1.5 0 0 0 1.5 1.5h2a1.5 1.5 0 0 0 1.5-1.5">
 									</path>
 								</svg>
-								
+
 								<span>Facturas</span>
 							</button>
 						</div>
@@ -875,23 +875,34 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							</div>
 						</div>
 
-						<!-- Contenido Pestaña Facturas -->
+						<!-- Contenido Pestaña Facturas del vehiculo -->
 						<div class="tallerpro-tab-pane" id="tab-facturas">
 							<div class="tallerpro-vehicle-detail-card">
-								<h2 class="tallerpro-vehicle-detail-card-title">Facturas del cliente</h2>
+								<h2 class="tallerpro-vehicle-detail-card-title">Facturas del vehículo</h2>
 								<?php if (!empty($veh_invoices)): ?>
 									<div class="tallerpro-detail-list">
 										<?php foreach ($veh_invoices as $f): ?>
 											<?php
-											$is_paid = !empty($f->paye);
-											$status_label = $is_paid ? 'Pagada' : 'Pendiente';
-											$status_class = $is_paid ? 'pagada' : 'pendiente';
+											if ($f->fk_statut == 0) {
+												$status_label = 'Borrador';
+												$status_class = 'borrador';
+											} elseif (!empty($f->paye) || $f->fk_statut == 2) {
+												$status_label = 'Pagada';
+												$status_class = 'pagada';
+											} else {
+												$status_label = 'Pendiente';
+												$status_class = 'pendiente';
+											}
 											$date_str = dol_print_date($db->jdate($f->datef), 'day');
+											$fac_url = dol_buildpath('/taller/facturas.php', 1) . '?id=' . ((int) $f->rowid);
 											?>
-											<div class="tallerpro-detail-item">
+											<div class="tallerpro-detail-item" style="cursor: pointer;"
+												onclick="window.location.href='<?php echo $fac_url; ?>';">
 												<div class="tallerpro-detail-item-main">
-													<span
-														class="tallerpro-detail-item-title"><?php echo dol_escape_htmltag($f->ref); ?></span>
+													<a href="<?php echo $fac_url; ?>" class="tallerpro-detail-item-title"
+														style="text-decoration: none; color: inherit;">
+														<?php echo dol_escape_htmltag($f->ref); ?>
+													</a>
 													<span class="tallerpro-detail-item-sub">Fecha:
 														<?php echo dol_escape_htmltag($date_str); ?></span>
 												</div>
@@ -905,7 +916,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<?php endforeach; ?>
 									</div>
 								<?php else: ?>
-									<div class="tallerpro-empty-message">No hay facturas asociadas a este cliente.</div>
+									<div class="tallerpro-empty-message">No hay facturas asociadas a este vehículo.</div>
 								<?php endif; ?>
 							</div>
 						</div>

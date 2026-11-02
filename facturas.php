@@ -474,9 +474,13 @@ if ($action == 'delete_factura' || $action == 'delete') {
 				exit;
 			}
 
-			// Si es borrador, se elimina limpiamente
+			// Si es borrador, se elimina limpiamente y se libera la reparación asociada
+			$deleted_ref = $fac->ref;
 			$res = $fac->delete($user);
 			if ($res > 0) {
+				if (!empty($deleted_ref)) {
+					$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_reparacion SET ref_factura = NULL WHERE ref_factura = '" . $db->escape($deleted_ref) . "'");
+				}
 				header("Location: " . $_SERVER['PHP_SELF'] . "?msg=deleted");
 				exit;
 			} else {
@@ -1928,7 +1932,9 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Cliente</label>
-					<select name="fk_soc" id="fac_fk_soc" class="tallerpro-form-select">
+					<input type="hidden" name="fk_soc" id="fac_fk_soc_hidden" value="" />
+					<select id="fac_fk_soc" class="tallerpro-form-select tallerpro-input-readonly" disabled
+						style="background-color: #f1f5f9; cursor: not-allowed; opacity: 0.85;">
 						<option value="">— Selecciona —</option>
 						<?php foreach ($clients_list as $cl): ?>
 							<option value="<?php echo (int) $cl->rowid; ?>">
@@ -1939,7 +1945,9 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Vehículo</label>
-					<select name="fk_vehiculo" id="fac_fk_vehiculo" class="tallerpro-form-select">
+					<input type="hidden" name="fk_vehiculo" id="fac_fk_vehiculo_hidden" value="" />
+					<select id="fac_fk_vehiculo" class="tallerpro-form-select tallerpro-input-readonly" disabled
+						style="background-color: #f1f5f9; cursor: not-allowed; opacity: 0.85;">
 						<option value="">— Selecciona —</option>
 						<?php foreach ($vehicles_list as $vh): ?>
 							<option value="<?php echo (int) $vh->rowid; ?>">
@@ -1950,8 +1958,9 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Total (€)</label>
-					<input type="number" step="0.01" min="0" name="total" id="fac_total" class="tallerpro-form-input"
-						value="0.00" />
+					<input type="number" step="0.01" min="0" name="total" id="fac_total"
+						class="tallerpro-form-input tallerpro-input-readonly" value="0.00" readonly
+						style="background-color: #f1f5f9; cursor: not-allowed; font-weight: 600;" />
 				</div>
 
 				<div class="tallerpro-form-group">

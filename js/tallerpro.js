@@ -445,7 +445,9 @@ if (window.__tallerProLoaded) {
                 if (facFormRowid) facFormRowid.value = btn.dataset.id || '0';
 
                 const facSoc = document.getElementById('fac_fk_soc');
+                const facSocHidden = document.getElementById('fac_fk_soc_hidden');
                 const facVehiculo = document.getElementById('fac_fk_vehiculo');
+                const facVehiculoHidden = document.getElementById('fac_fk_vehiculo_hidden');
                 const facTotal = document.getElementById('fac_total');
                 const facEstado = document.getElementById('fac_estado');
                 const facNotas = document.getElementById('fac_notas');
@@ -456,8 +458,13 @@ if (window.__tallerProLoaded) {
                 }
                 if (facFecha) facFecha.value = btn.dataset.fecha || '';
                 if (facSoc) facSoc.value = btn.dataset.soc || '';
+                if (facSocHidden) facSocHidden.value = btn.dataset.soc || '';
                 if (facVehiculo) facVehiculo.value = btn.dataset.vehiculo || '';
-                if (facTotal) facTotal.value = btn.dataset.total || '0.00';
+                if (facVehiculoHidden) facVehiculoHidden.value = btn.dataset.vehiculo || '';
+                if (facTotal) {
+                    facTotal.value = btn.dataset.total || '0.00';
+                    facTotal.readOnly = true;
+                }
                 if (facEstado) facEstado.value = btn.dataset.estado || 'Borrador';
                 if (facNotas) facNotas.value = btn.dataset.notas || '';
 
@@ -678,14 +685,14 @@ if (window.__tallerProLoaded) {
                                     '<td style="text-align: center;">' + dtoDisplay + '</td>' +
                                     '<td style="text-align: right; font-weight: 700; color: #0f172a;">' + totalDisplay + '</td>' +
                                     (isFrozen ? '' :
-                                    '<td style="text-align: center;">' +
-                                    '<button type="button" class="tallerpro-action-btn btn-delete-line" data-line-id="' + mat.rowid + '" title="Eliminar">' +
-                                    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-                                    '<polyline points="3 6 5 6 21 6"></polyline>' +
-                                    '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>' +
-                                    '</svg>' +
-                                    '</button>' +
-                                    '</td>') +
+                                        '<td style="text-align: center;">' +
+                                        '<button type="button" class="tallerpro-action-btn btn-delete-line" data-line-id="' + mat.rowid + '" title="Eliminar">' +
+                                        '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                                        '<polyline points="3 6 5 6 21 6"></polyline>' +
+                                        '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>' +
+                                        '</svg>' +
+                                        '</button>' +
+                                        '</td>') +
                                     '</tr>';
                             });
 
@@ -735,14 +742,14 @@ if (window.__tallerProLoaded) {
                                     '<td style="text-align: center;">' + dtoDisplay + '</td>' +
                                     '<td style="text-align: right; font-weight: 700; color: #0f172a;">' + totalDisplay + '</td>' +
                                     (isFrozen ? '' :
-                                    '<td style="text-align: center;">' +
-                                    '<button type="button" class="tallerpro-action-btn btn-delete-line" data-line-id="' + rep.rowid + '" title="Eliminar">' +
-                                    '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
-                                    '<polyline points="3 6 5 6 21 6"></polyline>' +
-                                    '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>' +
-                                    '</svg>' +
-                                    '</button>' +
-                                    '</td>') +
+                                        '<td style="text-align: center;">' +
+                                        '<button type="button" class="tallerpro-action-btn btn-delete-line" data-line-id="' + rep.rowid + '" title="Eliminar">' +
+                                        '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                                        '<polyline points="3 6 5 6 21 6"></polyline>' +
+                                        '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>' +
+                                        '</svg>' +
+                                        '</button>' +
+                                        '</td>') +
                                     '</tr>';
                             });
 
@@ -2148,9 +2155,9 @@ if (window.__tallerProLoaded) {
             btnModalEmitirFactura.addEventListener('click', function (e) {
                 e.preventDefault();
                 const vehSelect = document.getElementById('orderVehiculoSelect');
-                
+
                 console.log("oasdasdaosidas");
-                
+
                 console.log(vehSelect);
 
                 if (!vehSelect || !vehSelect.value || parseInt(vehSelect.value) <= 0) {
