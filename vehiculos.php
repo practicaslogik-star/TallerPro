@@ -429,10 +429,12 @@ llxHeader($morehead, 'Vehículos - TallerPro', '', '', 0, 0, array(), array(), $
 
 $dolibarr_root_url = DOL_URL_ROOT . '/index.php';
 $setup_url = dol_buildpath('/taller/configuracion.php', 1);
+//enlace menu lateral 
 $index_url = dol_buildpath('/taller/tallerindex.php', 1);
 $clientes_url = dol_buildpath('/taller/clientes.php', 1);
 $vehiculos_url = dol_buildpath('/taller/vehiculos.php', 1);
 $reparaciones_url = dol_buildpath('/taller/reparaciones.php', 1);
+$materiales_url = dol_buildpath('/taller/materiales.php', 1);
 $seguros_url = dol_buildpath('/taller/seguros.php', 1);
 $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 ?>
@@ -516,7 +518,21 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<span class="tallerpro-nav-text"><?php echo $langs->trans("Reparaciones"); ?></span>
 						</a>
 					</li>
-
+					<li>
+						<a href="<?php echo $materiales_url; ?>" class="tallerpro-nav-item">
+							<span class="tallerpro-nav-icon">
+								<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+									stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path
+										d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z">
+									</path>
+									<polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
+									<line x1="12" y1="22.08" x2="12" y2="12"></line>
+								</svg>
+							</span>
+							<span class="tallerpro-nav-text"><?php echo $langs->trans("Materiales"); ?></span>
+						</a>
+					</li>
 					<li>
 						<a href="<?php echo $seguros_url; ?>" class="tallerpro-nav-item">
 							<span class="tallerpro-nav-icon">
