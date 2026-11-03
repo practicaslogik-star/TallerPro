@@ -135,48 +135,24 @@ if ($action == 'create_client' || $action == 'add_client') {
 	}
 }
 
-// Acción: Actualizar Cliente Existente
-if ($action == 'update_client') {
-	$socid = GETPOSTINT('socid');
-	$name = trim(GETPOST('name', 'alphanohtml'));
-	$phone = trim(GETPOST('phone', 'alphanohtml'));
-	$email = trim(GETPOST('email', 'alphanohtml'));
-	$cif = trim(GETPOST('cif', 'alphanohtml'));
-	$address = trim(GETPOST('address', 'alphanohtml'));
-	$notes = trim(GETPOST('notes', 'restricthtml'));
-
-	if (empty($name)) {
-		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("Name")), null, 'errors');
-	} elseif ($socid > 0) {
-		$soc = new Societe($db);
-		if ($soc->fetch($socid) > 0) {
-			$soc->name = $name;
-			$soc->nom = $name;
-			$soc->phone = $phone;
-			$soc->email = $email;
-			$soc->idprof1 = $cif;
-			$soc->address = $address;
-			$soc->note_private = $notes;
-
-			$result = $soc->update($socid, $user);
-			if ($result > 0) {
-				header("Location: " . $_SERVER['PHP_SELF'] . "?msg=updated");
-				exit;
-			} else {
-				$errmsg = !empty($soc->error) ? $soc->error : 'Error al actualizar el cliente';
-				header("Location: " . $_SERVER['PHP_SELF'] . "?msg=error&error=" . urlencode($errmsg));
-				exit;
-			}
-		}
-	}
-}
-
-
-
-
-// Eliminar Cliente (Borrado inteligente: Físico si no tiene facturas, Lógico si tiene facturas)
+// Acción: Eliminar Cliente (Seguro vía POST con token)
 if ($action == 'delete_client' || $action == 'delete') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
 	$socid = GETPOST('socid', 'int');
+	if (empty($socid) && !empty($_POST['socid'])) {
+		$socid = (int) $_POST['socid'];
+	}
+	if (empty($socid) && !empty($_POST['rowid'])) {
+		$socid = (int) $_POST['rowid'];
+	}
 	if ($socid > 0) {
 		$soc = new Societe($db);
 		$res = $soc->fetch($socid);
@@ -224,36 +200,8 @@ if ($action == 'delete_client' || $action == 'delete') {
 				exit;
 
 			} else {
-				// =========================================================================
-				// CASO B: EL CLIENTE NO TIENE NINGUNA FACTURA -> BORRADO FÍSICO COMPLETO (DELETE)
-				// =========================================================================
-				$db->begin();
-
-				if (!empty($veh_in)) {
-					// Eliminar seguros de sus vehículos
-					$db->query("DELETE FROM " . MAIN_DB_PREFIX . "taller_seguro WHERE fk_vehiculo IN (" . $veh_in . ")");
-					// Eliminar reparaciones de sus vehículos
-					$db->query("DELETE FROM " . MAIN_DB_PREFIX . "taller_reparacion WHERE fk_vehiculo IN (" . $veh_in . ")");
-					// Eliminar vehículos
-					$db->query("DELETE FROM " . MAIN_DB_PREFIX . "taller_vehiculo WHERE fk_soc = " . ((int) $socid));
-				}
-
-				// Limpiar cualquier borrador o registro huérfano de taller_factura si existiera
-				$db->query("DELETE FROM " . MAIN_DB_PREFIX . "taller_factura WHERE fk_soc = " . ((int) $socid));
-
-				// Eliminar cliente físico en Dolibarr
-				$result = $soc->delete($socid, $user);
-
-				if ($result > 0) {
-					$db->commit();
-					header("Location: " . $_SERVER['PHP_SELF'] . "?msg=deleted");
-					exit;
-				} else {
-					$db->rollback();
-					$errmsg = !empty($soc->error) ? $soc->error : (!empty($soc->errors) ? implode(', ', $soc->errors) : 'Error al eliminar el cliente');
-					header("Location: " . $_SERVER['PHP_SELF'] . "?msg=error&error=" . urlencode($errmsg));
-					exit;
-				}
+				dol_syslog("TallerPro - Error al eliminar cliente ID " . $socid . ": " . $soc->error, LOG_ERR);
+				setEventMessages("No se pudo eliminar el cliente seleccionado", null, 'errors');
 			}
 		}
 	}
@@ -1036,7 +984,6 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<?php
 										$view_url = $_SERVER['PHP_SELF'] . '?id=' . $obj->rowid;
 										$edit_url = DOL_URL_ROOT . '/societe/card.php?action=edit&socid=' . $obj->rowid;
-										$del_url = $_SERVER['PHP_SELF'] . '?action=delete_client&socid=' . $obj->rowid . '&token=' . (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken()));
 										?>
 										<tr>
 											<td style="font-weight: 500; color: #0f172a;">
@@ -1079,26 +1026,17 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z">
 															</path>
 														</svg>
+													</a>
+													<button type="button"
+														class="tallerpro-action-btn btn-delete-action"
+														title="Eliminar"
+														data-id="<?php echo (int) $obj->rowid; ?>"
+														data-action="delete_client">
+														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+															<polyline points="3 6 5 6 21 6"></polyline>
+															<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+														</svg>
 													</button>
-													<?php if (!empty($obj->nb_facturas) && $obj->nb_facturas > 0): ?>
-														<button type="button" class="tallerpro-action-btn" title="No se puede eliminar: el cliente tiene <?php echo (int) $obj->nb_facturas; ?> factura(s) emitida(s)" style="opacity: 0.35; cursor: not-allowed;" disabled>
-															<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-																<polyline points="3 6 5 6 21 6"></polyline>
-																<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-															</svg>
-														</button>
-													<?php else: ?>
-														<a href="<?php echo $del_url; ?>" class="tallerpro-action-btn btn-delete-action"
-															title="Eliminar cliente">
-															<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444"
-																stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-																<polyline points="3 6 5 6 21 6"></polyline>
-																<path
-																	d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
-																</path>
-															</svg>
-														</a>
-													<?php endif; ?>
 												</div>
 											</td>
 										</tr>
@@ -1208,6 +1146,14 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 			</div>
 		</div>
 	</div>
+
+	<!-- Formulario oculto para borrado seguro POST con CSRF Token -->
+	<form id="tallerGlobalDeleteForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: none;">
+		<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
+		<input type="hidden" name="action" id="globalDeleteAction" value="">
+		<input type="hidden" name="rowid" id="globalDeleteRowid" value="">
+		<input type="hidden" name="socid" id="globalDeleteSocid" value="">
+	</form>
 </div>
 
 <?php

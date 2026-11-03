@@ -164,86 +164,27 @@ if ($action == 'create_vehiculo' || $action == 'add_vehiculo') {
 			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=saved");
 			exit;
 		} else {
-			$errmsg = !empty($db->lasterror()) ? $db->lasterror() : 'Error al guardar el vehículo';
-			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=error&error=" . urlencode($errmsg));
-			exit;
-		}
-
-	}
-}
-
-// Acción: Actualizar Vehículo Existente
-if ($action == 'update_vehiculo') {
-	$rowid = GETPOSTINT('vehiculo_id');
-	if (empty($rowid))
-		$rowid = GETPOSTINT('rowid');
-
-	$fk_soc = GETPOSTINT('fk_soc');
-	$matricula = trim(GETPOST('matricula', 'alphanohtml'));
-	$marca = trim(GETPOST('marca', 'alphanohtml'));
-	$modelo = trim(GETPOST('modelo', 'alphanohtml'));
-	$anio = trim(GETPOST('anio', 'alphanohtml'));
-	$color = trim(GETPOST('color', 'alphanohtml'));
-	$vin = trim(GETPOST('vin', 'alphanohtml'));
-	$km = GETPOSTINT('km');
-	$notas = trim(GETPOST('notas', 'restricthtml'));
-
-	if (empty($matricula)) {
-		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("Matrícula")), null, 'errors');
-	} elseif ($fk_soc <= 0) {
-		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("Propietario / Cliente")), null, 'errors');
-	} elseif ($rowid <= 0) {
-		setEventMessages("Identificador de vehículo no válido", null, 'errors');
-	} else {
-		$sql_upd = "UPDATE " . $table_vehiculo . " SET ";
-		$sql_upd .= "fk_soc = " . ((int) $fk_soc) . ", ";
-		$sql_upd .= "matricula = '" . $db->escape(strtoupper($matricula)) . "', ";
-		$sql_upd .= "marca = '" . $db->escape($marca) . "', ";
-		$sql_upd .= "modelo = '" . $db->escape($modelo) . "', ";
-		$sql_upd .= "anio = '" . $db->escape($anio) . "', ";
-		$sql_upd .= "color = '" . $db->escape($color) . "', ";
-		$sql_upd .= "vin = '" . $db->escape($vin) . "', ";
-		$sql_upd .= "km = " . ((int) $km) . ", ";
-		$sql_upd .= "notas = '" . $db->escape($notas) . "' ";
-		$sql_upd .= "WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_vehiculo') . ")";
-
-		$resql = $db->query($sql_upd);
-		if ($resql) {
-			// Si el usuario eligió incorporar el modelo/marca al catálogo JSON permanente
-			$guardar_en_cat = GETPOSTINT('guardar_en_catalogo');
-			if ($guardar_en_cat == 1 && !empty($marca) && !empty($modelo)) {
-				$json_path = __DIR__ . '/js/catalogo_coches_new.json';
-				if (file_exists($json_path) && is_writable($json_path)) {
-					$json_content = file_get_contents($json_path);
-					$cat_data = json_decode($json_content, true);
-					if (is_array($cat_data)) {
-						if (!isset($cat_data[$marca])) {
-							$cat_data[$marca] = array();
-						}
-						$modelos_existentes_lower = array_map('mb_strtolower', $cat_data[$marca]);
-						if (!in_array(mb_strtolower($modelo), $modelos_existentes_lower)) {
-							$cat_data[$marca][] = $modelo;
-							sort($cat_data[$marca], SORT_NATURAL | SORT_FLAG_CASE);
-							ksort($cat_data, SORT_NATURAL | SORT_FLAG_CASE);
-							file_put_contents($json_path, json_encode($cat_data, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-						}
-					}
-				}
-			}
-
-			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=updated");
-			exit;
-		} else {
-			$errmsg = !empty($db->lasterror()) ? $db->lasterror() : 'Error al actualizar el vehículo';
-			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=error&error=" . urlencode($errmsg));
-			exit;
+			dol_syslog("TallerPro - Error al guardar vehículo: " . $db->lasterror(), LOG_ERR);
+			setEventMessages("Error al guardar el vehículo", null, 'errors');
 		}
 	}
 }
 
-// Acción: Eliminar Vehículo (Bloqueo si tiene facturas emitidas, Borrado Físico si no tiene)
+// Acción: Eliminar Vehículo (Seguro vía POST con token)
 if ($action == 'delete_vehiculo' || $action == 'delete') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
 	$rowid = GETPOSTINT('rowid');
+	if (empty($rowid) && !empty($_POST['rowid'])) {
+		$rowid = (int) $_POST['rowid'];
+	}
 	if ($rowid > 0) {
 		// 1. Comprobar si este vehículo tiene alguna factura emitida
 		$has_invoices = false;
@@ -279,25 +220,8 @@ if ($action == 'delete_vehiculo' || $action == 'delete') {
 			exit;
 
 		} else {
-			// =========================================================================
-			// BORRADO FÍSICO REAL (No tiene facturas)
-			// =========================================================================
-			$db->begin();
-
-			$res_seg = $db->query("DELETE FROM " . $table_seguro . " WHERE fk_vehiculo = " . ((int) $rowid));
-			$res_rep = $db->query("DELETE FROM " . $table_reparacion . " WHERE fk_vehiculo = " . ((int) $rowid));
-			$res_veh = $db->query("DELETE FROM " . $table_vehiculo . " WHERE rowid = " . ((int) $rowid));
-
-			if ($res_veh) {
-				$db->commit();
-				header("Location: " . $_SERVER['PHP_SELF'] . "?msg=deleted");
-				exit;
-			} else {
-				$db->rollback();
-				$errmsg = !empty($db->lasterror()) ? $db->lasterror() : 'Error al eliminar el vehículo';
-				header("Location: " . $_SERVER['PHP_SELF'] . "?msg=error&error=" . urlencode($errmsg));
-				exit;
-			}
+			dol_syslog("TallerPro - Error al eliminar vehículo ID " . $rowid . ": " . $db->lasterror(), LOG_ERR);
+			setEventMessages("Error al eliminar el vehículo", null, 'errors');
 		}
 	}
 }
@@ -974,8 +898,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									<?php while ($veh = $db->fetch_object($res_veh)): ?>
 										<?php
 										$client_url = dol_buildpath('/taller/clientes.php', 1) . '?id=' . $veh->fk_soc;
-										$veh_url = dol_buildpath('/taller/vehiculos.php', 1) . '?id=' . $veh->rowid;
-										$del_url = $_SERVER['PHP_SELF'] . '?action=delete_vehiculo&rowid=' . $veh->rowid . '&token=' . (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken()));
+										$veh_url    = dol_buildpath('/taller/vehiculos.php', 1) . '?id=' . $veh->rowid;
 										?>
 										<tr>
 											<td style="font-weight: 700; color: #0f172a; letter-spacing: 0.02em;">
@@ -1013,51 +936,16 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															<line x1="10" y1="14" x2="21" y2="3"></line>
 														</svg>
 													</a>
-													<button type="button" class="tallerpro-action-btn btn-edit-vehiculo"
-														title="Editar vehículo" data-id="<?php echo (int) $veh->rowid; ?>"
-														data-soc="<?php echo (int) $veh->fk_soc; ?>"
-														data-matricula="<?php echo dol_escape_htmltag($veh->matricula); ?>"
-														data-marca="<?php echo dol_escape_htmltag($veh->marca); ?>"
-														data-modelo="<?php echo dol_escape_htmltag($veh->modelo); ?>"
-														data-anio="<?php echo dol_escape_htmltag($veh->anio); ?>"
-														data-color="<?php echo dol_escape_htmltag($veh->color); ?>"
-														data-vin="<?php echo dol_escape_htmltag($veh->vin); ?>"
-														data-km="<?php echo (int) $veh->km; ?>"
-														data-notas="<?php echo dol_escape_htmltag($veh->notas); ?>">
-														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b"
-															stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-															<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7">
-															</path>
-															<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z">
-															</path>
+													<button type="button"
+														class="tallerpro-action-btn btn-delete-action"
+														title="Eliminar vehículo"
+														data-id="<?php echo (int) $veh->rowid; ?>"
+														data-action="delete_vehiculo">
+														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+															<polyline points="3 6 5 6 21 6"></polyline>
+															<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
 														</svg>
 													</button>
-													<?php
-													$tiene_facturas_veh = (!empty($veh->nb_facturas_directas) && $veh->nb_facturas_directas > 0) || (!empty($veh->nb_reparaciones_facturadas) && $veh->nb_reparaciones_facturadas > 0);
-													if ($tiene_facturas_veh): ?>
-														<button type="button" class="tallerpro-action-btn"
-															title="No se puede eliminar: este vehículo tiene facturación emitida"
-															style="opacity: 0.35; cursor: not-allowed;" disabled>
-															<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#94a3b8"
-																stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-																<polyline points="3 6 5 6 21 6"></polyline>
-																<path
-																	d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
-																</path>
-															</svg>
-														</button>
-													<?php else: ?>
-														<a href="<?php echo $del_url; ?>" class="tallerpro-action-btn btn-delete-action"
-															title="Eliminar vehículo">
-															<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444"
-																stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-																<polyline points="3 6 5 6 21 6"></polyline>
-																<path
-																	d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
-																</path>
-															</svg>
-														</a>
-													<?php endif; ?>
 												</div>
 											</td>
 										</tr>
@@ -1223,6 +1111,14 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 			</div>
 		</div>
 	</div>
+
+	<!-- Formulario oculto para borrado seguro POST con CSRF Token -->
+	<form id="tallerGlobalDeleteForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: none;">
+		<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
+		<input type="hidden" name="action" id="globalDeleteAction" value="">
+		<input type="hidden" name="rowid" id="globalDeleteRowid" value="">
+		<input type="hidden" name="socid" id="globalDeleteSocid" value="">
+	</form>
 </div>
 
 <?php

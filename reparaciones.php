@@ -86,6 +86,143 @@ $sql_create = "CREATE TABLE IF NOT EXISTS " . $table_reparacion . " (
 $db->query($sql_create);
 @$db->query("ALTER TABLE " . $table_reparacion . " ADD COLUMN estado VARCHAR(32) DEFAULT 'en_curso'");
 
+// Table: Historial y Movimientos de Stock
+$table_stock_mvt = MAIN_DB_PREFIX . "taller_stock_mvt";
+$sql_create_mvt = "CREATE TABLE IF NOT EXISTS " . $table_stock_mvt . " (
+    rowid           INT AUTO_INCREMENT PRIMARY KEY,
+    fk_material     INT NOT NULL,
+    cantidad        DOUBLE NOT NULL,
+    tipo            VARCHAR(32) NOT NULL,
+    fk_reparacion   INT DEFAULT NULL,
+    stock_anterior  DOUBLE DEFAULT 0,
+    stock_posterior DOUBLE DEFAULT 0,
+    fecha           DATETIME NOT NULL,
+    fk_user         INT NOT NULL,
+    descripcion     VARCHAR(255) DEFAULT NULL,
+    entity          INT DEFAULT 1,
+    INDEX idx_taller_mvt_mat (fk_material),
+    INDEX idx_taller_mvt_rep (fk_reparacion)
+) ENGINE=innodb;";
+$db->query($sql_create_mvt);
+
+/**
+ * Obtener materiales de una orden de reparación decodificando sus notas JSON
+ */
+if (!function_exists('getMaterialesFromReparacionNotas')) {
+	function getMaterialesFromReparacionNotas($notas_str) {
+		if (empty($notas_str) || ($notas_str[0] !== '{' && $notas_str[0] !== '[')) {
+			return array();
+		}
+		$data = json_decode($notas_str, true);
+		if (!empty($data) && !empty($data['materiales']) && is_array($data['materiales'])) {
+			return $data['materiales'];
+		}
+		return array();
+	}
+}
+
+/**
+ * Aplicar consumo o ajuste de stock para los materiales de una reparación
+ */
+if (!function_exists('aplicarStockReparacion')) {
+	function aplicarStockReparacion($db, $rep_id, $nuevas_lineas_json, $prev_notas_json = null, $user_id = 1, $entity = 1) {
+		$table_material = MAIN_DB_PREFIX . "taller_material";
+		$table_mvt = MAIN_DB_PREFIX . "taller_stock_mvt";
+
+		// 1. Revertir stock de materiales previos si se está editando
+		if (!empty($prev_notas_json)) {
+			$prev_mats = getMaterialesFromReparacionNotas($prev_notas_json);
+			foreach ($prev_mats as $pm) {
+				$fk_mat = !empty($pm['fk_material']) ? (int) $pm['fk_material'] : 0;
+				$cant = (float) (!empty($pm['cantidad']) ? $pm['cantidad'] : 0);
+				if ($fk_mat > 0 && $cant > 0) {
+					$res_cur = $db->query("SELECT stock FROM " . $table_material . " WHERE rowid = " . $fk_mat);
+					$cur_stock = 0.0;
+					if ($res_cur && ($obj_cur = $db->fetch_object($res_cur))) {
+						$cur_stock = (float) $obj_cur->stock;
+					}
+					$new_stock = $cur_stock + $cant;
+					$db->query("UPDATE " . $table_material . " SET stock = " . $new_stock . " WHERE rowid = " . $fk_mat);
+
+					$sql_mvt = "INSERT INTO " . $table_mvt . " (fk_material, cantidad, tipo, fk_reparacion, stock_anterior, stock_posterior, fecha, fk_user, descripcion, entity) VALUES (";
+					$sql_mvt .= $fk_mat . ", " . $cant . ", 'reparacion_ajuste_dev', " . ((int) $rep_id) . ", " . $cur_stock . ", " . $new_stock . ", '" . $db->idate(dol_now()) . "', " . ((int) $user_id) . ", 'Ajuste previo por edición en OT #" . str_pad($rep_id, 4, '0', STR_PAD_LEFT) . "', " . ((int) $entity) . ")";
+					$db->query($sql_mvt);
+				}
+			}
+		}
+
+		// 2. Aplicar descuento de stock de los nuevos materiales
+		$new_mats = getMaterialesFromReparacionNotas($nuevas_lineas_json);
+		foreach ($new_mats as $nm) {
+			$fk_mat = !empty($nm['fk_material']) ? (int) $nm['fk_material'] : 0;
+			$cant = (float) (!empty($nm['cantidad']) ? $nm['cantidad'] : 0);
+
+			// Si no tiene fk_material pero se solicitó guardar en catálogo o ya existe por nombre/código
+			if ($fk_mat <= 0 && !empty($nm['descripcion'])) {
+				$desc_clean = trim($nm['descripcion']);
+				$code_clean = !empty($nm['codigo']) ? trim($nm['codigo']) : '';
+				$res_search = $db->query("SELECT rowid, stock FROM " . $table_material . " WHERE (ref = '" . $db->escape($code_clean) . "' AND ref != '') OR nombre = '" . $db->escape($desc_clean) . "' LIMIT 1");
+				if ($res_search && ($s_obj = $db->fetch_object($res_search))) {
+					$fk_mat = (int) $s_obj->rowid;
+				} elseif (!empty($nm['guardar_catalogo'])) {
+					$sql_new_m = "INSERT INTO " . $table_material . " (nombre, ref, stock, precio, date_creation, fk_user_creat, entity, status) VALUES (";
+					$sql_new_m .= "'" . $db->escape($desc_clean) . "', '" . $db->escape($code_clean) . "', 0, " . ((float) ($nm['precio'] ?? 0)) . ", '" . $db->idate(dol_now()) . "', " . ((int) $user_id) . ", " . ((int) $entity) . ", 1)";
+					if ($db->query($sql_new_m)) {
+						$fk_mat = (int) $db->last_insert_id($table_material);
+					}
+				}
+			}
+
+			if ($fk_mat > 0 && $cant > 0) {
+				$res_cur = $db->query("SELECT stock FROM " . $table_material . " WHERE rowid = " . $fk_mat);
+				$cur_stock = 0.0;
+				if ($res_cur && ($obj_cur = $db->fetch_object($res_cur))) {
+					$cur_stock = (float) $obj_cur->stock;
+				}
+				$new_stock = $cur_stock - $cant;
+				$db->query("UPDATE " . $table_material . " SET stock = " . $new_stock . " WHERE rowid = " . $fk_mat);
+
+				$sql_mvt = "INSERT INTO " . $table_mvt . " (fk_material, cantidad, tipo, fk_reparacion, stock_anterior, stock_posterior, fecha, fk_user, descripcion, entity) VALUES (";
+				$sql_mvt .= $fk_mat . ", -" . $cant . ", 'reparacion_consumo', " . ((int) $rep_id) . ", " . $cur_stock . ", " . $new_stock . ", '" . $db->idate(dol_now()) . "', " . ((int) $user_id) . ", 'Consumo en OT #" . str_pad($rep_id, 4, '0', STR_PAD_LEFT) . "', " . ((int) $entity) . ")";
+				$db->query($sql_mvt);
+			}
+		}
+	}
+}
+
+/**
+ * Revertir totalmente el stock al eliminar una reparación
+ */
+if (!function_exists('revertirStockReparacion')) {
+	function revertirStockReparacion($db, $rep_id, $user_id = 1, $entity = 1) {
+		$table_material = MAIN_DB_PREFIX . "taller_material";
+		$table_reparacion = MAIN_DB_PREFIX . "taller_reparacion";
+		$table_mvt = MAIN_DB_PREFIX . "taller_stock_mvt";
+
+		$res_rep = $db->query("SELECT notas FROM " . $table_reparacion . " WHERE rowid = " . ((int) $rep_id));
+		if ($res_rep && ($rep_obj = $db->fetch_object($res_rep))) {
+			$mats = getMaterialesFromReparacionNotas($rep_obj->notas);
+			foreach ($mats as $m) {
+				$fk_mat = !empty($m['fk_material']) ? (int) $m['fk_material'] : 0;
+				$cant = (float) (!empty($m['cantidad']) ? $m['cantidad'] : 0);
+				if ($fk_mat > 0 && $cant > 0) {
+					$res_cur = $db->query("SELECT stock FROM " . $table_material . " WHERE rowid = " . $fk_mat);
+					$cur_stock = 0.0;
+					if ($res_cur && ($obj_cur = $db->fetch_object($res_cur))) {
+						$cur_stock = (float) $obj_cur->stock;
+					}
+					$new_stock = $cur_stock + $cant;
+					$db->query("UPDATE " . $table_material . " SET stock = " . $new_stock . " WHERE rowid = " . $fk_mat);
+
+					$sql_mvt = "INSERT INTO " . $table_mvt . " (fk_material, cantidad, tipo, fk_reparacion, stock_anterior, stock_posterior, fecha, fk_user, descripcion, entity) VALUES (";
+					$sql_mvt .= $fk_mat . ", " . $cant . ", 'reparacion_devolucion', " . ((int) $rep_id) . ", " . $cur_stock . ", " . $new_stock . ", '" . $db->idate(dol_now()) . "', " . ((int) $user_id) . ", 'Devolución por eliminación de OT #" . str_pad($rep_id, 4, '0', STR_PAD_LEFT) . "', " . ((int) $entity) . ")";
+					$db->query($sql_mvt);
+				}
+			}
+		}
+	}
+}
+
 $action = GETPOST('action', 'alpha');
 if (empty($action) && !empty($_POST['action'])) {
 	$action = $_POST['action'];
@@ -151,10 +288,16 @@ if ($action == 'create_reparacion' || $action == 'add_reparacion') {
 
 		$resql = $db->query($sql_insert);
 		if ($resql) {
+			$new_rep_id = (int) $db->last_insert_id($table_reparacion);
+			if ($new_rep_id > 0 && !empty($notas)) {
+				aplicarStockReparacion($db, $new_rep_id, $notas, null, $user->id, $conf->entity);
+			}
+			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
 			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=saved");
 			exit;
 		} else {
-			setEventMessages("Error al guardar la reparación: " . $db->lasterror(), null, 'errors');
+			dol_syslog("TallerPro - Error al guardar reparación: " . $db->lasterror(), LOG_ERR);
+			setEventMessages("Error al guardar la reparación", null, 'errors');
 		}
 	}
 }
@@ -207,6 +350,12 @@ if ($action == 'update_reparacion' || $action == 'edit_reparacion') {
 	} elseif ($rowid <= 0) {
 		setEventMessages("Identificador de reparación no válido", null, 'errors');
 	} else {
+		$prev_notas = null;
+		$res_prev = $db->query("SELECT notas FROM " . $table_reparacion . " WHERE rowid = " . ((int) $rowid));
+		if ($res_prev && ($p_obj = $db->fetch_object($res_prev))) {
+			$prev_notas = $p_obj->notas;
+		}
+
 		$sql_update = "UPDATE " . $table_reparacion . " SET ";
 		$sql_update .= "fk_vehiculo = " . ((int) $fk_vehiculo) . ", ";
 		$sql_update .= "fecha = '" . $db->escape($fecha) . "', ";
@@ -218,10 +367,13 @@ if ($action == 'update_reparacion' || $action == 'edit_reparacion') {
 
 		$resql = $db->query($sql_update);
 		if ($resql) {
-			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=updated");
+			aplicarStockReparacion($db, $rowid, $notas, $prev_notas, $user->id, $conf->entity);
+			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
+			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=saved");
 			exit;
 		} else {
-			setEventMessages("Error al actualizar la reparación: " . $db->lasterror(), null, 'errors');
+			dol_syslog("TallerPro - Error al actualizar reparación ID " . $rowid . ": " . $db->lasterror(), LOG_ERR);
+			setEventMessages("Error al actualizar la reparación", null, 'errors');
 		}
 	}
 }
@@ -318,7 +470,8 @@ if ($action == 'facturar_reparacion' || $action == 'facturar') {
 					header("Location: " . dol_buildpath('/taller/facturas.php', 1) . '?id=' . $fac_id);
 					exit;
 				} else {
-					setEventMessages("Error al generar la factura en Dolibarr: " . $fac->error . " " . implode(' ', $fac->errors), null, 'errors');
+					dol_syslog("TallerPro - Error al generar factura desde reparación: " . $fac->error . " " . implode(' ', $fac->errors), LOG_ERR);
+					setEventMessages("Error al generar la factura en Dolibarr", null, 'errors');
 				}
 			}
 		} else {
@@ -360,14 +513,23 @@ if ($action == 'save_and_facturar') {
 	} else {
 		$target_rep_id = 0;
 		if ($rowid > 0) {
-			$sql_upd = "UPDATE " . $table_reparacion . " SET fk_vehiculo = " . ((int) $fk_vehiculo) . ", fecha = '" . $db->escape($fecha) . "', descripcion = '" . $db->escape($descripcion) . "', coste_mo = " . ((float) $coste_mo) . ", estado = 'finalizada', notas = '" . $db->escape($notas) . "' WHERE rowid = " . ((int) $rowid);
+			$prev_notas = null;
+			$res_prev = $db->query("SELECT notas FROM " . $table_reparacion . " WHERE rowid = " . ((int) $rowid));
+			if ($res_prev && ($p_obj = $db->fetch_object($res_prev))) {
+				$prev_notas = $p_obj->notas;
+			}
+			$sql_upd = "UPDATE " . $table_reparacion . " SET fk_vehiculo = " . ((int)$fk_vehiculo) . ", fecha = '" . $db->escape($fecha) . "', descripcion = '" . $db->escape($descripcion) . "', coste_mo = " . ((float)$coste_mo) . ", estado = 'finalizada', notas = '" . $db->escape($notas) . "' WHERE rowid = " . ((int)$rowid);
 			$db->query($sql_upd);
 			$target_rep_id = $rowid;
+			aplicarStockReparacion($db, $target_rep_id, $notas, $prev_notas, $user->id, $conf->entity);
 		} else {
 			$sql_ins = "INSERT INTO " . $table_reparacion . " (fk_vehiculo, fecha, descripcion, coste_mo, notas, estado, date_creation, fk_user_creat, entity, status) VALUES (";
 			$sql_ins .= ((int) $fk_vehiculo) . ", '" . $db->escape($fecha) . "', '" . $db->escape($descripcion) . "', " . ((float) $coste_mo) . ", '" . $db->escape($notas) . "', 'finalizada', '" . $db->idate(dol_now()) . "', " . ((int) $user->id) . ", " . ((int) $conf->entity) . ", 1)";
 			$db->query($sql_ins);
-			$target_rep_id = $db->last_insert_id($table_reparacion);
+			$target_rep_id = (int) $db->last_insert_id($table_reparacion);
+			if ($target_rep_id > 0 && !empty($notas)) {
+				aplicarStockReparacion($db, $target_rep_id, $notas, null, $user->id, $conf->entity);
+			}
 		}
 
 		header("Location: " . $_SERVER['PHP_SELF'] . "?action=facturar_reparacion&rowid=" . $target_rep_id);
@@ -375,32 +537,27 @@ if ($action == 'save_and_facturar') {
 	}
 }
 
-// Acción: Eliminar Reparación
+// Acción: Eliminar Reparación (Seguro vía POST con token)
 if ($action == 'delete_reparacion' || $action == 'delete') {
-	$rowid = GETPOSTINT('rowid');
-	$is_ajax = GETPOST('ajax', 'int') || !empty($_SERVER['HTTP_X_REQUESTED_WITH']);
-	if ($rowid > 0) {
-		// Comprobar si la reparación ya tiene factura emitida
-		$sql_check_f = "SELECT ref_factura FROM " . $table_reparacion . " WHERE rowid = " . ((int) $rowid);
-		$res_check_f = $db->query($sql_check_f);
-		if ($res_check_f && ($obj_r = $db->fetch_object($res_check_f))) {
-			if (!empty($obj_r->ref_factura)) {
-				$msg_bloqueo = "No se puede eliminar la reparación porque ya tiene la Factura " . $obj_r->ref_factura . " emitida.";
-				if ($is_ajax) {
-					header('Content-Type: application/json');
-					echo json_encode(array('success' => false, 'error' => $msg_bloqueo));
-					exit;
-				}
-				header("Location: " . $_SERVER['PHP_SELF'] . "?msg=error&error=" . urlencode($msg_bloqueo));
-				exit;
-			}
-		}
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
 
-		// Si no tiene factura, se borra físicamente
-		$sql_del = "DELETE FROM " . $table_reparacion . " WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_reparacion') . ")";
+	$rowid = GETPOSTINT('rowid');
+	if (empty($rowid) && !empty($_POST['rowid'])) {
+		$rowid = (int) $_POST['rowid'];
+	}
+	if ($rowid > 0) {
+		revertirStockReparacion($db, $rowid, $user->id, $conf->entity);
+		$sql_del = "UPDATE " . $table_reparacion . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_reparacion') . ")";
 		$resql = $db->query($sql_del);
 	}
-	if ($is_ajax) {
+	if (GETPOST('ajax', 'int') || !empty($_POST['ajax']) || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
 		header('Content-Type: application/json');
 		echo json_encode(array('success' => ($resql ? true : false)));
 		exit;
@@ -409,9 +566,8 @@ if ($action == 'delete_reparacion' || $action == 'delete') {
 		header("Location: " . $_SERVER['PHP_SELF'] . "?msg=deleted");
 		exit;
 	} else {
-		$errmsg = !empty($db->lasterror()) ? $db->lasterror() : 'Error al eliminar la reparación';
-		header("Location: " . $_SERVER['PHP_SELF'] . "?msg=error&error=" . urlencode($errmsg));
-		exit;
+		dol_syslog("TallerPro - Error al eliminar reparación ID " . $rowid . ": " . $db->lasterror(), LOG_ERR);
+		setEventMessages("Error al eliminar la reparación", null, 'errors');
 	}
 }
 
@@ -1215,7 +1371,36 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
 								<line x1="12" y1="22.08" x2="12" y2="12"></line>
 							</svg>
-							<span>Materiales &amp; Repuestos Consumidos</span>
+							<span>Materiales</span>
+						</h3>
+						<div class="tallerpro-grid-mat-row1" style="margin-top: 12px;">
+							<div class="tallerpro-form-group">
+								<label class="tallerpro-form-label">Material del catálogo</label>
+								<select id="rep_mat_catalogo" class="tallerpro-form-select">
+									<option value="">— Nuevo / escribir manualmente —</option>
+									<?php foreach ($materials_list as $mcat): 
+										$stk = (float) $mcat->stock;
+										$stk_label = $stk <= 0 ? 'Sin stock (0 uds)' : ('Stock: ' . (int)$stk . ' uds');
+									?>
+										<option value="<?php echo (int) $mcat->rowid; ?>"
+											data-codigo="<?php echo dol_escape_htmltag($mcat->ref); ?>"
+											data-descripcion="<?php echo dol_escape_htmltag($mcat->nombre); ?>"
+											data-precio="<?php echo number_format((float) $mcat->precio, 2, '.', ''); ?>"
+											data-stock="<?php echo $stk; ?>">
+											<?php echo dol_escape_htmltag($mcat->nombre . ' (' . number_format((float) $mcat->precio, 2, '.', '') . ' €) — [' . $stk_label . ']'); ?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+								<div id="rep_mat_stock_pill" style="display: none; margin-top: 6px;"></div>
+							</div>
+							<div class="tallerpro-form-group">
+								<label class="tallerpro-form-label">Código</label>
+								<input type="text" id="rep_mat_codigo" class="tallerpro-form-input" />
+							</div>
+							<div class="tallerpro-form-group">
+								<label class="tallerpro-form-label">Descripción</label>
+								<input type="text" id="rep_mat_descripcion" class="tallerpro-form-input" />
+							</div>
 						</div>
 						<button type="button" class="tallerpro-order-btn-add" id="btnAddMaterialRow">
 							<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -1355,6 +1540,14 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 			</div>
 		</div>
 	</div>
+
+	<!-- Formulario oculto para borrado seguro POST con CSRF Token -->
+	<form id="tallerGlobalDeleteForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: none;">
+		<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : (function_exists('newToken') ? newToken() : ''))); ?>">
+		<input type="hidden" name="action" id="globalDeleteAction" value="delete_reparacion">
+		<input type="hidden" name="rowid" id="globalDeleteRowid" value="">
+		<input type="hidden" name="socid" id="globalDeleteSocid" value="">
+	</form>
 
 
 </div>

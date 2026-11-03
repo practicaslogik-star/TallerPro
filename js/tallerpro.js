@@ -1,6 +1,8 @@
 /**
  * TallerPro UI JavaScript
  */
+
+
 if (window.__tallerProLoaded) {
     // Prevent duplicate binding if loaded multiple times
     // (e.g. Dolibarr module auto-load + manual head tag)
@@ -286,12 +288,12 @@ if (window.__tallerProLoaded) {
             const activeTabName = hashTab || queryTab;
             if (activeTabName) {
                 const targetBtn = document.querySelector(`.tallerpro-tab-btn[data-tab="${activeTabName}"]`) ||
-                                  document.querySelector(`.tallerpro-tab-btn[data-tab="tab-${activeTabName}"]`);
+                    document.querySelector(`.tallerpro-tab-btn[data-tab="tab-${activeTabName}"]`);
                 if (targetBtn) {
                     targetBtn.click();
                 }
             }
-        } catch (err) {}
+        } catch (err) { }
 
         // Materiales Modal handling (Create & Edit)
         const matModal = document.getElementById('tallerMaterialModal');
@@ -1288,7 +1290,8 @@ if (window.__tallerProLoaded) {
             });
         }
 
-        // Modal Confirmación de Eliminación Global (Reparaciones, Clientes, Vehículos, Materiales)
+        // Modal Confirmación de Eliminación Global (Reparaciones, Clientes, Vehículos, Materiales, Seguros, Facturas)
+        let pendingDeleteAction = null;
         let pendingDeleteUrl = null;
         let pendingDeleteRow = null;
         let pendingDeleteRowId = null;
@@ -1298,6 +1301,7 @@ if (window.__tallerProLoaded) {
             const delRepBtn = e.target.closest('.btn-delete-reparacion');
             if (delRepBtn) {
                 e.preventDefault();
+                pendingDeleteAction = 'delete_reparacion';
                 pendingDeleteRow = delRepBtn.closest('.rep-row');
                 pendingDeleteRowId = delRepBtn.getAttribute('data-id');
                 pendingDeleteUrl = null;
@@ -1306,13 +1310,14 @@ if (window.__tallerProLoaded) {
                 return;
             }
 
-            // Caso 2: Enlace/botón de eliminación en Clientes, Vehículos, Materiales
-            const delActionBtn = e.target.closest('.btn-delete-action, a[href*="delete_client"], a[href*="delete_vehiculo"], a[href*="delete_material"]');
+            // Caso 2: Enlace/botón de eliminación en Clientes, Vehículos, Materiales, Seguros, Facturas
+            const delActionBtn = e.target.closest('.btn-delete-action, a[href*="delete_client"], a[href*="delete_vehiculo"], a[href*="delete_material"], a[href*="delete_seguro"], a[href*="delete_factura"]');
             if (delActionBtn) {
                 e.preventDefault();
-                pendingDeleteUrl = delActionBtn.getAttribute('data-delete-url') || delActionBtn.getAttribute('href');
+                pendingDeleteAction = delActionBtn.getAttribute('data-action') || null;
+                pendingDeleteRowId = delActionBtn.getAttribute('data-id') || null;
+                pendingDeleteUrl = delActionBtn.getAttribute('data-delete-url') || (delActionBtn.tagName === 'A' ? delActionBtn.getAttribute('href') : null);
                 pendingDeleteRow = delActionBtn.closest('tr');
-                pendingDeleteRowId = null;
                 const modal = document.getElementById('deleteConfirmModal');
                 if (modal) {
                     modal.classList.add('active');
@@ -1325,11 +1330,13 @@ if (window.__tallerProLoaded) {
             const modal = document.getElementById('deleteConfirmModal');
             if (cancelBtn && modal) {
                 modal.classList.remove('active');
+                pendingDeleteAction = null;
                 pendingDeleteUrl = null;
                 pendingDeleteRow = null;
                 pendingDeleteRowId = null;
             } else if (modal && e.target === modal) {
                 modal.classList.remove('active');
+                pendingDeleteAction = null;
                 pendingDeleteUrl = null;
                 pendingDeleteRow = null;
                 pendingDeleteRowId = null;
@@ -1376,20 +1383,41 @@ if (window.__tallerProLoaded) {
 
             modal.classList.remove('active');
 
-            // Si es eliminación por URL (Clientes, Vehículos, Materiales)
-            if (pendingDeleteUrl) {
+            // Caso A: Si existe el formulario oculto global (Clientes, Vehículos, Materiales, Seguros, Facturas) y no es borrado AJAX de reparaciones
+            const globalDeleteForm = document.getElementById('tallerGlobalDeleteForm');
+            if (globalDeleteForm && pendingDeleteAction && pendingDeleteAction !== 'delete_reparacion') {
+                const actionInput = document.getElementById('globalDeleteAction');
+                const rowidInput = document.getElementById('globalDeleteRowid');
+                const socidInput = document.getElementById('globalDeleteSocid');
+                if (actionInput) actionInput.value = pendingDeleteAction;
+                if (rowidInput) rowidInput.value = pendingDeleteRowId || '';
+                if (socidInput) socidInput.value = pendingDeleteRowId || '';
+                globalDeleteForm.submit();
+                return;
+            }
+
+            // Fallback para URL legacy si no hay formulario
+            if (pendingDeleteUrl && !globalDeleteForm) {
                 window.location.href = pendingDeleteUrl;
                 return;
             }
 
-            // Si es eliminación por AJAX (Reparaciones)
+            // Caso B: Eliminación por AJAX (Reparaciones)
             const row = pendingDeleteRow;
             const rowid = pendingDeleteRowId;
-            const token = document.getElementById('reparacionFormToken')?.value || '';
+            const tokenInput = document.querySelector('#tallerGlobalDeleteForm input[name="token"]') || document.getElementById('reparacionFormToken');
+            const token = tokenInput ? tokenInput.value : '';
 
-            if (rowid && !isNaN(rowid) && parseInt(rowid) > 0) {
-                fetch('reparaciones.php?action=delete_reparacion&ajax=1&rowid=' + rowid + '&token=' + encodeURIComponent(token), {
-                    method: 'POST'
+            if (rowid && !isNaN(rowid) && parseInt(rowid, 10) > 0) {
+                const formData = new FormData();
+                formData.append('action', 'delete_reparacion');
+                formData.append('ajax', '1');
+                formData.append('rowid', rowid);
+                if (token) formData.append('token', token);
+
+                fetch('reparaciones.php', {
+                    method: 'POST',
+                    body: formData
                 }).catch(console.error);
             }
 
@@ -1408,6 +1436,8 @@ if (window.__tallerProLoaded) {
             if (typeof window.showTallerToast === 'function') {
                 window.showTallerToast('Reparación eliminada correctamente');
             }
+            pendingDeleteAction = null;
+            pendingDeleteUrl = null;
             pendingDeleteRow = null;
             pendingDeleteRowId = null;
         });
@@ -1691,379 +1721,445 @@ if (window.__tallerProLoaded) {
                 }
             }
 
-            // Persist to database silently if numeric rowid
-            const token = document.getElementById('reparacionFormToken')?.value || '';
-            if (rowid && !isNaN(rowid) && parseInt(rowid) > 0) {
-                fetch('reparaciones.php?action=toggle_estado&ajax=1&rowid=' + rowid + '&new_estado=' + newEstado + '&token=' + encodeURIComponent(token), {
-                    method: 'POST'
-                }).catch(console.error);
-            }
+            // Persistir en backend vía POST
+            const tokenInput = document.getElementById('reparacionFormToken');
+            const token = tokenInput ? tokenInput.value : '';
+            const formData = new FormData();
+            formData.append('action', 'update_estado');
+            formData.append('rowid', rowid);
+            formData.append('new_estado', newEstado);
+            formData.append('ajax', '1');
+            if (token) formData.append('token', token);
+
+            fetch(window.location.pathname, {
+                method: 'POST',
+                body: formData
+            }).then(function (res) {
+                return res.json();
+            }).then(function () {
+                if (typeof window.showTallerToast === 'function') {
+                    window.showTallerToast('Estado actualizado a ' + (newEstado === 'finalizada' ? 'Finalizada' : 'En curso'));
+                }
+            }).catch(function (err) {
+                console.error('Error al actualizar estado:', err);
+            });
         });
 
-        //catalogo de modelos y marcasd e vehiculos
+        // =========================================================================
+        // Gestión de la Orden de Reparación (Materiales, Mano de obra, Desglose y Totales)
+        // =========================================================================
+        let currentRepMaterials = [];
+        let currentRepLabor = [];
 
-        let catalogo_vehiculos = {};
-        let catalogoVehiculos = catalogo_vehiculos;
-        // cargar los datos del vehiculo del json 
-        fetch('js/catalogo_coches_new.json')
-            .then(function (response) {
-                if (!response.ok) {
-                    throw new Error('Error HTTP: ' + response.status);
+        // Elementos de Materiales
+        const repMatCatalogo = document.getElementById('rep_mat_catalogo');
+        const repMatCodigo = document.getElementById('rep_mat_codigo');
+        const repMatDescripcion = document.getElementById('rep_mat_descripcion');
+        const repMatCantidad = document.getElementById('rep_mat_cantidad');
+        const repMatPrecio = document.getElementById('rep_mat_precio');
+        const repMatDescuento = document.getElementById('rep_mat_descuento');
+        const repMatTotalNeto = document.getElementById('rep_mat_total_neto');
+        const repMatGuardarCatalogo = document.getElementById('rep_mat_guardar_catalogo');
+        const btnAddRepMaterialLine = document.getElementById('btnAddRepMaterialLine');
+        const repMatEmpty = document.getElementById('rep_mat_empty');
+        const repMatList = document.getElementById('rep_mat_list');
+
+        // Elementos de Mano de Obra
+        const repMoDescripcion = document.getElementById('rep_mo_descripcion');
+        const repMoPrecio = document.getElementById('rep_mo_precio');
+        const repMoDescuento = document.getElementById('rep_mo_descuento');
+        const repMoTotalNeto = document.getElementById('rep_mo_total_neto');
+        const repMoNotas = document.getElementById('rep_mo_notas');
+        const btnAddRepMoLine = document.getElementById('btnAddRepMoLine');
+        const repMoEmpty = document.getElementById('rep_mo_empty');
+        const repMoList = document.getElementById('rep_mo_list');
+
+        // Elementos de Desglose y Totales
+        const repTotDescuentoGlobal = document.getElementById('rep_tot_descuento_global');
+        const repTotIva = document.getElementById('rep_tot_iva');
+        const repSumMateriales = document.getElementById('rep_sum_materiales');
+        const repSumReparaciones = document.getElementById('rep_sum_reparaciones');
+        const repSumSubtotal = document.getElementById('rep_sum_subtotal');
+        const repSumDescuento = document.getElementById('rep_sum_descuento');
+        const repSumBaseImponible = document.getElementById('rep_sum_base_imponible');
+        const repLblIva = document.getElementById('rep_lbl_iva');
+        const repSumIva = document.getElementById('rep_sum_iva');
+        const repSumTotal = document.getElementById('rep_sum_total');
+
+        const orderCosteMoHidden = document.getElementById('orderCosteMoHidden');
+        const orderLineasJsonHidden = document.getElementById('orderLineasJsonHidden');
+        const repFacturaBadgeContainer = document.getElementById('repFacturaBadgeContainer');
+        const btnModalEmitirFactura = document.getElementById('btnModalEmitirFactura');
+
+        function escapeRepHtml(text) {
+            if (!text) return '';
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return String(text).replace(/[&<>"']/g, function (m) { return map[m]; });
+        }
+
+        // Cálculo dinámico para la fila de Material
+        function calcRepMaterialNet() {
+            if (!repMatTotalNeto) return;
+            const cant = parseFloat(repMatCantidad ? repMatCantidad.value : 1) || 0;
+            const precio = parseFloat(repMatPrecio ? repMatPrecio.value : 0) || 0;
+            const dto = parseFloat(repMatDescuento ? repMatDescuento.value : 0) || 0;
+            const net = Math.max(0, cant * precio * (1 - (dto / 100)));
+            repMatTotalNeto.value = net.toFixed(2) + ' €';
+        }
+
+        if (repMatCantidad) repMatCantidad.addEventListener('input', calcRepMaterialNet);
+        if (repMatPrecio) repMatPrecio.addEventListener('input', calcRepMaterialNet);
+        if (repMatDescuento) repMatDescuento.addEventListener('input', calcRepMaterialNet);
+
+        // Selección de material del catálogo
+        if (repMatCatalogo) {
+            repMatCatalogo.addEventListener('change', function () {
+                const selectedOpt = repMatCatalogo.selectedOptions ? repMatCatalogo.selectedOptions[0] : null;
+                if (selectedOpt && selectedOpt.value) {
+                    if (repMatCodigo) repMatCodigo.value = selectedOpt.dataset.codigo || '';
+                    if (repMatDescripcion) repMatDescripcion.value = selectedOpt.dataset.descripcion || '';
+                    if (repMatPrecio) repMatPrecio.value = selectedOpt.dataset.precio || '0';
                 }
-                return response.json();
-            })
-            .then(function (data) {
-                catalogo_vehiculos = data;
-                catalogoVehiculos = data;
-            })
-            .catch(function (error) {
-                console.error('No se pudo cargar catalogo_coches_new.json:', error);
+                calcRepMaterialNet();
             });
+        }
 
-        const inputMarca = document.getElementById('veh_marca');
-        const inputModelo = document.getElementById('veh_modelo');
-        const dropdownMarcas = document.getElementById('dropdown_marcas');
-        const dropdownModelos = document.getElementById('dropdown_modelos');
+        // Cálculo dinámico para la fila de Mano de Obra
+        function calcRepMoNet() {
+            if (!repMoTotalNeto) return;
+            const precio = parseFloat(repMoPrecio ? repMoPrecio.value : 0) || 0;
+            const dto = parseFloat(repMoDescuento ? repMoDescuento.value : 0) || 0;
+            const net = Math.max(0, precio * (1 - (dto / 100)));
+            repMoTotalNeto.value = net.toFixed(2) + ' €';
+        }
 
-        if (inputMarca && dropdownMarcas && inputModelo && dropdownModelos) {
-            // Helper genérico para desplegable de autocompletado sobrio y moderno
-            function setupCustomAutocomplete(input, dropdown, getItemsFn, onSelectFn) {
-                let currentFocus = -1;
+        if (repMoPrecio) repMoPrecio.addEventListener('input', calcRepMoNet);
+        if (repMoDescuento) repMoDescuento.addEventListener('input', calcRepMoNet);
 
-                function render(items, query) {
-                    dropdown.innerHTML = '';
-                    currentFocus = -1;
-
-                    if (!items || items.length === 0) {
-                        dropdown.classList.remove('active');
-                        return;
-                    }
-
-                    items.forEach(function (item) {
-                        const div = document.createElement('div');
-                        div.className = 'tallerpro-autocomplete-item';
-                        div.setAttribute('data-value', item);
-
-                        const q = (query || '').trim();
-                        if (q) {
-                            const idx = item.toLowerCase().indexOf(q.toLowerCase());
-                            if (idx !== -1) {
-                                div.innerHTML = item.substring(0, idx) +
-                                    '<strong>' + item.substring(idx, idx + q.length) + '</strong>' +
-                                    item.substring(idx + q.length);
-                            } else {
-                                div.textContent = item;
-                            }
-                        } else {
-                            div.textContent = item;
-                        }
-
-                        div.addEventListener('mousedown', function (e) {
-                            e.preventDefault();
-                            selectVal(item);
-                        });
-
-                        div.addEventListener('click', function (e) {
-                            e.preventDefault();
-                            selectVal(item);
-                        });
-
-                        dropdown.appendChild(div);
-                    });
-
-                    dropdown.classList.add('active');
-                }
-
-                function selectVal(val) {
-                    input.value = val;
-                    dropdown.classList.remove('active');
-                    if (typeof onSelectFn === 'function') {
-                        onSelectFn(val);
-                    }
-                }
-
-                function filterAndShow() {
-                    const q = input.value || '';
-                    const items = getItemsFn(q);
-                    render(items, q);
-                }
-
-                input.addEventListener('input', filterAndShow);
-                input.addEventListener('focus', filterAndShow);
-
-                input.addEventListener('keydown', function (e) {
-                    const items = dropdown.querySelectorAll('.tallerpro-autocomplete-item');
-                    if (!dropdown.classList.contains('active') || items.length === 0) return;
-
-                    if (e.key === 'ArrowDown') {
-                        e.preventDefault();
-                        currentFocus++;
-                        if (currentFocus >= items.length) currentFocus = 0;
-                        highlight(items);
-                    } else if (e.key === 'ArrowUp') {
-                        e.preventDefault();
-                        currentFocus--;
-                        if (currentFocus < 0) currentFocus = items.length - 1;
-                        highlight(items);
-                    } else if (e.key === 'Enter') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        // Selecciona el elemento enfocado con flechas, o el primero de la lista si no se usaron flechas
-                        const targetIdx = currentFocus > -1 ? currentFocus : 0;
-                        if (items[targetIdx]) {
-                            const val = items[targetIdx].getAttribute('data-value');
-                            selectVal(val);
-                        }
-                    } else if (e.key === 'Escape') {
-                        dropdown.classList.remove('active');
-                    }
-                });
-
-                function highlight(items) {
-                    items.forEach(it => it.classList.remove('active-item'));
-                    if (currentFocus > -1 && items[currentFocus]) {
-                        items[currentFocus].classList.add('active-item');
-                        items[currentFocus].scrollIntoView({ block: 'nearest' });
-                    }
-                }
-
-                document.addEventListener('click', function (e) {
-                    if (!input.contains(e.target) && !dropdown.contains(e.target)) {
-                        dropdown.classList.remove('active');
-                    }
-                });
+        // Renderizar tabla de Materiales
+        function renderRepMaterialsTable() {
+            if (!repMatList || !repMatEmpty) return;
+            if (currentRepMaterials.length === 0) {
+                repMatEmpty.style.display = 'block';
+                repMatList.style.display = 'none';
+                repMatList.innerHTML = '';
+                return;
             }
 
-            // 1. Configurar Autocompletado de Marcas
-            setupCustomAutocomplete(
-                inputMarca,
-                dropdownMarcas,
-                function (query) {
-                    const all = Object.keys(catalogo_vehiculos).sort();
-                    if (!query || !query.trim()) return all;
-                    const q = query.trim().toLowerCase();
-                    return all.filter(m => m.toLowerCase().includes(q));
-                },
-                function (marcaElegida) {
-                    const marcaMatch = Object.keys(catalogo_vehiculos).find(
-                        m => m.toLowerCase() === marcaElegida.toLowerCase()
-                    );
-                    const modelos = (marcaMatch && catalogo_vehiculos[marcaMatch]) || [];
-                    if (inputModelo.value && !modelos.includes(inputModelo.value)) {
-                        inputModelo.value = '';
-                    }
-                    setTimeout(function () {
-                        inputModelo.focus();
-                    }, 50);
-                }
-            );
+            repMatEmpty.style.display = 'none';
+            repMatList.style.display = 'block';
 
-            // 2. Configurar Autocompletado de Modelos
-            setupCustomAutocomplete(
-                inputModelo,
-                dropdownModelos,
-                function (query) {
-                    const marcaActual = (inputMarca.value || '').trim();
-                    const marcaMatch = Object.keys(catalogo_vehiculos).find(
-                        m => m.toLowerCase() === marcaActual.toLowerCase()
-                    );
-                    const modelosDisponibles = (marcaMatch && catalogo_vehiculos[marcaMatch]) ? catalogo_vehiculos[marcaMatch].slice().sort() : [];
+            let html = '<table class="tallerpro-invoice-table">' +
+                '<thead>' +
+                '<tr>' +
+                '<th style="width: 15%;">Código</th>' +
+                '<th style="width: 44%;">Descripción</th>' +
+                '<th style="width: 8%; text-align: center;">Cant.</th>' +
+                '<th style="width: 12%; text-align: right;">P. unit.</th>' +
+                '<th style="width: 8%; text-align: center;">Dto.</th>' +
+                '<th style="width: 13%; text-align: right;">Total</th>' +
+                '<th style="width: 32px; text-align: center;"></th>' +
+                '</tr>' +
+                '</thead>' +
+                '<tbody>';
 
-                    if (!query || !query.trim()) return modelosDisponibles;
-                    const q = query.trim().toLowerCase();
-                    return modelosDisponibles.filter(mod => mod.toLowerCase().includes(q));
-                },
-                function (modeloElegido) {
-                    if (!inputMarca.value.trim()) {
-                        for (const [m, mods] of Object.entries(catalogo_vehiculos)) {
-                            if (mods.includes(modeloElegido)) {
-                                inputMarca.value = m;
-                                break;
-                            }
-                        }
-                    }
-                }
-            );
+            currentRepMaterials.forEach(function (mat, idx) {
+                const net = parseFloat(mat.total_neto) || 0;
+                const codeDisplay = (mat.codigo && mat.codigo.trim()) ? escapeRepHtml(mat.codigo) : '—';
+                const qtyDisplay = (parseFloat(mat.cantidad) || 1).toFixed(0);
+                const priceDisplay = (parseFloat(mat.precio) || 0).toFixed(2) + ' €';
+                const dtoDisplay = (parseFloat(mat.descuento) || 0).toFixed(0) + '%';
+                const totalDisplay = net.toFixed(2) + ' €';
 
-            // Limpiar modelo si se cambia manualmente la marca y deja de ser compatible
-            inputMarca.addEventListener('change', function () {
-                const marcaActual = (inputMarca.value || '').trim();
-                const marcaMatch = Object.keys(catalogo_vehiculos).find(
-                    m => m.toLowerCase() === marcaActual.toLowerCase()
-                );
-                const modelos = (marcaMatch && catalogo_vehiculos[marcaMatch]) || [];
-                if (inputModelo.value && !modelos.includes(inputModelo.value)) {
-                    inputModelo.value = '';
-                }
+                html += '<tr>' +
+                    '<td style="color: #64748b; font-family: monospace; font-size: 12.5px;">' + codeDisplay + '</td>' +
+                    '<td style="font-weight: 500; color: #0f172a;">' + escapeRepHtml(mat.descripcion) + '</td>' +
+                    '<td style="text-align: center;">' + qtyDisplay + '</td>' +
+                    '<td style="text-align: right;">' + priceDisplay + '</td>' +
+                    '<td style="text-align: center; color: #64748b;">' + dtoDisplay + '</td>' +
+                    '<td style="text-align: right; font-weight: 600; color: #0f172a;">' + totalDisplay + '</td>' +
+                    '<td style="text-align: center;">' +
+                    '<button type="button" class="tallerpro-btn-line-delete btn-delete-rep-mat" data-index="' + idx + '" title="Eliminar material">' +
+                    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                    '<polyline points="3 6 5 6 21 6"></polyline>' +
+                    '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>' +
+                    '</svg>' +
+                    '</button>' +
+                    '</td>' +
+                    '</tr>';
             });
+
+            html += '</tbody></table>';
+            repMatList.innerHTML = html;
         }
 
-
-        // ==========================================================================
-        // Algoritmo de Similitud (Levenshtein) y Confirmación Inteligente de Catálogo
-        // ==========================================================================
-
-        // Normaliza texto eliminando acentos/tildes y convirtiendo a minúsculas
-        function normalizarTexto(str) {
-            return (str || '').toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        }
-
-        // 1. Función que calcula cuántas letras de diferencia hay entre dos palabras
-        function distanciaLevenshtein(a, b) {
-            const s1 = normalizarTexto(a);
-            const s2 = normalizarTexto(b);
-            const costs = [];
-            for (let i = 0; i <= s1.length; i++) {
-                let lastValue = i;
-                for (let j = 0; j <= s2.length; j++) {
-                    if (i === 0) {
-                        costs[j] = j;
-                    } else if (j > 0) {
-                        let newValue = costs[j - 1];
-                        if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
-                            newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
-                        }
-                        costs[j - 1] = lastValue;
-                        lastValue = newValue;
-                    }
-                }
-                if (i > 0) costs[s2.length] = lastValue;
+        // Renderizar tabla de Mano de Obra
+        function renderRepLaborTable() {
+            if (!repMoList || !repMoEmpty) return;
+            if (currentRepLabor.length === 0) {
+                repMoEmpty.style.display = 'block';
+                repMoList.style.display = 'none';
+                repMoList.innerHTML = '';
+                return;
             }
-            return costs[s2.length];
+
+            repMoEmpty.style.display = 'none';
+            repMoList.style.display = 'block';
+
+            let html = '<table class="tallerpro-invoice-table">' +
+                '<thead>' +
+                '<tr>' +
+                '<th style="width: 59%;">Descripción / Intervención</th>' +
+                '<th style="width: 15%; text-align: right;">Precio</th>' +
+                '<th style="width: 10%; text-align: center;">Dto.</th>' +
+                '<th style="width: 16%; text-align: right;">Total</th>' +
+                '<th style="width: 32px; text-align: center;"></th>' +
+                '</tr>' +
+                '</thead>' +
+                '<tbody>';
+
+            currentRepLabor.forEach(function (lab, idx) {
+                const net = parseFloat(lab.total_neto) || 0;
+                let descHtml = '<span>' + escapeRepHtml(lab.descripcion) + '</span>';
+                if (lab.notas && lab.notas.trim()) {
+                    descHtml += '<div style="font-size: 11.5px; color: #64748b; margin-top: 2px;">' + escapeRepHtml(lab.notas.trim()) + '</div>';
+                }
+                const priceDisplay = (parseFloat(lab.precio) || 0).toFixed(2) + ' €';
+                const dtoDisplay = (parseFloat(lab.descuento) || 0).toFixed(0) + '%';
+                const totalDisplay = net.toFixed(2) + ' €';
+
+                html += '<tr>' +
+                    '<td style="font-weight: 500; color: #0f172a;">' + descHtml + '</td>' +
+                    '<td style="text-align: right;">' + priceDisplay + '</td>' +
+                    '<td style="text-align: center; color: #64748b;">' + dtoDisplay + '</td>' +
+                    '<td style="text-align: right; font-weight: 600; color: #0f172a;">' + totalDisplay + '</td>' +
+                    '<td style="text-align: center;">' +
+                    '<button type="button" class="tallerpro-btn-line-delete btn-delete-rep-mo" data-index="' + idx + '" title="Eliminar trabajo">' +
+                    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+                    '<polyline points="3 6 5 6 21 6"></polyline>' +
+                    '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>' +
+                    '</svg>' +
+                    '</button>' +
+                    '</td>' +
+                    '</tr>';
+            });
+
+            html += '</tbody></table>';
+            repMoList.innerHTML = html;
         }
 
-        // 2. Interceptar el formulario de creación de vehículo
-        const vehForm = document.getElementById('tallerVehiculoForm');
-        const modalCat = document.getElementById('catalogoConfirmModal');
-        const modalTitle = document.getElementById('catalogoModalTitle');
-        const modalDesc = document.getElementById('catalogoModalDesc');
-        const btnOpcion1 = document.getElementById('btnCatalogoOpcion1');
-        const btnOpcion2 = document.getElementById('btnCatalogoOpcion2');
-        const hiddenGuardarCat = document.getElementById('veh_guardar_en_catalogo');
+        // Recalcular totales y sincronizar inputs ocultos
+        function renderRepTotalsSummary() {
+            let matSum = 0;
+            currentRepMaterials.forEach(function (m) { matSum += (parseFloat(m.total_neto) || 0); });
+            let laborSum = 0;
+            currentRepLabor.forEach(function (l) { laborSum += (parseFloat(l.total_neto) || 0); });
 
-        if (vehForm && modalCat) {
-            vehForm.addEventListener('submit', function (e) {
-                // Si ya fue validado y confirmado, dejamos que se envíe normalmente
-                if (vehForm.dataset.validado === 'true') {
-                    return true;
-                }
+            const subtotal = matSum + laborSum;
+            const descuento = parseFloat(repTotDescuentoGlobal ? repTotDescuentoGlobal.value : 0) || 0;
+            const ivaPorcentaje = parseFloat(repTotIva ? repTotIva.value : 21) || 0;
+            const baseImponible = Math.max(0, subtotal - descuento);
+            const ivaImporte = baseImponible * (ivaPorcentaje / 100);
+            const grandTotal = baseImponible + ivaImporte;
 
-                const marcaEscrita = (inputMarca.value || '').trim();
-                const modeloEscrito = (inputModelo.value || '').trim();
-                const catActual = catalogo_vehiculos || catalogoVehiculos || {};
+            if (repSumMateriales) repSumMateriales.textContent = matSum.toFixed(2) + ' €';
+            if (repSumReparaciones) repSumReparaciones.textContent = laborSum.toFixed(2) + ' €';
+            if (repSumSubtotal) repSumSubtotal.textContent = subtotal.toFixed(2) + ' €';
+            if (repSumDescuento) repSumDescuento.textContent = '- ' + descuento.toFixed(2) + ' €';
+            if (repSumBaseImponible) repSumBaseImponible.textContent = baseImponible.toFixed(2) + ' €';
+            if (repLblIva) repLblIva.textContent = 'IVA (' + (Number.isInteger(ivaPorcentaje) ? ivaPorcentaje : ivaPorcentaje.toFixed(1)) + '%)';
+            if (repSumIva) repSumIva.textContent = ivaImporte.toFixed(2) + ' €';
+            if (repSumTotal) repSumTotal.textContent = grandTotal.toFixed(2) + ' €';
 
-                // Si no hay catálogo cargado o campos vacíos, dejamos que el formulario valide por defecto
-                if (!catActual || Object.keys(catActual).length === 0 || !marcaEscrita || !modeloEscrito) {
-                    return true;
-                }
+            if (orderCosteMoHidden) orderCosteMoHidden.value = laborSum.toFixed(2);
+            if (orderLineasJsonHidden) {
+                orderLineasJsonHidden.value = JSON.stringify({
+                    materiales: currentRepMaterials,
+                    reparaciones: currentRepLabor,
+                    descuento_global: descuento,
+                    iva_porcentaje: ivaPorcentaje,
+                    total: grandTotal.toFixed(2)
+                });
+            }
+        }
 
-                const marcasDisponibles = Object.keys(catActual);
-                const marcaCoincidente = marcasDisponibles.find(
-                    m => normalizarTexto(m) === normalizarTexto(marcaEscrita)
-                );
+        if (repTotDescuentoGlobal) repTotDescuentoGlobal.addEventListener('input', renderRepTotalsSummary);
+        if (repTotIva) repTotIva.addEventListener('input', renderRepTotalsSummary);
 
-                // --- CASO 1: POSIBLE ERRATA EN LA MARCA (ej: "renaul" -> "Renault") ---
-                if (!marcaCoincidente) {
-                    let marcaSugerida = null;
-                    for (const b of marcasDisponibles) {
-                        const dist = distanciaLevenshtein(marcaEscrita, b);
-                        // Si la diferencia es de 1 o 2 letras, es casi seguro una errata
-                        if (dist > 0 && dist <= (marcaEscrita.length > 5 ? 2 : 1)) {
-                            marcaSugerida = b;
-                            break;
-                        }
+        // Añadir línea de Material
+        if (btnAddRepMaterialLine) {
+            btnAddRepMaterialLine.addEventListener('click', function (e) {
+                if (e) e.preventDefault();
+                const desc = repMatDescripcion ? repMatDescripcion.value.trim() : '';
+                if (!desc) {
+                    alert('Por favor, indica una descripción para el material.');
+                    if (repMatDescripcion) {
+                        repMatDescripcion.focus();
+                        repMatDescripcion.style.borderColor = '#ef4444';
+                        setTimeout(function () { repMatDescripcion.style.borderColor = ''; }, 2000);
                     }
-
-                    if (marcaSugerida) {
-                        e.preventDefault();
-                        modalTitle.textContent = '¿Quisiste decir ' + marcaSugerida + '?';
-                        modalDesc.innerHTML = 'Has escrito <strong>"' + marcaEscrita + '"</strong>, pero parece una errata de la marca <strong>"' + marcaSugerida + '"</strong>.<br><br>¿Deseas corregirla antes de continuar?';
-                        btnOpcion1.textContent = 'Corregir a ' + marcaSugerida;
-                        btnOpcion2.textContent = 'No, es otra marca';
-
-                        btnOpcion1.onclick = function () {
-                            inputMarca.value = marcaSugerida;
-                            modalCat.classList.remove('active');
-                            // Volvemos a lanzar la validación con la marca ya corregida
-                            vehForm.dispatchEvent(new Event('submit', { cancelable: true }));
-                        };
-
-                        btnOpcion2.onclick = function () {
-                            modalCat.classList.remove('active');
-                            // El usuario insiste en que es una marca nueva: enviar directamente
-                            vehForm.dataset.validado = 'true';
-                            vehForm.submit();
-                        };
-
-                        modalCat.classList.add('active');
-                        return false;
-                    }
+                    return;
                 }
 
-                // --- CASO 2: MODELO NUEVO (La marca existe, pero el modelo no está en su lista) ---
-                const marcaFinal = marcaCoincidente || marcaEscrita;
-                const modelosDeMarca = catActual[marcaFinal] || [];
+                const cant = parseFloat(repMatCantidad ? repMatCantidad.value : 1) || 0;
+                const precio = parseFloat(repMatPrecio ? repMatPrecio.value : 0) || 0;
+                const dto = parseFloat(repMatDescuento ? repMatDescuento.value : 0) || 0;
+                const net = Math.max(0, cant * precio * (1 - (dto / 100)));
 
-                // Usamos .find() para capturar exactamente cómo está escrito en el catálogo (ej: "kj" o "Mégane")
-                const modeloCoincidente = modelosDeMarca.find(
-                    mod => normalizarTexto(mod) === normalizarTexto(modeloEscrito)
-                );
+                currentRepMaterials.push({
+                    fk_material: repMatCatalogo ? repMatCatalogo.value : '',
+                    codigo: repMatCodigo ? repMatCodigo.value.trim() : '',
+                    descripcion: desc,
+                    cantidad: cant,
+                    precio: precio,
+                    descuento: dto,
+                    total_neto: net
+                });
 
-                if (!modeloCoincidente) {
-                    // Si NO existe en el catálogo, mostramos el modal para preguntar si guardarlo
-                    e.preventDefault();
-                    modalTitle.textContent = 'Nuevo modelo detectado';
-                    modalDesc.innerHTML = 'El modelo <strong>"' + modeloEscrito + '"</strong> no está en el catálogo de <strong>"' + marcaFinal + '"</strong>.<br><br>¿Quieres guardarlo en el catálogo para que aparezca en futuras altas de vehículos?';
-                    btnOpcion1.textContent = 'Guardar en catálogo';
-                    btnOpcion2.textContent = 'Solo este vehículo';
+                // Limpiar inputs
+                if (repMatCatalogo) repMatCatalogo.value = '';
+                if (repMatCodigo) repMatCodigo.value = '';
+                if (repMatDescripcion) repMatDescripcion.value = '';
+                if (repMatCantidad) repMatCantidad.value = '1';
+                if (repMatPrecio) repMatPrecio.value = '0';
+                if (repMatDescuento) repMatDescuento.value = '0';
+                if (repMatTotalNeto) repMatTotalNeto.value = '0.00 €';
+                if (repMatGuardarCatalogo) repMatGuardarCatalogo.checked = false;
 
-                    btnOpcion1.onclick = function () {
-                        if (hiddenGuardarCat) hiddenGuardarCat.value = '1';
-                        modalCat.classList.remove('active');
-                        vehForm.dataset.validado = 'true';
-                        vehForm.submit();
-                    };
-
-                    btnOpcion2.onclick = function () {
-                        if (hiddenGuardarCat) hiddenGuardarCat.value = '0';
-                        modalCat.classList.remove('active');
-                        vehForm.dataset.validado = 'true';
-                        vehForm.submit();
-                    };
-
-                    modalCat.classList.add('active');
-                    return false;
-                }
-
-                // --- CASO 3: TODO EXISTE EN EL CATÁLOGO ---
-                // Auto-corregimos los campos con las mayúsculas/minúsculas oficiales del catálogo antes de guardar
-                if (marcaCoincidente) {
-                    inputMarca.value = marcaCoincidente;
-                }
-                if (modeloCoincidente) {
-                    inputModelo.value = modeloCoincidente; // <-- Si pusiste "KJ", aquí se cambia automáticamente a "kj"
-                }
-                return true;
+                renderRepMaterialsTable();
+                renderRepTotalsSummary();
             });
         }
 
-        // ==========================================================================
-        // VISTA CLIENTES: Control del Modal de Alta y Edición
-        // ==========================================================================
-        const clientModal = document.getElementById('tallerClientModal');
-        const clientForm = document.getElementById('tallerClientForm');
-        const clientTitle = document.getElementById('clientModalTitle');
-        const clientAction = document.getElementById('clientFormAction');
-        const clientSocid = document.getElementById('client_socid');
-        const btnAddClient = document.getElementById('tallerOpenModalBtn');
+        // Eliminar fila de material
+        if (repMatList) {
+            repMatList.addEventListener('click', function (e) {
+                const delBtn = e.target.closest('.btn-delete-rep-mat');
+                if (!delBtn) return;
+                const idx = parseInt(delBtn.dataset.index, 10);
+                if (!isNaN(idx) && idx >= 0 && idx < currentRepMaterials.length) {
+                    currentRepMaterials.splice(idx, 1);
+                    renderRepMaterialsTable();
+                    renderRepTotalsSummary();
+                }
+            });
+        }
 
-        // Al pulsar "+ Añadir": preparar modal limpio para crear
-        if (btnAddClient && clientForm) {
-            btnAddClient.addEventListener('click', function () {
-                clientForm.reset();
-                if (clientTitle) clientTitle.textContent = 'Nuevo registro de cliente';
-                if (clientAction) clientAction.value = 'create_client';
-                if (clientSocid) clientSocid.value = '0';
+        // Añadir línea de Mano de Obra
+        if (btnAddRepMoLine) {
+            btnAddRepMoLine.addEventListener('click', function (e) {
+                if (e) e.preventDefault();
+                const desc = repMoDescripcion ? repMoDescripcion.value.trim() : '';
+                if (!desc) {
+                    alert('Por favor, indica la descripción de la reparación o tarea realizada.');
+                    if (repMoDescripcion) {
+                        repMoDescripcion.focus();
+                        repMoDescripcion.style.borderColor = '#ef4444';
+                        setTimeout(function () { repMoDescripcion.style.borderColor = ''; }, 2000);
+                    }
+                    return;
+                }
+
+                const precio = parseFloat(repMoPrecio ? repMoPrecio.value : 0) || 0;
+                const dto = parseFloat(repMoDescuento ? repMoDescuento.value : 0) || 0;
+                const net = Math.max(0, precio * (1 - (dto / 100)));
+                const notas = repMoNotas ? repMoNotas.value.trim() : '';
+
+                currentRepLabor.push({
+                    descripcion: desc,
+                    precio: precio,
+                    descuento: dto,
+                    total_neto: net,
+                    notas: notas
+                });
+
+                // Limpiar inputs
+                if (repMoDescripcion) repMoDescripcion.value = '';
+                if (repMoPrecio) repMoPrecio.value = '0';
+                if (repMoDescuento) repMoDescuento.value = '0';
+                if (repMoTotalNeto) repMoTotalNeto.value = '0.00 €';
+                if (repMoNotas) repMoNotas.value = '';
+
+                renderRepLaborTable();
+                renderRepTotalsSummary();
+            });
+        }
+
+        // Eliminar fila de mano de obra
+        if (repMoList) {
+            repMoList.addEventListener('click', function (e) {
+                const delBtn = e.target.closest('.btn-delete-rep-mo');
+                if (!delBtn) return;
+                const idx = parseInt(delBtn.dataset.index, 10);
+                if (!isNaN(idx) && idx >= 0 && idx < currentRepLabor.length) {
+                    currentRepLabor.splice(idx, 1);
+                    renderRepLaborTable();
+                    renderRepTotalsSummary();
+                }
+            });
+        }
+
+        // Resetear modal a estado inicial vacío
+        function resetReparacionModal() {
+            const actionInput = document.getElementById('reparacionFormAction');
+            const rowidInput = document.getElementById('reparacionFormRowid');
+            const titleEl = document.getElementById('orderModalTitle');
+            const vehSelect = document.getElementById('orderVehiculoSelect');
+            const fechaInput = document.getElementById('orderFecha');
+            const estadoSelect = document.getElementById('orderEstadoSelect');
+            const averiaInput = document.getElementById('orderAveria');
+
+            if (actionInput) actionInput.value = 'create_reparacion';
+            if (rowidInput) rowidInput.value = '0';
+            if (titleEl) titleEl.textContent = 'Nueva Orden de Reparación';
+
+            if (vehSelect) vehSelect.value = '';
+            if (fechaInput) {
+                const today = new Date().toISOString().split('T')[0];
+                fechaInput.value = today;
+            }
+            if (estadoSelect) estadoSelect.value = 'en_curso';
+            if (averiaInput) averiaInput.value = '';
+
+            if (repMatCatalogo) repMatCatalogo.value = '';
+            if (repMatCodigo) repMatCodigo.value = '';
+            if (repMatDescripcion) repMatDescripcion.value = '';
+            if (repMatCantidad) repMatCantidad.value = '1';
+            if (repMatPrecio) repMatPrecio.value = '0';
+            if (repMatDescuento) repMatDescuento.value = '0';
+            if (repMatTotalNeto) repMatTotalNeto.value = '0.00 €';
+            if (repMatGuardarCatalogo) repMatGuardarCatalogo.checked = false;
+
+            if (repMoDescripcion) repMoDescripcion.value = '';
+            if (repMoPrecio) repMoPrecio.value = '0';
+            if (repMoDescuento) repMoDescuento.value = '0';
+            if (repMoTotalNeto) repMoTotalNeto.value = '0.00 €';
+            if (repMoNotas) repMoNotas.value = '';
+
+            if (repTotDescuentoGlobal) repTotDescuentoGlobal.value = '0';
+            if (repTotIva) repTotIva.value = '21';
+
+            if (repFacturaBadgeContainer) {
+                repFacturaBadgeContainer.style.display = 'none';
+                repFacturaBadgeContainer.innerHTML = '';
+            }
+            if (btnModalEmitirFactura) {
+                btnModalEmitirFactura.style.display = 'none';
+            }
+
+            currentRepMaterials = [];
+            currentRepLabor = [];
+
+            renderRepMaterialsTable();
+            renderRepLaborTable();
+            renderRepTotalsSummary();
+        }
+
+        if (openRepModalBtn && repModal) {
+            openRepModalBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                resetReparacionModal();
+                repModal.classList.add('active');
             });
         }
 
@@ -2176,7 +2272,7 @@ if (window.__tallerProLoaded) {
         });
 
         // Modal "Emitir Factura Ahora": guarda los datos y genera la factura oficial en Dolibarr
-        const btnModalEmitirFactura = document.getElementById('btnModalEmitirFactura');
+        btnModalEmitirFactura = document.getElementById('btnModalEmitirFactura');
         if (btnModalEmitirFactura && repForm) {
             btnModalEmitirFactura.addEventListener('click', function (e) {
                 e.preventDefault();
