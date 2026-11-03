@@ -627,8 +627,16 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<input type="text" name="poliza" id="seg_poliza" class="tallerpro-form-input" />
 				</div>
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Tipo</label>
-					<input type="text" name="tipo" id="seg_tipo" class="tallerpro-form-input" placeholder="Todo riesgo, terceros..." />
+					<label class="tallerpro-form-label">Tipo de seguro</label>
+					<select name="tipo" id="seg_tipo" class="tallerpro-form-select">
+						<option value="">— Selecciona tipo —</option>
+						<option value="Responsabilidad civil obligatoria">Responsabilidad civil obligatoria</option>
+						<option value="Terceros básico">Terceros básico</option>
+						<option value="Terceros ampliado">Terceros ampliado</option>
+						<option value="Todo riesgo con franquicia">Todo riesgo con franquicia</option>
+						<option value="Todo riesgo sin franquicia">Todo riesgo sin franquicia</option>
+						<option value="Otro / No especificado">Otro / No especificado</option>
+					</select>
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Inicio</label>

@@ -380,7 +380,18 @@ if (window.__tallerProLoaded) {
                 if (segVehiculo) segVehiculo.value = btn.dataset.vehiculo || '';
                 if (segCompania) segCompania.value = btn.dataset.compania || '';
                 if (segPoliza) segPoliza.value = btn.dataset.poliza || '';
-                if (segTipo) segTipo.value = btn.dataset.tipo || '';
+                if (segTipo) {
+                    const tipoVal = btn.dataset.tipo || '';
+                    segTipo.value = tipoVal;
+                    // Si el valor guardado anteriormente no está entre las opciones del select, lo añade dinámicamente
+                    if (tipoVal && segTipo.selectedIndex === -1) {
+                        const customOpt = document.createElement('option');
+                        customOpt.value = tipoVal;
+                        customOpt.textContent = tipoVal;
+                        customOpt.selected = true;
+                        segTipo.appendChild(customOpt);
+                    }
+                }
                 if (segFechaInicio) segFechaInicio.value = btn.dataset.fechainicio || '';
                 if (segFechaFin) segFechaFin.value = btn.dataset.fechafin || '';
                 if (segTelefono) segTelefono.value = btn.dataset.telefono || '';
@@ -2314,6 +2325,7 @@ if (window.__tallerProLoaded) {
             });
         }
 
-    }); // Cierre DOMContentLoaded
+    }); // Cierre DOMContentLoaded.
+
 
 } // Cierre if window.__tallerProLoaded
