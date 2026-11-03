@@ -213,8 +213,7 @@ if (window.__tallerProLoaded) {
         initResponsiveTables();
         window.tallerInitResponsiveTables = initResponsiveTables;
 
-        // Generic Modal logic (works for any view with .tallerpro-modal-backdrop)
-        const openModalBtns = document.querySelectorAll('#tallerOpenModalBtn, .tallerpro-btn-primary');
+        const openModalBtns = document.querySelectorAll('#tallerOpenModalBtn');
         const modals = document.querySelectorAll('.tallerpro-modal-backdrop');
 
         openModalBtns.forEach(function (btn) {
@@ -222,6 +221,7 @@ if (window.__tallerProLoaded) {
                 const modal = document.querySelector('.tallerpro-modal-backdrop');
                 if (modal) {
                     e.preventDefault();
+                    e.stopPropagation();
                     modal.classList.add('active');
                     const firstInput = modal.querySelector('input, select, textarea');
                     if (firstInput) firstInput.focus();
@@ -2421,6 +2421,42 @@ if (window.__tallerProLoaded) {
             });
         }
 
+
+
+
+        // Modal Nuevo Documento en detalle de Vehículo
+        window.openDocModal = function () {
+            const m = document.getElementById('tallerDocModal');
+            if (m) {
+                m.classList.add('active');
+                const inp = m.querySelector('#doc_nombre');
+                if (inp) inp.focus();
+            }
+        };
+
+        window.closeDocModal = function () {
+            const m = document.getElementById('tallerDocModal');
+            if (m) {
+                m.classList.remove('active');
+            }
+        };
+
+        const btnDoc = document.getElementById('btnOpenDocModal');
+        if (btnDoc) {
+            btnDoc.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                window.openDocModal();
+            });
+        }
+
+        const btnCloseDoc = document.getElementById('tallerCloseDocModalBtn');
+        if (btnCloseDoc) {
+            btnCloseDoc.addEventListener('click', function (e) {
+                e.preventDefault();
+                window.closeDocModal();
+            });
+        }
     }); // Cierre DOMContentLoaded.
 
 

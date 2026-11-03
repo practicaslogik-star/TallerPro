@@ -61,8 +61,9 @@ if (!isModEnabled('taller')) {
 }
 
 $table_vehiculo = MAIN_DB_PREFIX . "taller_vehiculo";
+$table_documento = MAIN_DB_PREFIX . "taller_documento_vehiculo";
 
-// Ensure table exists
+// Ensure tables exist
 $sql_create = "CREATE TABLE IF NOT EXISTS " . $table_vehiculo . " (
     rowid           INT AUTO_INCREMENT PRIMARY KEY,
     fk_soc          INT NOT NULL,
@@ -84,9 +85,139 @@ $sql_create = "CREATE TABLE IF NOT EXISTS " . $table_vehiculo . " (
 ) ENGINE=innodb;";
 $db->query($sql_create);
 
+$sql_create_doc = "CREATE TABLE IF NOT EXISTS " . $table_documento . " (
+    rowid INT AUTO_INCREMENT PRIMARY KEY,
+    fk_vehiculo INT NOT NULL,
+    nombre VARCHAR(255) NOT NULL,
+    tipo VARCHAR(100) DEFAULT NULL,
+    archivo VARCHAR(255) DEFAULT NULL,
+    url VARCHAR(500) DEFAULT NULL,
+    datec DATETIME DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_fk_vehiculo (fk_vehiculo)
+) ENGINE=InnoDB;";
+$db->query($sql_create_doc);
+
 $action = GETPOST('action', 'alpha');
 if (empty($action) && !empty($_POST['action'])) {
 	$action = $_POST['action'];
+}
+
+// Acción: Añadir Documento
+if ($action == 'add_documento') {
+	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
+	if (empty($fk_vehiculo) && !empty($_POST['fk_vehiculo'])) {
+		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
+	}
+	$nombre = trim(GETPOST('nombre', 'alphanohtml'));
+	if (empty($nombre) && !empty($_POST['nombre'])) {
+		$nombre = trim($_POST['nombre']);
+	}
+	$tipo = trim(GETPOST('tipo', 'alphanohtml'));
+	if (empty($tipo) && !empty($_POST['tipo'])) {
+		$tipo = trim($_POST['tipo']);
+	}
+	$url = trim(GETPOST('url', 'none'));
+	if (empty($url) && !empty($_POST['url'])) {
+		$url = trim($_POST['url']);
+	}
+
+	$archivo_filename = '';
+	$file_size = 0;
+
+	if (empty($nombre)) {
+		setEventMessages("El nombre del documento es obligatorio", null, 'errors');
+	} elseif ($fk_vehiculo <= 0) {
+		setEventMessages("Vehículo no válido", null, 'errors');
+	} else {
+		// Procesar subida de archivo si existe
+		if (!empty($_FILES['archivo']) && $_FILES['archivo']['error'] === UPLOAD_ERR_OK) {
+			require_once DOL_DOCUMENT_ROOT . '/core/lib/files.lib.php';
+			$upload_dir = (!empty($conf->taller->dir_output) ? $conf->taller->dir_output : (DOL_DATA_ROOT . '/taller')) . '/vehiculos/' . $fk_vehiculo;
+			if (!is_dir($upload_dir)) {
+				dol_mkdir($upload_dir);
+			}
+
+			$orig_name = basename($_FILES['archivo']['name']);
+			$clean_name = dol_sanitizeFileName($orig_name);
+			$final_name = time() . '_' . $clean_name;
+			$destination = $upload_dir . '/' . $final_name;
+
+			if (dol_move_uploaded_file($_FILES['archivo']['tmp_name'], $destination, 0, 0, $_FILES['archivo']['error'])) {
+				$archivo_filename = $final_name;
+				$file_size = (int) $_FILES['archivo']['size'];
+			} else {
+				setEventMessages("Error al guardar el archivo adjunto", null, 'errors');
+			}
+		}
+
+		$sql_ins = "INSERT INTO " . $table_documento . " (";
+		$sql_ins .= "fk_vehiculo, nombre, tipo, archivo, url, datec";
+		$sql_ins .= ") VALUES (";
+		$sql_ins .= ((int) $fk_vehiculo) . ", ";
+		$sql_ins .= "'" . $db->escape($nombre) . "', ";
+		$sql_ins .= "'" . $db->escape($tipo) . "', ";
+		$sql_ins .= "'" . $db->escape($archivo_filename) . "', ";
+		$sql_ins .= "'" . $db->escape($url) . "', ";
+		$sql_ins .= "'" . $db->idate(dol_now()) . "'";
+		$sql_ins .= ")";
+
+		if ($db->query($sql_ins)) {
+			setEventMessages("Documento guardado correctamente", null, 'mesgs');
+			header("Location: " . $_SERVER['PHP_SELF'] . "?id=" . $fk_vehiculo . "&tab=tab-documentos");
+			exit;
+		} else {
+			setEventMessages("Error al guardar en la base de datos: " . $db->lasterror(), null, 'errors');
+			header("Location: " . $_SERVER['PHP_SELF'] . "?id=" . $fk_vehiculo . "&tab=tab-documentos");
+			exit;
+		}
+	}
+}
+
+// Acción: Eliminar Documento
+if ($action == 'delete_documento') {
+	$doc_id = GETPOSTINT('rowid');
+	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
+	if (empty($fk_vehiculo) && !empty($_GET['fk_vehiculo'])) {
+		$fk_vehiculo = (int) $_GET['fk_vehiculo'];
+	}
+
+	if ($doc_id > 0) {
+		$sql_get = "SELECT archivo, fk_vehiculo FROM " . $table_documento . " WHERE rowid = " . ((int) $doc_id) . " LIMIT 1";
+		$res_get = $db->query($sql_get);
+		if ($res_get && ($doc_obj = $db->fetch_object($res_get))) {
+			$fk_vehiculo = (int) $doc_obj->fk_vehiculo;
+			if (!empty($doc_obj->archivo)) {
+				$base_dir = (!empty($conf->taller->dir_output) ? $conf->taller->dir_output : (DOL_DATA_ROOT . '/taller'));
+				$file_path = $base_dir . '/vehiculos/' . $fk_vehiculo . '/' . $doc_obj->archivo;
+				if (file_exists($file_path)) {
+					require_once DOL_DOCUMENT_ROOT . '/core/lib/files.lib.php';
+					dol_delete_file($file_path);
+				}
+			}
+			$db->query("DELETE FROM " . $table_documento . " WHERE rowid = " . ((int) $doc_id));
+			setEventMessages("Documento eliminado", null, 'mesgs');
+			header("Location: " . $_SERVER['PHP_SELF'] . "?id=" . $fk_vehiculo . "&tab=tab-documentos");
+			exit;
+		}
+	}
+}
+
+// Acción: Descargar / Ver Documento
+if ($action == 'download_doc') {
+	$doc_id = GETPOSTINT('rowid');
+	if ($doc_id > 0) {
+		$sql_d = "SELECT archivo, fk_vehiculo, nombre FROM " . $table_documento . " WHERE rowid = " . ((int) $doc_id) . " LIMIT 1";
+		$res_d = $db->query($sql_d);
+		if ($res_d && ($doc = $db->fetch_object($res_d))) {
+			$base_dir = (!empty($conf->taller->dir_output) ? $conf->taller->dir_output : (DOL_DATA_ROOT . '/taller'));
+			$file_path = $base_dir . '/vehiculos/' . $doc->fk_vehiculo . '/' . $doc->archivo;
+			if (file_exists($file_path)) {
+				require_once DOL_DOCUMENT_ROOT . '/core/lib/files.lib.php';
+				dol_download($file_path, $doc->archivo, 'application/octet-stream', 1);
+				exit;
+			}
+		}
+	}
 }
 
 // Acción: Crear Vehículo
@@ -272,6 +403,7 @@ $client_detail = null;
 $veh_invoices = array();
 $veh_repairs = array();
 $veh_seguros = array();
+$veh_documentos = array();
 
 if ($veh_id > 0 || !empty($veh_matricula)) {
 	$sql_vd = "SELECT v.rowid, v.fk_soc, v.matricula, v.marca, v.modelo, v.anio, v.color, v.vin, v.km, v.notas, ";
@@ -332,6 +464,18 @@ if ($veh_id > 0 || !empty($veh_matricula)) {
 		if ($res_vs) {
 			while ($vs_obj = $db->fetch_object($res_vs)) {
 				$veh_seguros[] = $vs_obj;
+			}
+		}
+
+		// Documents of this vehicle
+		$sql_vdoc = "SELECT rowid, nombre, tipo, archivo, url, datec ";
+		$sql_vdoc .= "FROM " . $table_documento . " ";
+		$sql_vdoc .= "WHERE fk_vehiculo = " . ((int) $veh_detail->rowid) . " ";
+		$sql_vdoc .= "ORDER BY rowid DESC";
+		$res_vdoc = $db->query($sql_vdoc);
+		if ($res_vdoc) {
+			while ($vdoc_obj = $db->fetch_object($res_vdoc)) {
+				$veh_documentos[] = $vdoc_obj;
 			}
 		}
 	}
@@ -542,7 +686,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 			<main class="tallerpro-content">
 				<?php
 				// Mostrar alertas o mensajes de Dolibarr
-				// echo dol_htmloutput_events();
+				echo dol_htmloutput_events();
 				?>
 
 				<?php if ($veh_detail): ?>
@@ -677,6 +821,19 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								</svg>
 								<span>Seguros</span>
 							</button>
+
+							<button type="button" class="tallerpro-tab-btn" data-tab="tab-documentos">
+								<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+									stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+									<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+									<polyline points="14 2 14 8 20 8"></polyline>
+									<line x1="16" y1="13" x2="8" y2="13"></line>
+									<line x1="16" y1="17" x2="8" y2="17"></line>
+									<polyline points="10 9 9 9 8 9"></polyline>
+								</svg>
+								<span>Documentos</span>
+							</button>
+
 							<button type="button" class="tallerpro-tab-btn" data-tab="tab-facturas">
 								<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
 									stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -789,6 +946,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 														<?php endif; ?>
 														<?php
 														$has_ini = !empty($vs->fecha_inicio);
+								
 														$has_fin = !empty($vs->fecha_fin);
 														if ($has_ini || $has_fin): ?>
 															<span>
@@ -814,6 +972,129 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<?php endif; ?>
 							</div>
 						</div>
+					
+						<!-- Contenido Pestaña Documentos del vehículo -->
+						<div class="tallerpro-tab-pane" id="tab-documentos">
+							<div class="tallerpro-vehicle-detail-card">
+								
+								<div
+									style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px;">
+									<h2 class="tallerpro-vehicle-detail-card-title" style="margin-bottom: 0;">Documentos
+									</h2>
+									<button type="button" class="tallerpro-btn-primary" id="btnOpenDocModal" onclick="document.getElementById('tallerDocModal').classList.add('active');">
+										<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+											stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+											<line x1="12" y1="5" x2="12" y2="19"></line>
+											<line x1="5" y1="12" x2="19" y2="12"></line>
+										</svg>
+										<span>Añadir Documento</span>
+									</button>
+								</div>
+
+								<?php if (!empty($veh_documentos)): ?>
+									<div class="tallerpro-detail-list">
+										<?php foreach ($veh_documentos as $doc): ?>
+											<?php
+											$date_doc = !empty($doc->datec) ? dol_print_date($db->jdate($doc->datec), 'day') : '';
+											$is_link = !empty($doc->url);
+											$has_file = !empty($doc->archivo);
+											$file_ext = strtolower(pathinfo($doc->archivo, PATHINFO_EXTENSION));
+											?>
+											<div class="tallerpro-detail-item" style="display: flex !important; flex-direction: row !important; align-items: center !important; justify-content: space-between !important; padding: 14px 18px !important; border-radius: 10px; border: 1px solid #e2e8f0; background: #ffffff; transition: all 0.2s ease;">
+												<!-- Parte izquierda: Icono + Título + Metadata en horizontal -->
+												<div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
+													<!-- Icono badge -->
+													<div style="width: 42px; height: 42px; border-radius: 8px; background: <?php echo $is_link ? '#eff6ff' : ($file_ext === 'pdf' ? '#fef2f2' : '#f8fafc'); ?>; border: 1px solid <?php echo $is_link ? '#dbeafe' : ($file_ext === 'pdf' ? '#fee2e2' : '#e2e8f0'); ?>; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+														<?php if ($is_link): ?>
+															<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+																<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+																<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+															</svg>
+														<?php elseif ($file_ext === 'pdf'): ?>
+															<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+																<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+																<polyline points="14 2 14 8 20 8"></polyline>
+																<line x1="16" y1="13" x2="8" y2="13"></line>
+																<line x1="16" y1="17" x2="8" y2="17"></line>
+																<polyline points="10 9 9 9 8 9"></polyline>
+															</svg>
+														<?php else: ?>
+															<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+																<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+																<circle cx="8.5" cy="8.5" r="1.5"></circle>
+																<polyline points="21 15 16 10 5 21"></polyline>
+															</svg>
+														<?php endif; ?>
+													</div>
+
+													<!-- Info texto -->
+													<div style="display: flex; flex-direction: column; gap: 3px;">
+														<span style="font-weight: 600; font-size: 14.5px; color: #0f172a; line-height: 1.3;">
+															<?php echo dol_escape_htmltag($doc->nombre); ?>
+														</span>
+														<div style="display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #64748b;">
+															<?php if (!empty($doc->tipo)): ?>
+																<span style="background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px; font-weight: 500; font-size: 11.5px; border: 1px solid #e2e8f0;">
+																	<?php echo dol_escape_htmltag($doc->tipo); ?>
+																</span>
+															<?php endif; ?>
+															<span>Subido el <?php echo dol_escape_htmltag($date_doc); ?></span>
+														</div>
+													</div>
+												</div>
+
+												<!-- Parte derecha: Acciones elegantes -->
+												<div style="display: flex; align-items: center; gap: 10px; flex-shrink: 0;">
+													<?php if ($has_file): ?>
+														<a href="<?php echo $_SERVER['PHP_SELF'] . '?action=download_doc&rowid=' . ((int) $doc->rowid); ?>" target="_blank"
+															style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 13px; font-weight: 500; color: #2563eb; background: #eff6ff; border: 1px solid #dbeafe; border-radius: 6px; text-decoration: none; transition: all 0.15s ease;"
+															onmouseover="this.style.background='#dbeafe';" onmouseout="this.style.background='#eff6ff';">
+															<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+																<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+																<polyline points="7 10 12 15 17 10"></polyline>
+																<line x1="12" y1="15" x2="12" y2="3"></line>
+															</svg>
+															<span>Descargar</span>
+														</a>
+													<?php elseif ($is_link): ?>
+														<a href="<?php echo dol_escape_htmltag($doc->url); ?>" target="_blank" rel="noopener noreferrer"
+															style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; font-size: 13px; font-weight: 500; color: #2563eb; background: #eff6ff; border: 1px solid #dbeafe; border-radius: 6px; text-decoration: none; transition: all 0.15s ease;"
+															onmouseover="this.style.background='#dbeafe';" onmouseout="this.style.background='#eff6ff';">
+															<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+																<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+																<polyline points="15 3 21 3 21 9"></polyline>
+																<line x1="10" y1="14" x2="21" y2="3"></line>
+															</svg>
+															<span>Abrir enlace</span>
+														</a>
+													<?php endif; ?>
+
+													<a href="<?php echo $_SERVER['PHP_SELF'] . '?action=delete_documento&rowid=' . ((int) $doc->rowid) . '&fk_vehiculo=' . ((int) $veh_detail->rowid) . '&token=' . (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>"
+														onclick="return confirm('¿Seguro que deseas eliminar este documento?');"
+														title="Eliminar documento"
+														style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; border: 1px solid transparent; background: transparent; color: #94a3b8; text-decoration: none; transition: all 0.15s ease;"
+														onmouseover="this.style.background='#fee2e2'; this.style.color='#ef4444'; this.style.borderColor='#fecaca';"
+														onmouseout="this.style.background='transparent'; this.style.color='#94a3b8'; this.style.borderColor='transparent';">
+														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+															<polyline points="3 6 5 6 21 6"></polyline>
+															<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+														</svg>
+													</a>
+												</div>
+											</div>
+										<?php endforeach; ?>
+									</div>
+								<?php else: ?>
+									<div class="tallerpro-empty-message" id="docEmptyMsg"
+										style="padding: 24px 0; color: #64748b; font-size: 14px;">
+										Sin documentos.
+									</div>
+								<?php endif; ?>
+							</div>
+						</div>
+
+
+
 
 						<!-- Contenido Pestaña Facturas del vehiculo -->
 						<div class="tallerpro-tab-pane" id="tab-facturas">
@@ -898,7 +1179,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									<?php while ($veh = $db->fetch_object($res_veh)): ?>
 										<?php
 										$client_url = dol_buildpath('/taller/clientes.php', 1) . '?id=' . $veh->fk_soc;
-										$veh_url    = dol_buildpath('/taller/vehiculos.php', 1) . '?id=' . $veh->rowid;
+										$veh_url = dol_buildpath('/taller/vehiculos.php', 1) . '?id=' . $veh->rowid;
 										?>
 										<tr>
 											<td style="font-weight: 700; color: #0f172a; letter-spacing: 0.02em;">
@@ -936,14 +1217,15 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															<line x1="10" y1="14" x2="21" y2="3"></line>
 														</svg>
 													</a>
-													<button type="button"
-														class="tallerpro-action-btn btn-delete-action"
-														title="Eliminar vehículo"
-														data-id="<?php echo (int) $veh->rowid; ?>"
+													<button type="button" class="tallerpro-action-btn btn-delete-action"
+														title="Eliminar vehículo" data-id="<?php echo (int) $veh->rowid; ?>"
 														data-action="delete_vehiculo">
-														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444"
+															stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 															<polyline points="3 6 5 6 21 6"></polyline>
-															<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+															<path
+																d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2">
+															</path>
 														</svg>
 													</button>
 												</div>
@@ -964,92 +1246,98 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				<?php endif; ?>
 			</main>
 		</div>
-	</div>
 
-	<!-- Modal Nuevo Registro Vehículos -->
-	<div class="tallerpro-modal-backdrop" id="tallerVehiculoModal">
-		<div class="tallerpro-modal-card">
-			<div class="tallerpro-modal-header">
-				<h2 class="tallerpro-modal-title" id="vehiculoModalTitle">Nuevo registro de vehículo</h2>
-				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="Cerrar">
-					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-						stroke-linecap="round" stroke-linejoin="round">
-						<line x1="18" y1="6" x2="6" y2="18"></line>
-						<line x1="6" y1="6" x2="18" y2="18"></line>
-					</svg>
-				</button>
+		<!-- Modal Nuevo Registro Vehículos -->
+		<div class="tallerpro-modal-backdrop" id="tallerVehiculoModal">
+			<div class="tallerpro-modal-card">
+				<div class="tallerpro-modal-header">
+					<h2 class="tallerpro-modal-title" id="vehiculoModalTitle">Nuevo registro de vehículo</h2>
+					<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="Cerrar">
+						<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+							stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+							<line x1="18" y1="6" x2="6" y2="18"></line>
+							<line x1="6" y1="6" x2="18" y2="18"></line>
+						</svg>
+					</button>
+				</div>
+				<form class="tallerpro-modal-form" id="tallerVehiculoForm" method="POST"
+					action="<?php echo $_SERVER['PHP_SELF']; ?>">
+					<input type="hidden" name="token"
+						value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
+					<input type="hidden" name="action" id="vehiculoFormAction" value="create_vehiculo">
+					<input type="hidden" name="vehiculo_id" id="vehiculoFormRowid" value="0">
+
+					<input type="hidden" name="guardar_en_catalogo" id="veh_guardar_en_catalogo" value="0">
+
+					<div class="tallerpro-form-group">
+						<label class="tallerpro-form-label">Matrícula <span class="tallerpro-required">*</span></label>
+						<input type="text" name="matricula" id="veh_matricula" class="tallerpro-form-input"
+							placeholder="Ej: 1234ABC" required autocomplete="off" style="text-transform: uppercase;" />
+					</div>
+					<div class="tallerpro-form-group">
+						<label class="tallerpro-form-label">Propietario / Cliente <span
+								class="tallerpro-required">*</span></label>
+						<select name="fk_soc" id="veh_fk_soc" class="tallerpro-form-select" required>
+							<option value="">— Selecciona un cliente —</option>
+							<?php foreach ($clients_list as $c): ?>
+								<option value="<?php echo $c->rowid; ?>"><?php echo dol_escape_htmltag($c->nom); ?></option>
+							<?php endforeach; ?>
+						</select>
+					</div>
+
+					<div class="tallerpro-form-group">
+						<label class="tallerpro-form-label">Marca</label>
+						<div class="tallerpro-autocomplete-wrapper">
+							<input type="text" name="marca" id="veh_marca" class="tallerpro-form-input"
+								placeholder="Ej: BMW, Renault..." autocomplete="off" required />
+							<div class="tallerpro-autocomplete-dropdown" id="dropdown_marcas"></div>
+						</div>
+
+					</div>
+					<div class="tallerpro-form-group">
+						<label class="tallerpro-form-label">Modelo</label>
+						<div class="tallerpro-autocomplete-wrapper">
+							<input type="text" name="modelo" id="veh_modelo" class="tallerpro-form-input" required
+								placeholder="Ej: 318 D, Mégane..." autocomplete="off" />
+							<div class="tallerpro-autocomplete-dropdown" id="dropdown_modelos"></div>
+						</div>
+					</div>
+					<div class="tallerpro-form-group">
+						<label class="tallerpro-form-label">Año</label>
+						<input type="text" name="anio" id="veh_anio" class="tallerpro-form-input"
+							placeholder="Ej: 2018" />
+					</div>
+					<div class="tallerpro-form-group">
+						<label class="tallerpro-form-label">Color</label>
+						<input type="text" name="color" id="veh_color" class="tallerpro-form-input"
+							placeholder="Ej: Blanco, Negro..." />
+					</div>
+					<div class="tallerpro-form-group">
+						<label class="tallerpro-form-label">Nº bastidor (VIN)</label>
+						<input type="text" name="vin" id="veh_vin" class="tallerpro-form-input"
+							placeholder="Ej: WBA..." />
+					</div>
+					<div class="tallerpro-form-group">
+						<label class="tallerpro-form-label">Kilometraje</label>
+						<input type="number" name="km" id="veh_km" class="tallerpro-form-input"
+							placeholder="Ej: 120000" />
+					</div>
+					<div class="tallerpro-form-group">
+						<label class="tallerpro-form-label">Notas</label>
+						<textarea name="notas" id="veh_notas" class="tallerpro-form-textarea" rows="3"
+							placeholder="Observaciones o notas sobre el vehículo..."></textarea>
+					</div>
+					<div class="tallerpro-modal-footer">
+						<button type="button" class="tallerpro-btn-cancel" id="tallerCancelModalBtn">Cancelar</button>
+						<button type="submit" class="tallerpro-btn-save" id="btnGuardarVehiculo">Guardar</button>
+					</div>
+				</form>
 			</div>
-			<form class="tallerpro-modal-form" id="tallerVehiculoForm" method="POST"
-				action="<?php echo $_SERVER['PHP_SELF']; ?>">
-				<input type="hidden" name="token"
-					value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
-				<input type="hidden" name="action" id="vehiculoFormAction" value="create_vehiculo">
-				<input type="hidden" name="vehiculo_id" id="vehiculoFormRowid" value="0">
-
-				<input type="hidden" name="guardar_en_catalogo" id="veh_guardar_en_catalogo" value="0">
-
-				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Matrícula <span class="tallerpro-required">*</span></label>
-					<input type="text" name="matricula" id="veh_matricula" class="tallerpro-form-input"
-						placeholder="Ej: 1234ABC" required autocomplete="off" style="text-transform: uppercase;" />
-				</div>
-				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Propietario / Cliente <span
-							class="tallerpro-required">*</span></label>
-					<select name="fk_soc" id="veh_fk_soc" class="tallerpro-form-select" required>
-						<option value="">— Selecciona un cliente —</option>
-						<?php foreach ($clients_list as $c): ?>
-							<option value="<?php echo $c->rowid; ?>"><?php echo dol_escape_htmltag($c->nom); ?></option>
-						<?php endforeach; ?>
-					</select>
-				</div>
-
-				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Marca</label>
-					<div class="tallerpro-autocomplete-wrapper">
-						<input type="text" name="marca" id="veh_marca" class="tallerpro-form-input"
-							placeholder="Ej: BMW, Renault..." autocomplete="off" required />
-						<div class="tallerpro-autocomplete-dropdown" id="dropdown_marcas"></div>
-					</div>
-
-				</div>
-				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Modelo</label>
-					<div class="tallerpro-autocomplete-wrapper">
-						<input type="text" name="modelo" id="veh_modelo" class="tallerpro-form-input" required
-							placeholder="Ej: 318 D, Mégane..." autocomplete="off" />
-						<div class="tallerpro-autocomplete-dropdown" id="dropdown_modelos"></div>
-					</div>
-				</div>
-				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Año</label>
-					<input type="text" name="anio" id="veh_anio" class="tallerpro-form-input" placeholder="Ej: 2018" />
-				</div>
-				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Color</label>
-					<input type="text" name="color" id="veh_color" class="tallerpro-form-input"
-						placeholder="Ej: Blanco, Negro..." />
-				</div>
-				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Nº bastidor (VIN)</label>
-					<input type="text" name="vin" id="veh_vin" class="tallerpro-form-input" placeholder="Ej: WBA..." />
-				</div>
-				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Kilometraje</label>
-					<input type="number" name="km" id="veh_km" class="tallerpro-form-input" placeholder="Ej: 120000" />
-				</div>
-				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Notas</label>
-					<textarea name="notas" id="veh_notas" class="tallerpro-form-textarea" rows="3"
-						placeholder="Observaciones o notas sobre el vehículo..."></textarea>
-				</div>
-				<div class="tallerpro-modal-footer">
-					<button type="button" class="tallerpro-btn-cancel" id="tallerCancelModalBtn">Cancelar</button>
-					<button type="submit" class="tallerpro-btn-save" id="btnGuardarVehiculo">Guardar</button>
-				</div>
-			</form>
 		</div>
+
 	</div>
+
+
 
 	<!-- Modal Confirmación de Eliminación -->
 	<div class="tallerpro-modal-backdrop" id="deleteConfirmModal">
@@ -1114,11 +1402,67 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 
 	<!-- Formulario oculto para borrado seguro POST con CSRF Token -->
 	<form id="tallerGlobalDeleteForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: none;">
-		<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
+		<input type="hidden" name="token"
+			value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
 		<input type="hidden" name="action" id="globalDeleteAction" value="">
 		<input type="hidden" name="rowid" id="globalDeleteRowid" value="">
 		<input type="hidden" name="socid" id="globalDeleteSocid" value="">
 	</form>
+
+	<!-- Modal Nuevo Documento para Vehículo -->
+	<div class="tallerpro-modal-backdrop" id="tallerDocModal">
+		<div class="tallerpro-modal-card" style="max-width: 480px; padding: 26px 28px;">
+			<div class="tallerpro-modal-header" style="margin-bottom: 20px;">
+				<h2 class="tallerpro-modal-title" style="font-size: 18px; font-weight: 700; color: #0f172a;">Nuevo
+					documento</h2>
+				<button type="button" class="tallerpro-modal-close" id="tallerCloseDocModalBtn" onclick="document.getElementById('tallerDocModal').classList.remove('active');" title="Cerrar">
+					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+						stroke-linecap="round" stroke-linejoin="round">
+						<line x1="18" y1="6" x2="6" y2="18"></line>
+						<line x1="6" y1="6" x2="18" y2="18"></line>
+					</svg>
+				</button>
+			</div>
+
+			<form class="tallerpro-modal-form" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>"
+				enctype="multipart/form-data" id="tallerDocForm">
+				<input type="hidden" name="token"
+					value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
+				<input type="hidden" name="action" value="add_documento">
+				<input type="hidden" name="fk_vehiculo"
+					value="<?php echo !empty($veh_detail) ? (int) $veh_detail->rowid : 0; ?>">
+
+				<div class="tallerpro-form-group">
+					<label class="tallerpro-form-label">Nombre <span class="tallerpro-required">*</span></label>
+					<input type="text" name="nombre" id="doc_nombre" class="tallerpro-form-input" required
+						autocomplete="off" />
+				</div>
+
+				<div class="tallerpro-form-group">
+					<label class="tallerpro-form-label">Tipo</label>
+					<input type="text" name="tipo" id="doc_tipo" class="tallerpro-form-input"
+						placeholder="Permiso, ITV, ficha técnica..." autocomplete="off" />
+				</div>
+
+				<div class="tallerpro-form-group">
+					<label class="tallerpro-form-label">Archivo (PDF o imagen)</label>
+					<input type="file" name="archivo" id="doc_archivo" class="tallerpro-form-input"
+						accept=".pdf, image/jpeg, image/png, image/webp, image/gif" style="padding: 7px 12px;" />
+				</div>
+
+				<div class="tallerpro-form-group">
+					<label class="tallerpro-form-label">o URL / enlace</label>
+					<input type="url" name="url" id="doc_url" class="tallerpro-form-input" placeholder="https://..."
+						autocomplete="off" />
+				</div>
+
+				<div class="tallerpro-modal-footer" style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 24px; padding-top: 0; border-top: none;">
+					<button type="button" class="tallerpro-btn-cancel" onclick="document.getElementById('tallerDocModal').classList.remove('active');">Cancelar</button>
+					<button type="submit" class="tallerpro-btn-save" id="btnGuardarDoc">Guardar</button>
+				</div>
+			</form>
+		</div>
+	</div>
 </div>
 
 <?php

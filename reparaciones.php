@@ -1371,36 +1371,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
 								<line x1="12" y1="22.08" x2="12" y2="12"></line>
 							</svg>
-							<span>Materiales</span>
-						</h3>
-						<div class="tallerpro-grid-mat-row1" style="margin-top: 12px;">
-							<div class="tallerpro-form-group">
-								<label class="tallerpro-form-label">Material del catálogo</label>
-								<select id="rep_mat_catalogo" class="tallerpro-form-select">
-									<option value="">— Nuevo / escribir manualmente —</option>
-									<?php foreach ($materials_list as $mcat): 
-										$stk = (float) $mcat->stock;
-										$stk_label = $stk <= 0 ? 'Sin stock (0 uds)' : ('Stock: ' . (int)$stk . ' uds');
-									?>
-										<option value="<?php echo (int) $mcat->rowid; ?>"
-											data-codigo="<?php echo dol_escape_htmltag($mcat->ref); ?>"
-											data-descripcion="<?php echo dol_escape_htmltag($mcat->nombre); ?>"
-											data-precio="<?php echo number_format((float) $mcat->precio, 2, '.', ''); ?>"
-											data-stock="<?php echo $stk; ?>">
-											<?php echo dol_escape_htmltag($mcat->nombre . ' (' . number_format((float) $mcat->precio, 2, '.', '') . ' €) — [' . $stk_label . ']'); ?>
-										</option>
-									<?php endforeach; ?>
-								</select>
-								<div id="rep_mat_stock_pill" style="display: none; margin-top: 6px;"></div>
-							</div>
-							<div class="tallerpro-form-group">
-								<label class="tallerpro-form-label">Código</label>
-								<input type="text" id="rep_mat_codigo" class="tallerpro-form-input" />
-							</div>
-							<div class="tallerpro-form-group">
-								<label class="tallerpro-form-label">Descripción</label>
-								<input type="text" id="rep_mat_descripcion" class="tallerpro-form-input" />
-							</div>
+							<span>Materiales &amp; Repuestos Consumidos</span>
 						</div>
 						<button type="button" class="tallerpro-order-btn-add" id="btnAddMaterialRow">
 							<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
