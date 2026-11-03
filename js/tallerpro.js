@@ -698,7 +698,8 @@ if (window.__tallerProLoaded) {
             });
         }
 
-        // Modal Confirmación de Eliminación Global (Reparaciones, Clientes, Vehículos, Materiales)
+        // Modal Confirmación de Eliminación Global (Reparaciones, Clientes, Vehículos, Materiales, Seguros, Facturas)
+        let pendingDeleteAction = null;
         let pendingDeleteUrl = null;
         let pendingDeleteRow = null;
         let pendingDeleteRowId = null;
@@ -708,6 +709,7 @@ if (window.__tallerProLoaded) {
             const delRepBtn = e.target.closest('.btn-delete-reparacion');
             if (delRepBtn) {
                 e.preventDefault();
+                pendingDeleteAction = 'delete_reparacion';
                 pendingDeleteRow = delRepBtn.closest('.rep-row');
                 pendingDeleteRowId = delRepBtn.getAttribute('data-id');
                 pendingDeleteUrl = null;
@@ -716,13 +718,14 @@ if (window.__tallerProLoaded) {
                 return;
             }
 
-            // Caso 2: Enlace/botón de eliminación en Clientes, Vehículos, Materiales
-            const delActionBtn = e.target.closest('.btn-delete-action, a[href*="delete_client"], a[href*="delete_vehiculo"], a[href*="delete_material"]');
+            // Caso 2: Enlace/botón de eliminación en Clientes, Vehículos, Materiales, Seguros, Facturas
+            const delActionBtn = e.target.closest('.btn-delete-action, a[href*="delete_client"], a[href*="delete_vehiculo"], a[href*="delete_material"], a[href*="delete_seguro"], a[href*="delete_factura"]');
             if (delActionBtn) {
                 e.preventDefault();
-                pendingDeleteUrl = delActionBtn.getAttribute('data-delete-url') || delActionBtn.getAttribute('href');
+                pendingDeleteAction = delActionBtn.getAttribute('data-action') || null;
+                pendingDeleteRowId = delActionBtn.getAttribute('data-id') || null;
+                pendingDeleteUrl = delActionBtn.getAttribute('data-delete-url') || (delActionBtn.tagName === 'A' ? delActionBtn.getAttribute('href') : null);
                 pendingDeleteRow = delActionBtn.closest('tr');
-                pendingDeleteRowId = null;
                 const modal = document.getElementById('deleteConfirmModal');
                 if (modal) {
                     modal.classList.add('active');
@@ -735,11 +738,13 @@ if (window.__tallerProLoaded) {
             const modal = document.getElementById('deleteConfirmModal');
             if (cancelBtn && modal) {
                 modal.classList.remove('active');
+                pendingDeleteAction = null;
                 pendingDeleteUrl = null;
                 pendingDeleteRow = null;
                 pendingDeleteRowId = null;
             } else if (modal && e.target === modal) {
                 modal.classList.remove('active');
+                pendingDeleteAction = null;
                 pendingDeleteUrl = null;
                 pendingDeleteRow = null;
                 pendingDeleteRowId = null;
@@ -754,20 +759,41 @@ if (window.__tallerProLoaded) {
 
             modal.classList.remove('active');
 
-            // Si es eliminación por URL (Clientes, Vehículos, Materiales)
-            if (pendingDeleteUrl) {
+            // Caso A: Si existe el formulario oculto global (Clientes, Vehículos, Materiales, Seguros, Facturas) y no es borrado AJAX de reparaciones
+            const globalDeleteForm = document.getElementById('tallerGlobalDeleteForm');
+            if (globalDeleteForm && pendingDeleteAction && pendingDeleteAction !== 'delete_reparacion') {
+                const actionInput = document.getElementById('globalDeleteAction');
+                const rowidInput = document.getElementById('globalDeleteRowid');
+                const socidInput = document.getElementById('globalDeleteSocid');
+                if (actionInput) actionInput.value = pendingDeleteAction;
+                if (rowidInput) rowidInput.value = pendingDeleteRowId || '';
+                if (socidInput) socidInput.value = pendingDeleteRowId || '';
+                globalDeleteForm.submit();
+                return;
+            }
+
+            // Fallback para URL legacy si no hay formulario
+            if (pendingDeleteUrl && !globalDeleteForm) {
                 window.location.href = pendingDeleteUrl;
                 return;
             }
 
-            // Si es eliminación por AJAX (Reparaciones)
+            // Caso B: Eliminación por AJAX (Reparaciones)
             const row = pendingDeleteRow;
             const rowid = pendingDeleteRowId;
-            const token = document.getElementById('reparacionFormToken')?.value || '';
+            const tokenInput = document.querySelector('#tallerGlobalDeleteForm input[name="token"]') || document.getElementById('reparacionFormToken');
+            const token = tokenInput ? tokenInput.value : '';
 
-            if (rowid && !isNaN(rowid) && parseInt(rowid) > 0) {
-                fetch('reparaciones.php?action=delete_reparacion&ajax=1&rowid=' + rowid + '&token=' + encodeURIComponent(token), {
-                    method: 'POST'
+            if (rowid && !isNaN(rowid) && parseInt(rowid, 10) > 0) {
+                const formData = new FormData();
+                formData.append('action', 'delete_reparacion');
+                formData.append('ajax', '1');
+                formData.append('rowid', rowid);
+                if (token) formData.append('token', token);
+
+                fetch('reparaciones.php', {
+                    method: 'POST',
+                    body: formData
                 }).catch(console.error);
             }
 
@@ -786,6 +812,8 @@ if (window.__tallerProLoaded) {
             if (typeof window.showTallerToast === 'function') {
                 window.showTallerToast('Reparación eliminada correctamente');
             }
+            pendingDeleteAction = null;
+            pendingDeleteUrl = null;
             pendingDeleteRow = null;
             pendingDeleteRowId = null;
         });
@@ -888,7 +916,7 @@ if (window.__tallerProLoaded) {
             }
 
             // Persistir en backend vía POST
-            const tokenInput = document.getElementById('reparacionFormToken');
+            const tokenInput = document.getElementById('reparacionFormToken') || document.querySelector('#tallerGlobalDeleteForm input[name="token"]');
             const token = tokenInput ? tokenInput.value : '';
             const formData = new FormData();
             formData.append('action', 'update_estado');
@@ -974,7 +1002,47 @@ if (window.__tallerProLoaded) {
             repMatTotalNeto.value = net.toFixed(2) + ' €';
         }
 
-        if (repMatCantidad) repMatCantidad.addEventListener('input', calcRepMaterialNet);
+        const repMatStockPill = document.getElementById('rep_mat_stock_pill');
+
+        function updateStockFeedback() {
+            if (!repMatStockPill) return;
+            const selectedOpt = repMatCatalogo && repMatCatalogo.selectedOptions ? repMatCatalogo.selectedOptions[0] : null;
+            if (!selectedOpt || !selectedOpt.value) {
+                repMatStockPill.style.display = 'none';
+                repMatStockPill.innerHTML = '';
+                return;
+            }
+
+            const stock = parseFloat(selectedOpt.dataset.stock !== undefined ? selectedOpt.dataset.stock : '0') || 0;
+            const cant = parseFloat(repMatCantidad ? repMatCantidad.value : 1) || 0;
+
+            repMatStockPill.style.display = 'block';
+
+            if (stock <= 0) {
+                repMatStockPill.innerHTML = '<span class="tallerpro-stock-badge out-stock">' +
+                    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>' +
+                    'Sin stock disponible (0 uds en almacén)</span>';
+            } else if (cant > stock) {
+                repMatStockPill.innerHTML = '<span class="tallerpro-stock-badge out-stock">' +
+                    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>' +
+                    'Cantidad solicitada (' + cant + ') supera el stock disponible (' + stock + ' uds)</span>';
+            } else if (stock <= 3) {
+                repMatStockPill.innerHTML = '<span class="tallerpro-stock-badge low-stock">' +
+                    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>' +
+                    'Stock bajo: ' + stock + ' uds en almacén</span>';
+            } else {
+                repMatStockPill.innerHTML = '<span class="tallerpro-stock-badge in-stock">' +
+                    '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>' +
+                    'Stock disponible: ' + stock + ' uds</span>';
+            }
+        }
+
+        if (repMatCantidad) {
+            repMatCantidad.addEventListener('input', function () {
+                calcRepMaterialNet();
+                updateStockFeedback();
+            });
+        }
         if (repMatPrecio) repMatPrecio.addEventListener('input', calcRepMaterialNet);
         if (repMatDescuento) repMatDescuento.addEventListener('input', calcRepMaterialNet);
 
@@ -988,6 +1056,7 @@ if (window.__tallerProLoaded) {
                     if (repMatPrecio) repMatPrecio.value = selectedOpt.dataset.precio || '0';
                 }
                 calcRepMaterialNet();
+                updateStockFeedback();
             });
         }
 
@@ -1173,6 +1242,20 @@ if (window.__tallerProLoaded) {
                 const dto = parseFloat(repMatDescuento ? repMatDescuento.value : 0) || 0;
                 const net = Math.max(0, cant * precio * (1 - (dto / 100)));
 
+                const selectedOpt = repMatCatalogo && repMatCatalogo.selectedOptions ? repMatCatalogo.selectedOptions[0] : null;
+                if (selectedOpt && selectedOpt.value) {
+                    const availableStock = parseFloat(selectedOpt.dataset.stock !== undefined ? selectedOpt.dataset.stock : '0') || 0;
+                    if (availableStock <= 0) {
+                        if (!confirm("Atención: El material '" + desc + "' no tiene stock disponible en almacén (0 uds). ¿Deseas incluirlo de todos modos en la orden?")) {
+                            return;
+                        }
+                    } else if (cant > availableStock) {
+                        if (!confirm("Atención: La cantidad indicada (" + cant + ") supera el stock disponible (" + availableStock + " uds). ¿Deseas continuar?")) {
+                            return;
+                        }
+                    }
+                }
+
                 currentRepMaterials.push({
                     fk_material: repMatCatalogo ? repMatCatalogo.value : '',
                     codigo: repMatCodigo ? repMatCodigo.value.trim() : '',
@@ -1180,7 +1263,8 @@ if (window.__tallerProLoaded) {
                     cantidad: cant,
                     precio: precio,
                     descuento: dto,
-                    total_neto: net
+                    total_neto: net,
+                    guardar_catalogo: (repMatGuardarCatalogo && repMatGuardarCatalogo.checked) ? 1 : 0
                 });
 
                 // Limpiar inputs
@@ -1192,6 +1276,14 @@ if (window.__tallerProLoaded) {
                 if (repMatDescuento) repMatDescuento.value = '0';
                 if (repMatTotalNeto) repMatTotalNeto.value = '0.00 €';
                 if (repMatGuardarCatalogo) repMatGuardarCatalogo.checked = false;
+            if (repMatStockPill) {
+                repMatStockPill.style.display = 'none';
+                repMatStockPill.innerHTML = '';
+            }
+                if (repMatStockPill) {
+                    repMatStockPill.style.display = 'none';
+                    repMatStockPill.innerHTML = '';
+                }
 
                 renderRepMaterialsTable();
                 renderRepTotalsSummary();
@@ -1296,6 +1388,10 @@ if (window.__tallerProLoaded) {
             if (repMatDescuento) repMatDescuento.value = '0';
             if (repMatTotalNeto) repMatTotalNeto.value = '0.00 €';
             if (repMatGuardarCatalogo) repMatGuardarCatalogo.checked = false;
+            if (repMatStockPill) {
+                repMatStockPill.style.display = 'none';
+                repMatStockPill.innerHTML = '';
+            }
 
             if (repMoDescripcion) repMoDescripcion.value = '';
             if (repMoPrecio) repMoPrecio.value = '0';

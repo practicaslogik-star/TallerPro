@@ -13,9 +13,6 @@
  *  \brief      Facturas list view - TallerPro view
  */
 
-if (!defined('NOCSRFCHECK')) {
-	define('NOCSRFCHECK', 1);
-}
 if (!defined('NOTOKENRENEWAL')) {
 	define('NOTOKENRENEWAL', 1);
 }
@@ -176,7 +173,8 @@ if ($action == 'create_factura' || $action == 'add_factura') {
 			header("Location: " . $_SERVER['PHP_SELF'] . '?id=' . $fac_id);
 			exit;
 		} else {
-			setEventMessages("Error al crear la factura: " . $fac->error . " " . implode(' ', $fac->errors), null, 'errors');
+			dol_syslog("TallerPro - Error al crear factura: " . $fac->error . " " . implode(' ', $fac->errors), LOG_ERR);
+			setEventMessages("Error al crear la factura", null, 'errors');
 		}
 	}
 }
@@ -237,7 +235,8 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 				header("Location: " . $_SERVER['PHP_SELF'] . '?id=' . $rowid);
 				exit;
 			} else {
-				setEventMessages("Error al actualizar la factura: " . $fac->error, null, 'errors');
+				dol_syslog("TallerPro - Error al actualizar factura ID " . $rowid . ": " . $fac->error . " " . implode(' ', $fac->errors), LOG_ERR);
+				setEventMessages("Error al actualizar la factura", null, 'errors');
 			}
 		} else {
 			setEventMessages("No se encontró la factura a modificar", null, 'errors');
@@ -245,9 +244,21 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 	}
 }
 
-// Acción: Eliminar Factura
+// Acción: Eliminar Factura (Seguro vía POST con token)
 if ($action == 'delete_factura' || $action == 'delete') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
 	$rowid = GETPOSTINT('rowid');
+	if (empty($rowid) && !empty($_POST['rowid'])) {
+		$rowid = (int) $_POST['rowid'];
+	}
 	if ($rowid > 0) {
 		$fac = new Facture($db);
 		if ($fac->fetch($rowid) > 0) {
@@ -257,7 +268,8 @@ if ($action == 'delete_factura' || $action == 'delete') {
 				header("Location: " . $_SERVER['PHP_SELF']);
 				exit;
 			} else {
-				setEventMessages("Error al eliminar la factura: " . $fac->error, null, 'errors');
+				dol_syslog("TallerPro - Error al eliminar factura ID " . $rowid . ": " . $fac->error, LOG_ERR);
+				setEventMessages("No se pudo eliminar la factura solicitada", null, 'errors');
 			}
 		}
 	}
@@ -1177,15 +1189,16 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
 														</svg>
 													</button>
-													<a href="<?php echo $_SERVER['PHP_SELF']; ?>?action=delete_factura&rowid=<?php echo (int) $f->rowid; ?>&token=<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>"
-														class="tallerpro-action-btn"
+													<button type="button"
+														class="tallerpro-action-btn btn-delete-action"
 														title="Eliminar"
-														onclick="return confirm('¿Estás seguro de que deseas eliminar esta factura?');">
+														data-id="<?php echo (int) $f->rowid; ?>"
+														data-action="delete_factura">
 														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 															<polyline points="3 6 5 6 21 6"></polyline>
 															<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
 														</svg>
-													</a>
+													</button>
 												</div>
 											</td>
 										</tr>
@@ -1279,6 +1292,39 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 			</form>
 		</div>
 	</div>
+
+	<!-- Modal Confirmación de Eliminación Global -->
+	<div class="tallerpro-modal-backdrop" id="deleteConfirmModal">
+		<div class="tallerpro-modal-card" style="max-width: 440px; padding: 28px 24px; text-align: center;">
+			<div style="width: 52px; height: 52px; border-radius: 50%; background-color: #fee2e2; color: #ef4444; display: inline-flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
+				<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<polyline points="3 6 5 6 21 6"></polyline>
+					<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+					<line x1="10" y1="11" x2="10" y2="17"></line>
+					<line x1="14" y1="11" x2="14" y2="17"></line>
+				</svg>
+			</div>
+			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">¿Estás seguro de que deseas borrar?</h3>
+			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;">Esta acción eliminará el registro de forma definitiva en el sistema.</p>
+
+			<div style="display: flex; gap: 12px; justify-content: center;">
+				<button type="button" id="btnCancelDelete" style="flex: 1; padding: 10px 16px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px;">
+					Rechazar
+				</button>
+				<button type="button" id="btnConfirmDelete" style="flex: 1; padding: 10px 16px; border: none; background: #ef4444; color: #ffffff; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);">
+					Confirmar
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Formulario oculto para borrado seguro POST con CSRF Token -->
+	<form id="tallerGlobalDeleteForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: none;">
+		<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
+		<input type="hidden" name="action" id="globalDeleteAction" value="">
+		<input type="hidden" name="rowid" id="globalDeleteRowid" value="">
+		<input type="hidden" name="socid" id="globalDeleteSocid" value="">
+	</form>
 
 </div>
 

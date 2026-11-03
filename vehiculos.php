@@ -141,14 +141,27 @@ if ($action == 'create_vehiculo' || $action == 'add_vehiculo') {
 			header("Location: " . $_SERVER['PHP_SELF']);
 			exit;
 		} else {
-			setEventMessages("Error al guardar el vehículo: " . $db->lasterror(), null, 'errors');
+			dol_syslog("TallerPro - Error al guardar vehículo: " . $db->lasterror(), LOG_ERR);
+			setEventMessages("Error al guardar el vehículo", null, 'errors');
 		}
 	}
 }
 
-// Acción: Eliminar Vehículo
+// Acción: Eliminar Vehículo (Seguro vía POST con token)
 if ($action == 'delete_vehiculo' || $action == 'delete') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
 	$rowid = GETPOSTINT('rowid');
+	if (empty($rowid) && !empty($_POST['rowid'])) {
+		$rowid = (int) $_POST['rowid'];
+	}
 	if ($rowid > 0) {
 		$sql_del = "UPDATE " . $table_vehiculo . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_vehiculo') . ")";
 		$resql = $db->query($sql_del);
@@ -157,7 +170,8 @@ if ($action == 'delete_vehiculo' || $action == 'delete') {
 			header("Location: " . $_SERVER['PHP_SELF']);
 			exit;
 		} else {
-			setEventMessages("Error al eliminar el vehículo: " . $db->lasterror(), null, 'errors');
+			dol_syslog("TallerPro - Error al eliminar vehículo ID " . $rowid . ": " . $db->lasterror(), LOG_ERR);
+			setEventMessages("Error al eliminar el vehículo", null, 'errors');
 		}
 	}
 }
@@ -904,7 +918,6 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<?php
 										$client_url = dol_buildpath('/taller/clientes.php', 1) . '?id=' . $veh->fk_soc;
 										$veh_url    = dol_buildpath('/taller/vehiculos.php', 1) . '?id=' . $veh->rowid;
-										$del_url    = $_SERVER['PHP_SELF'] . '?action=delete_vehiculo&rowid=' . $veh->rowid . '&token=' . (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken()));
 										?>
 										<tr>
 											<td style="font-weight: 700; color: #0f172a; letter-spacing: 0.02em;">
@@ -932,12 +945,16 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															<line x1="10" y1="14" x2="21" y2="3"></line>
 														</svg>
 													</a>
-													<a href="<?php echo $del_url; ?>" class="tallerpro-action-btn btn-delete-action" title="Eliminar vehículo">
+													<button type="button"
+														class="tallerpro-action-btn btn-delete-action"
+														title="Eliminar vehículo"
+														data-id="<?php echo (int) $veh->rowid; ?>"
+														data-action="delete_vehiculo">
 														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 															<polyline points="3 6 5 6 21 6"></polyline>
 															<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
 														</svg>
-													</a>
+													</button>
 												</div>
 											</td>
 										</tr>
@@ -1046,6 +1063,14 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 			</div>
 		</div>
 	</div>
+
+	<!-- Formulario oculto para borrado seguro POST con CSRF Token -->
+	<form id="tallerGlobalDeleteForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: none;">
+		<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
+		<input type="hidden" name="action" id="globalDeleteAction" value="">
+		<input type="hidden" name="rowid" id="globalDeleteRowid" value="">
+		<input type="hidden" name="socid" id="globalDeleteSocid" value="">
+	</form>
 </div>
 
 <?php

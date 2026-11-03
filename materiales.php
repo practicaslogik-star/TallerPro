@@ -61,6 +61,7 @@ if (!isModEnabled('taller')) {
 }
 
 $table_material = MAIN_DB_PREFIX . "taller_material";
+$table_stock_mvt = MAIN_DB_PREFIX . "taller_stock_mvt";
 
 // Ensure table exists
 $sql_create = "CREATE TABLE IF NOT EXISTS " . $table_material . " (
@@ -80,6 +81,23 @@ $sql_create = "CREATE TABLE IF NOT EXISTS " . $table_material . " (
     INDEX idx_taller_material_nombre (nombre)
 ) ENGINE=innodb;";
 $db->query($sql_create);
+
+$sql_create_mvt = "CREATE TABLE IF NOT EXISTS " . $table_stock_mvt . " (
+    rowid           INT AUTO_INCREMENT PRIMARY KEY,
+    fk_material     INT NOT NULL,
+    cantidad        DOUBLE NOT NULL,
+    tipo            VARCHAR(32) NOT NULL,
+    fk_reparacion   INT DEFAULT NULL,
+    stock_anterior  DOUBLE DEFAULT 0,
+    stock_posterior DOUBLE DEFAULT 0,
+    fecha           DATETIME NOT NULL,
+    fk_user         INT NOT NULL,
+    descripcion     VARCHAR(255) DEFAULT NULL,
+    entity          INT DEFAULT 1,
+    INDEX idx_taller_mvt_mat (fk_material),
+    INDEX idx_taller_mvt_rep (fk_reparacion)
+) ENGINE=innodb;";
+$db->query($sql_create_mvt);
 
 $action = GETPOST('action', 'alpha');
 if (empty($action) && !empty($_POST['action'])) {
@@ -138,11 +156,18 @@ if ($action == 'create_material' || $action == 'add_material') {
 
 		$resql = $db->query($sql_insert);
 		if ($resql) {
+			$new_mat_id = (int) $db->last_insert_id($table_material);
+			if ($new_mat_id > 0 && $stock > 0) {
+				$sql_mvt = "INSERT INTO " . $table_stock_mvt . " (fk_material, cantidad, tipo, stock_anterior, stock_posterior, fecha, fk_user, descripcion, entity) VALUES (";
+				$sql_mvt .= $new_mat_id . ", " . ((float) $stock) . ", 'alta_inicial', 0, " . ((float) $stock) . ", '" . $db->idate(dol_now()) . "', " . ((int) $user->id) . ", 'Alta inicial de material', " . ((int) $conf->entity) . ")";
+				$db->query($sql_mvt);
+			}
 			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
 			header("Location: " . $_SERVER['PHP_SELF']);
 			exit;
 		} else {
-			setEventMessages("Error al guardar el material: " . $db->lasterror(), null, 'errors');
+			dol_syslog("TallerPro - Error al guardar material: " . $db->lasterror(), LOG_ERR);
+			setEventMessages("Error al guardar el material", null, 'errors');
 		}
 	}
 }
@@ -204,14 +229,27 @@ if ($action == 'update_material' || $action == 'edit_material') {
 			header("Location: " . $_SERVER['PHP_SELF']);
 			exit;
 		} else {
-			setEventMessages("Error al actualizar el material: " . $db->lasterror(), null, 'errors');
+			dol_syslog("TallerPro - Error al actualizar material ID " . $rowid . ": " . $db->lasterror(), LOG_ERR);
+			setEventMessages("Error al actualizar el material", null, 'errors');
 		}
 	}
 }
 
-// Acción: Eliminar Material
+// Acción: Eliminar Material (Seguro vía POST con token)
 if ($action == 'delete_material' || $action == 'delete') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
 	$rowid = GETPOSTINT('rowid');
+	if (empty($rowid) && !empty($_POST['rowid'])) {
+		$rowid = (int) $_POST['rowid'];
+	}
 	if ($rowid > 0) {
 		$sql_del = "UPDATE " . $table_material . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_material') . ")";
 		$resql = $db->query($sql_del);
@@ -220,7 +258,8 @@ if ($action == 'delete_material' || $action == 'delete') {
 			header("Location: " . $_SERVER['PHP_SELF']);
 			exit;
 		} else {
-			setEventMessages("Error al eliminar el material: " . $db->lasterror(), null, 'errors');
+			dol_syslog("TallerPro - Error al eliminar material ID " . $rowid . ": " . $db->lasterror(), LOG_ERR);
+			setEventMessages("Error al eliminar el material", null, 'errors');
 		}
 	}
 }
@@ -485,14 +524,16 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 														<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
 													</svg>
 												</button>
-												<a href="<?php echo $_SERVER['PHP_SELF']; ?>?action=delete_material&rowid=<?php echo (int) $mat->rowid; ?>&token=<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>"
+												<button type="button"
 													class="tallerpro-action-btn btn-delete-action"
-													title="Eliminar">
+													title="Eliminar"
+													data-id="<?php echo (int) $mat->rowid; ?>"
+													data-action="delete_material">
 													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 														<polyline points="3 6 5 6 21 6"></polyline>
 														<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
 													</svg>
-												</a>
+												</button>
 											</div>
 										</td>
 									</tr>
@@ -560,6 +601,10 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<label class="tallerpro-form-label">Notas</label>
 					<textarea name="notas" id="mat_notas" class="tallerpro-form-textarea" rows="3" placeholder="Ej: Válido para motores 1.9 TDI y 2.0 HDI, ubicación estante B-3..."></textarea>
 				</div>
+				<div class="tallerpro-modal-footer">
+					<button type="button" class="tallerpro-btn-cancel" id="tallerCancelModalBtn">Cancelar</button>
+					<button type="submit" class="tallerpro-btn-save" id="btnGuardarMaterial">Guardar</button>
+				</div>
 			</form>
 		</div>
 	</div>
@@ -588,6 +633,14 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 			</div>
 		</div>
 	</div>
+
+	<!-- Formulario oculto para borrado seguro POST con CSRF Token -->
+	<form id="tallerGlobalDeleteForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: none;">
+		<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
+		<input type="hidden" name="action" id="globalDeleteAction" value="">
+		<input type="hidden" name="rowid" id="globalDeleteRowid" value="">
+		<input type="hidden" name="socid" id="globalDeleteSocid" value="">
+	</form>
 </div>
 
 <?php

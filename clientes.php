@@ -139,9 +139,24 @@ if ($action == 'create_client' || $action == 'add_client') {
 	}
 }
 
-// Acción: Eliminar Cliente
+// Acción: Eliminar Cliente (Seguro vía POST con token)
 if ($action == 'delete_client' || $action == 'delete') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
 	$socid = GETPOST('socid', 'int');
+	if (empty($socid) && !empty($_POST['socid'])) {
+		$socid = (int) $_POST['socid'];
+	}
+	if (empty($socid) && !empty($_POST['rowid'])) {
+		$socid = (int) $_POST['rowid'];
+	}
 	if ($socid > 0) {
 		$soc = new Societe($db);
 		$res = $soc->fetch($socid);
@@ -152,8 +167,8 @@ if ($action == 'delete_client' || $action == 'delete') {
 				header("Location: " . $_SERVER['PHP_SELF']);
 				exit;
 			} else {
-				$errmsg = !empty($soc->error) ? $soc->error : (!empty($soc->errors) ? implode(', ', $soc->errors) : 'Error al eliminar el cliente');
-				setEventMessages($errmsg, $soc->errors, 'errors');
+				dol_syslog("TallerPro - Error al eliminar cliente ID " . $socid . ": " . $soc->error, LOG_ERR);
+				setEventMessages("No se pudo eliminar el cliente seleccionado", null, 'errors');
 			}
 		}
 	}
@@ -611,7 +626,6 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<?php
 										$view_url = $_SERVER['PHP_SELF'] . '?id=' . $obj->rowid;
 										$edit_url = DOL_URL_ROOT . '/societe/card.php?action=edit&socid=' . $obj->rowid;
-										$del_url  = $_SERVER['PHP_SELF'] . '?action=delete_client&socid=' . $obj->rowid . '&token=' . (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken()));
 										?>
 										<tr>
 											<td style="font-weight: 500; color: #0f172a;">
@@ -635,12 +649,16 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
 														</svg>
 													</a>
-													<a href="<?php echo $del_url; ?>" class="tallerpro-action-btn btn-delete-action" title="Eliminar">
+													<button type="button"
+														class="tallerpro-action-btn btn-delete-action"
+														title="Eliminar"
+														data-id="<?php echo (int) $obj->rowid; ?>"
+														data-action="delete_client">
 														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 															<polyline points="3 6 5 6 21 6"></polyline>
 															<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
 														</svg>
-													</a>
+													</button>
 												</div>
 											</td>
 										</tr>
@@ -733,6 +751,14 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 			</div>
 		</div>
 	</div>
+
+	<!-- Formulario oculto para borrado seguro POST con CSRF Token -->
+	<form id="tallerGlobalDeleteForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: none;">
+		<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
+		<input type="hidden" name="action" id="globalDeleteAction" value="">
+		<input type="hidden" name="rowid" id="globalDeleteRowid" value="">
+		<input type="hidden" name="socid" id="globalDeleteSocid" value="">
+	</form>
 </div>
 
 <?php
