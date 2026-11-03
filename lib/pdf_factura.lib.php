@@ -99,11 +99,12 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	$taller_tel = !empty($conf->global->TALLER_TELEFONO) ? $conf->global->TALLER_TELEFONO : (!empty($mysoc->phone) ? $mysoc->phone : '');
 	$taller_email = !empty($conf->global->TALLER_EMAIL) ? $conf->global->TALLER_EMAIL : (!empty($mysoc->email) ? $mysoc->email : '');
 
-	// Descifrar IBAN bancario protegido
+	// Descifrar IBAN bancario protegido si está habilitado en configuración
+	$mostrar_iban = isset($conf->global->TALLER_MOSTRAR_IBAN) ? ((int) $conf->global->TALLER_MOSTRAR_IBAN === 1) : true;
 	$taller_iban = '';
-	if (!empty($conf->global->TALLER_IBAN)) {
+	if ($mostrar_iban && !empty($conf->global->TALLER_IBAN)) {
 		$raw_iban = dolDecrypt($conf->global->TALLER_IBAN);
-		if (!empty($raw_iban)) {
+		if (!empty($raw_iban) && strtoupper(trim($raw_iban)) !== 'NONE') {
 			$taller_iban = trim(chunk_split($raw_iban, 4, ' '));
 		}
 	}
@@ -132,9 +133,24 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	}
 
 	if (!$logo_rendered) {
-		$svg_logo = '<svg width="90" height="90" viewBox="0 0 90 90" xmlns="http://www.w3.org/2000/svg">
-		  <rect width="90" height="90" rx="18" fill="#0f172a"/>
-		  <path d="M57 27a10 10 0 0 0-11.8 1.8l-5.6 5.6 13.6 13.6 5.6-5.6A10 10 0 0 0 57 27zm-20.4 12L19 56.6a7.5 7.5 0 0 0 10.6 10.6l17.6-17.6-10.6-10.6z" fill="#ffffff"/>
+		$svg_logo = '<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+		  <rect width="100" height="100" rx="20" fill="#121316"/>
+		  <path fill-rule="evenodd" clip-rule="evenodd" d="M 90.75 45.5 L 97.71 44.73 L 97.71 55.27 L 90.75 54.5 L 89.37 61.44 L 96.09 63.39 L 92.06 73.12 L 85.93 69.75 L 82 75.63 L 87.46 80.01 L 80.01 87.46 L 75.63 82 L 69.75 85.93 L 73.12 92.06 L 63.39 96.09 L 61.44 89.37 L 54.5 90.75 L 55.27 97.71 L 44.73 97.71 L 45.5 90.75 L 38.56 89.37 L 36.61 96.09 L 26.88 92.06 L 30.25 85.93 L 24.37 82 L 19.99 87.46 L 12.54 80.01 L 18 75.63 L 14.07 69.75 L 7.94 73.12 L 3.91 63.39 L 10.63 61.44 L 9.25 54.5 L 2.29 55.27 L 2.29 44.73 L 9.25 45.5 L 10.63 38.56 L 3.91 36.61 L 7.94 26.88 L 14.07 30.25 L 18 24.37 L 12.54 19.99 L 19.99 12.54 L 24.37 18 L 30.25 14.07 L 26.88 7.94 L 36.61 3.91 L 38.56 10.63 L 45.5 9.25 L 44.73 2.29 L 55.27 2.29 L 54.5 9.25 L 61.44 10.63 L 63.39 3.91 L 73.12 7.94 L 69.75 14.07 L 75.63 18 L 80.01 12.54 L 87.46 19.99 L 82 24.37 L 85.93 30.25 L 92.06 26.88 L 96.09 36.61 L 89.37 38.56 Z M 50,17 A 33 33 0 1 0 50,83 A 33 33 0 1 0 50,17 Z" fill="#ffffff"/>
+		  <g transform="translate(50,50)">
+		    <g transform="rotate(-45)">
+		      <rect x="-3" y="-22" width="6" height="44" rx="1.5" fill="#ffffff"/>
+		      <path d="M -8 -20 C -8 -27 -4 -31 0 -31 C 4 -31 8 -27 8 -20 C 8 -18 6 -17 3.5 -17 L 3.5 -23.5 C 3.5 -25 1.5 -26.5 0 -26.5 C -1.5 -26.5 -3.5 -25 -3.5 -23.5 L -3.5 -17 C -6 -17 -8 -18 -8 -20 Z" fill="#ffffff"/>
+		      <path d="M -8 -20 C -8 -27 -4 -31 0 -31 C 4 -31 8 -27 8 -20 C 8 -18 6 -17 3.5 -17 L 3.5 -23.5 C 3.5 -25 1.5 -26.5 0 -26.5 C -1.5 -26.5 -3.5 -25 -3.5 -23.5 L -3.5 -17 C -6 -17 -8 -18 -8 -20 Z" transform="rotate(180)" fill="#ffffff"/>
+		    </g>
+		    <g transform="rotate(45)">
+		      <rect x="-4.5" y="-29" width="9" height="57" rx="3" fill="#121316"/>
+		      <rect x="-2" y="-24" width="4" height="27" fill="#ffffff"/>
+		      <polygon points="-2.5,-24 2.5,-24 1.8,-28 -1.8,-28" fill="#ffffff"/>
+		      <path d="M -5 3 C -5 1 -3 0 0 0 C 3 0 5 1 5 3 L 6 18 C 6 23.5 3 26 0 26 C -3 26 -6 23.5 -6 18 Z" fill="#ffffff"/>
+		      <line x1="-1.8" y1="7" x2="-1.8" y2="19" stroke="#121316" stroke-width="1.2" stroke-linecap="round"/>
+		      <line x1="1.8" y1="7" x2="1.8" y2="19" stroke="#121316" stroke-width="1.2" stroke-linecap="round"/>
+		    </g>
+		  </g>
 		</svg>';
 		$tmp_dir = DOL_DATA_ROOT . '/temp';
 		if (!is_dir($tmp_dir)) {
@@ -229,9 +245,7 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 				<span style="font-size: 7.5pt; font-weight: bold; color: #94a3b8; letter-spacing: 0.05em;">DOCUMENTO</span><br><br>
 				<span style="font-size: 13pt; font-weight: bold; color: #0f172a;">Factura Nº ' . htmlspecialchars($factura->numero_factura) . '</span><br><br>
 				<span style="color: #334155; font-size: 8.5pt; line-height: 1.5;">
-					Fecha emisión: ' . $fecha_formateada . '<br>
-					Estado: ' . $estado_bold . '<br>
-					Forma de pago: Tarjeta
+					Fecha emisión: ' . $fecha_formateada . '
 				</span>
 			</td>
 		</tr>
@@ -269,14 +283,9 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 				$cant_str = number_format((float) $l->cantidad, 0, ',', '.') . ' ud.';
 				$precio_str = number_format((float) $l->precio, 2, ',', '.') . ' €';
 			} else {
-				$cant_num = (float) $l->cantidad;
-				if ($cant_num < 1 && $cant_num > 0) {
-					$minutos = round($cant_num * 60);
-					$cant_str = number_format($cant_num, 2, ',', '.') . ' h (' . $minutos . ' min)';
-				} else {
-					$cant_str = number_format($cant_num, 2, ',', '.') . ' h';
-				}
-				$precio_str = number_format((float) $l->precio, 2, ',', '.') . ' €/h';
+				// Mano de obra: precio fijo por obra, sin horas
+				$cant_str = '—';
+				$precio_str = number_format((float) $l->precio, 2, ',', '.') . ' €';
 			}
 
 			$desc_label = htmlspecialchars($l->descripcion);
@@ -309,7 +318,28 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	<table width="100%" cellpadding="0" cellspacing="0" border="0">
 		<tr>';
 
-	$notas_txt = trim((string) $factura->notas);
+	$notas_raw = trim((string) $factura->notas);
+	$notas_txt = '';
+	if (!empty($notas_raw)) {
+		// Limpiar si contiene código JSON filtrado o prefijo técnico anterior
+		if (strpos($notas_raw, '{') !== false && strpos($notas_raw, '}') !== false) {
+			if ($notas_raw[0] === '{') {
+				$dec = json_decode($notas_raw, true);
+				$notas_txt = !empty($dec['notas_usuario']) ? trim($dec['notas_usuario']) : (!empty($dec['notas']) && is_string($dec['notas']) ? trim($dec['notas']) : '');
+			} else {
+				$clean = preg_replace('/\{.*?\}$/s', '', $notas_raw);
+				if (preg_match('/^Factura de reparaci[oó]n\s+OT\s*#\d+/i', trim($clean))) {
+					$clean = preg_replace('/^Factura de reparaci[oó]n\s+OT\s*#\d+[^\n]*\n?/i', '', trim($clean));
+				}
+				$notas_txt = trim($clean);
+			}
+		} elseif (preg_match('/^Factura de reparaci[oó]n\s+OT\s*#\d+/i', $notas_raw)) {
+			$clean = preg_replace('/^Factura de reparaci[oó]n\s+OT\s*#\d+[^\n]*\n?/i', '', $notas_raw);
+			$notas_txt = trim($clean);
+		} else {
+			$notas_txt = $notas_raw;
+		}
+	}
 	$notas_html = !empty($notas_txt)
 		? '<span style="font-size: 8.2pt; color: #334155; line-height: 1.5;">' . nl2br(htmlspecialchars($notas_txt)) . '</span>'
 		: '<span style="font-size: 8pt; color: #94a3b8; font-style: italic; line-height: 1.5;">Sin notas</span>';

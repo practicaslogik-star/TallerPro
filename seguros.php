@@ -311,7 +311,7 @@ $morehead = '<link rel="stylesheet" type="text/css" href="'.$css_url.'">'."\n";
 $morehead .= '<script src="'.$js_url.'"></script>'."\n";
 
 // Page Header
-llxHeader('', 'Seguros - TallerPro', '', '', 0, 0, array(), array(), $morehead, 'mod-taller page-tallerpro');
+llxHeader($morehead, 'Seguros - TallerPro', '', '', 0, 0, array(), array(), '', 'mod-taller page-tallerpro');
 
 $dolibarr_root_url = DOL_URL_ROOT . '/index.php';
 $setup_url = dol_buildpath('/taller/configuracion.php', 1);
@@ -331,8 +331,23 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 			<!-- Brand Header -->
 			<a href="<?php echo $index_url; ?>" class="tallerpro-brand">
 				<div class="tallerpro-brand-logo">
-					<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+					<svg width="22" height="22" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+						<path fill-rule="evenodd" clip-rule="evenodd" d="M 90.75 45.5 L 97.71 44.73 L 97.71 55.27 L 90.75 54.5 L 89.37 61.44 L 96.09 63.39 L 92.06 73.12 L 85.93 69.75 L 82 75.63 L 87.46 80.01 L 80.01 87.46 L 75.63 82 L 69.75 85.93 L 73.12 92.06 L 63.39 96.09 L 61.44 89.37 L 54.5 90.75 L 55.27 97.71 L 44.73 97.71 L 45.5 90.75 L 38.56 89.37 L 36.61 96.09 L 26.88 92.06 L 30.25 85.93 L 24.37 82 L 19.99 87.46 L 12.54 80.01 L 18 75.63 L 14.07 69.75 L 7.94 73.12 L 3.91 63.39 L 10.63 61.44 L 9.25 54.5 L 2.29 55.27 L 2.29 44.73 L 9.25 45.5 L 10.63 38.56 L 3.91 36.61 L 7.94 26.88 L 14.07 30.25 L 18 24.37 L 12.54 19.99 L 19.99 12.54 L 24.37 18 L 30.25 14.07 L 26.88 7.94 L 36.61 3.91 L 38.56 10.63 L 45.5 9.25 L 44.73 2.29 L 55.27 2.29 L 54.5 9.25 L 61.44 10.63 L 63.39 3.91 L 73.12 7.94 L 69.75 14.07 L 75.63 18 L 80.01 12.54 L 87.46 19.99 L 82 24.37 L 85.93 30.25 L 92.06 26.88 L 96.09 36.61 L 89.37 38.56 Z M 50,17 A 33 33 0 1 0 50,83 A 33 33 0 1 0 50,17 Z" fill="#ffffff"/>
+						<g transform="translate(50,50)">
+							<g transform="rotate(-45)">
+								<rect x="-3" y="-22" width="6" height="44" rx="1.5" fill="#ffffff"/>
+								<path d="M -8 -20 C -8 -27 -4 -31 0 -31 C 4 -31 8 -27 8 -20 C 8 -18 6 -17 3.5 -17 L 3.5 -23.5 C 3.5 -25 1.5 -26.5 0 -26.5 C -1.5 -26.5 -3.5 -25 -3.5 -23.5 L -3.5 -17 C -6 -17 -8 -18 -8 -20 Z" fill="#ffffff"/>
+								<path d="M -8 -20 C -8 -27 -4 -31 0 -31 C 4 -31 8 -27 8 -20 C 8 -18 6 -17 3.5 -17 L 3.5 -23.5 C 3.5 -25 1.5 -26.5 0 -26.5 C -1.5 -26.5 -3.5 -25 -3.5 -23.5 L -3.5 -17 C -6 -17 -8 -18 -8 -20 Z" transform="rotate(180)" fill="#ffffff"/>
+							</g>
+							<g transform="rotate(45)">
+								<rect x="-4.5" y="-29" width="9" height="57" rx="3" fill="#dc2626"/>
+								<rect x="-2" y="-24" width="4" height="27" fill="#ffffff"/>
+								<polygon points="-2.5,-24 2.5,-24 1.8,-28 -1.8,-28" fill="#ffffff"/>
+								<path d="M -5 3 C -5 1 -3 0 0 0 C 3 0 5 1 5 3 L 6 18 C 6 23.5 3 26 0 26 C -3 26 -6 23.5 -6 18 Z" fill="#ffffff"/>
+								<line x1="-1.8" y1="7" x2="-1.8" y2="19" stroke="#dc2626" stroke-width="1.2" stroke-linecap="round"/>
+								<line x1="1.8" y1="7" x2="1.8" y2="19" stroke="#dc2626" stroke-width="1.2" stroke-linecap="round"/>
+							</g>
+						</g>
 					</svg>
 				</div>
 				<div class="tallerpro-brand-info">
@@ -455,18 +470,18 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 	<div class="tallerpro-main">
 		<!-- Top Bar -->
 		<header class="tallerpro-topbar">
-			<div class="tallerpro-topbar-left">
-				<button type="button" class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="Alternar menú" aria-label="Alternar menú">
-					<svg class="tallerpro-toggle-icon-desktop" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-						<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-						<line x1="9" y1="3" x2="9" y2="21"></line>
-					</svg>
-					<svg class="tallerpro-toggle-icon-mobile" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-						<line x1="3" y1="6" x2="21" y2="6"></line>
-						<line x1="3" y1="12" x2="21" y2="12"></line>
-						<line x1="3" y1="18" x2="21" y2="18"></line>
-					</svg>
-				</button>
+			<button type="button" class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="Alternar menú" aria-label="Alternar menú">
+				<svg class="tallerpro-toggle-icon-desktop" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+					<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+					<line x1="9" y1="3" x2="9" y2="21"></line>
+				</svg>
+				<svg class="tallerpro-toggle-icon-mobile" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+					<line x1="3" y1="6" x2="21" y2="6"></line>
+					<line x1="3" y1="12" x2="21" y2="12"></line>
+					<line x1="3" y1="18" x2="21" y2="18"></line>
+				</svg>
+			</button>
+			<div class="tallerpro-topbar-brand">
 				<span class="tallerpro-topbar-dot">•</span>
 				<span class="tallerpro-topbar-title">TallerPro</span>
 			</div>
@@ -564,7 +579,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										</td>
 										<td style="color: #334155;">
 											<?php if (!empty($seg->telefono)): ?>
-												<a href="tel:<?php echo dol_escape_htmltag($seg->telefono); ?>" style="color: #2563eb; text-decoration: none;">
+												<a href="tel:<?php echo dol_escape_htmltag($seg->telefono); ?>" style="color: #dc2626; font-weight: 500; text-decoration: none;">
 													<?php echo dol_escape_htmltag($seg->telefono); ?>
 												</a>
 											<?php else: ?>

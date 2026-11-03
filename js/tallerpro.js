@@ -515,9 +515,57 @@ if (window.__tallerProLoaded) {
             });
         }
 
+        function resetFacturaFormStyles() {
+            const facEditNotice = document.getElementById('facEditNotice');
+            if (facEditNotice) facEditNotice.style.display = 'none';
+
+            if (facFecha) {
+                facFecha.readOnly = false;
+                facFecha.disabled = false;
+                facFecha.style.pointerEvents = '';
+                facFecha.style.backgroundColor = '';
+                facFecha.style.color = '';
+            }
+            if (facSoc) {
+                facSoc.disabled = false;
+                facSoc.style.pointerEvents = '';
+                facSoc.style.backgroundColor = '';
+                facSoc.style.color = '';
+            }
+            if (facVehiculo) {
+                facVehiculo.disabled = false;
+                facVehiculo.style.pointerEvents = '';
+                facVehiculo.style.backgroundColor = '';
+                facVehiculo.style.color = '';
+            }
+            const facTotal = document.getElementById('fac_total');
+            if (facTotal) {
+                facTotal.readOnly = false;
+                facTotal.disabled = false;
+                facTotal.style.pointerEvents = '';
+                facTotal.style.backgroundColor = '';
+                facTotal.style.color = '';
+            }
+            const facNotas = document.getElementById('fac_notas');
+            if (facNotas) {
+                facNotas.readOnly = false;
+                facNotas.disabled = false;
+                facNotas.style.pointerEvents = '';
+                facNotas.style.backgroundColor = '';
+                facNotas.style.color = '';
+            }
+            const facEstado = document.getElementById('fac_estado');
+            if (facEstado) {
+                facEstado.disabled = false;
+                facEstado.style.borderColor = '';
+                facEstado.style.boxShadow = '';
+            }
+        }
+
         if (addFacBtn && facForm) {
             addFacBtn.addEventListener('click', function () {
                 facForm.reset();
+                resetFacturaFormStyles();
                 if (facModalTitle) facModalTitle.textContent = 'Nuevo registro';
                 if (facFormAction) facFormAction.value = 'create_factura';
                 if (facFormRowid) facFormRowid.value = '0';
@@ -528,7 +576,7 @@ if (window.__tallerProLoaded) {
                 }
                 const facEstado = document.getElementById('fac_estado');
                 if (facEstado) {
-                    facEstado.value = 'Pendiente';
+                    facEstado.value = 'Borrador';
                 }
                 if (facNumero) {
                     facNumero.readOnly = true;
@@ -543,32 +591,80 @@ if (window.__tallerProLoaded) {
                 e.preventDefault();
                 if (!facModal || !facForm) return;
 
-                if (facModalTitle) facModalTitle.textContent = 'Editar registro';
+                if (facModalTitle) facModalTitle.textContent = 'Editar estado de factura';
                 if (facFormAction) facFormAction.value = 'update_factura';
                 if (facFormRowid) facFormRowid.value = btn.dataset.id || '0';
 
                 const facTotal = document.getElementById('fac_total');
                 const facEstado = document.getElementById('fac_estado');
                 const facNotas = document.getElementById('fac_notas');
+                const facEditNotice = document.getElementById('facEditNotice');
 
                 if (facNumero) {
                     facNumero.value = btn.dataset.numero || '';
                     facNumero.readOnly = true;
                 }
-                if (facFecha) facFecha.value = btn.dataset.fecha || '';
+
+                // Mientras la factura esté en estado borrador solo se puede editar el estado:
+                // Bloquear el resto de campos (Fecha, Cliente, Vehículo, Total, Notas)
+                if (facFecha) {
+                    facFecha.value = btn.dataset.fecha || '';
+                    facFecha.readOnly = true;
+                    facFecha.style.pointerEvents = 'none';
+                    facFecha.style.backgroundColor = '#f8fafc';
+                    facFecha.style.color = '#64748b';
+                }
 
                 const clientSocId = btn.dataset.soc || '';
                 const vehicleId = btn.dataset.vehiculo || '';
 
-                if (facSoc) facSoc.value = clientSocId;
+                if (facSoc) {
+                    facSoc.value = clientSocId;
+                    facSoc.disabled = true;
+                    facSoc.style.pointerEvents = 'none';
+                    facSoc.style.backgroundColor = '#f8fafc';
+                    facSoc.style.color = '#64748b';
+                }
                 filterFacturaVehiclesByClient(clientSocId, vehicleId);
+                if (facVehiculo) {
+                    facVehiculo.disabled = true;
+                    facVehiculo.style.pointerEvents = 'none';
+                    facVehiculo.style.backgroundColor = '#f8fafc';
+                    facVehiculo.style.color = '#64748b';
+                }
 
-                if (facTotal) facTotal.value = btn.dataset.total || '0.00';
-                if (facEstado) facEstado.value = btn.dataset.estado || 'Pendiente';
-                if (facNotas) facNotas.value = btn.dataset.notas || '';
+                if (facTotal) {
+                    facTotal.value = btn.dataset.total || '0.00';
+                    facTotal.readOnly = true;
+                    facTotal.style.pointerEvents = 'none';
+                    facTotal.style.backgroundColor = '#f8fafc';
+                    facTotal.style.color = '#64748b';
+                }
+                if (facNotas) {
+                    facNotas.value = btn.dataset.notas || '';
+                    facNotas.readOnly = true;
+                    facNotas.style.pointerEvents = 'none';
+                    facNotas.style.backgroundColor = '#f8fafc';
+                    facNotas.style.color = '#64748b';
+                }
+
+                // El único campo editable es el estado:
+                if (facEstado) {
+                    facEstado.value = btn.dataset.estado || 'Borrador';
+                    facEstado.disabled = false;
+                    facEstado.style.pointerEvents = '';
+                    facEstado.style.backgroundColor = '#ffffff';
+                    facEstado.style.color = '#0f172a';
+                    facEstado.style.borderColor = '#dc2626';
+                    facEstado.style.boxShadow = '0 0 0 2px rgba(220, 38, 38, 0.15)';
+                    setTimeout(function () { facEstado.focus(); }, 150);
+                }
+
+                if (facEditNotice) {
+                    facEditNotice.style.display = 'block';
+                }
 
                 facModal.classList.add('active');
-                if (facFecha) facFecha.focus();
             });
         });
 
@@ -818,6 +914,67 @@ if (window.__tallerProLoaded) {
             pendingDeleteRowId = null;
         });
 
+        // Modal Confirmación de Facturación
+        let pendingFacturarUrl = null;
+        let pendingFacturarFromModal = false;
+
+        document.addEventListener('click', function (e) {
+            const facturarBtn = e.target.closest('.tallerpro-btn-facturar-action');
+            if (facturarBtn) {
+                e.preventDefault();
+                pendingFacturarUrl = facturarBtn.getAttribute('data-facturar-url') || facturarBtn.getAttribute('href');
+                pendingFacturarFromModal = false;
+                const modal = document.getElementById('facturarConfirmModal');
+                if (modal) {
+                    modal.classList.add('active');
+                } else if (pendingFacturarUrl) {
+                    window.location.href = pendingFacturarUrl;
+                }
+            }
+        });
+
+        document.addEventListener('click', function (e) {
+            const cancelBtn = e.target.closest('#btnCancelFacturar');
+            const modal = document.getElementById('facturarConfirmModal');
+            if (cancelBtn && modal) {
+                modal.classList.remove('active');
+                pendingFacturarUrl = null;
+                pendingFacturarFromModal = false;
+            } else if (modal && e.target === modal) {
+                modal.classList.remove('active');
+                pendingFacturarUrl = null;
+                pendingFacturarFromModal = false;
+            }
+        });
+
+        document.addEventListener('click', function (e) {
+            const confirmBtn = e.target.closest('#btnConfirmFacturar');
+            const modal = document.getElementById('facturarConfirmModal');
+            if (!confirmBtn || !modal) return;
+            e.preventDefault();
+
+            modal.classList.remove('active');
+
+            if (pendingFacturarFromModal) {
+                pendingFacturarFromModal = false;
+                const actionInput = document.getElementById('reparacionFormAction');
+                if (actionInput) actionInput.value = 'save_and_facturar';
+
+                const estadoSelect = document.getElementById('orderEstadoSelect');
+                if (estadoSelect) estadoSelect.value = 'finalizada';
+
+                if (typeof renderRepTotalsSummary === 'function') {
+                    renderRepTotalsSummary();
+                }
+                const formToSubmit = document.getElementById('reparacionForm');
+                if (formToSubmit) formToSubmit.submit();
+            } else if (pendingFacturarUrl) {
+                const targetUrl = pendingFacturarUrl;
+                pendingFacturarUrl = null;
+                window.location.href = targetUrl;
+            }
+        });
+
         // Filter & Search table
         const searchInput = document.getElementById('tallerSearchReparaciones');
         const stateFilter = document.getElementById('tallerFilterEstado');
@@ -856,6 +1013,7 @@ if (window.__tallerProLoaded) {
         document.addEventListener('change', function (e) {
             const statusSelect = e.target.closest('.tallerpro-status-select');
             if (!statusSelect) return;
+            if (statusSelect.classList.contains('tallerpro-invoice-status-select')) return; // Manejado por el flujo de facturas
 
             const newEstado = statusSelect.value;
             const rowid = statusSelect.getAttribute('data-id');
@@ -886,12 +1044,11 @@ if (window.__tallerProLoaded) {
             if (newEstado === 'finalizada' && !hasFactura) {
                 if (!existingFacturarBtn && actionsDiv) {
                     const facturarBtn = document.createElement('a');
-                    facturarBtn.href = tr.getAttribute('data-facturar-url') || (window.location.pathname + '?action=facturar_reparacion&rowid=' + rowid);
+                    const targetUrl = tr.getAttribute('data-facturar-url') || (window.location.pathname + '?action=facturar_reparacion&rowid=' + rowid);
+                    facturarBtn.href = targetUrl;
+                    facturarBtn.setAttribute('data-facturar-url', targetUrl);
                     facturarBtn.className = 'tallerpro-btn-facturar-action';
                     facturarBtn.title = 'Emitir Factura oficial de esta reparación';
-                    facturarBtn.onclick = function () {
-                        return confirm('¿Deseas generar la factura oficial de Dolibarr para esta reparación?');
-                    };
                     facturarBtn.innerHTML = `
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -936,6 +1093,193 @@ if (window.__tallerProLoaded) {
                 }
             }).catch(function (err) {
                 console.error('Error al actualizar estado:', err);
+            });
+        });
+
+        // =========================================================================
+        // Gestión de Cambio de Estado en Facturas con Pop-ups de Confirmación
+        // =========================================================================
+        let pendingInvoiceStateChange = null;
+
+        document.addEventListener('change', function (e) {
+            const invSelect = e.target.closest('.tallerpro-invoice-status-select');
+            if (!invSelect) return;
+
+            const rowid = invSelect.getAttribute('data-id');
+            const oldEstado = invSelect.getAttribute('data-current-estado') || 'Borrador';
+            const newEstado = invSelect.value;
+            const ref = invSelect.getAttribute('data-ref') || '';
+            const tr = invSelect.closest('tr');
+
+            if (newEstado === oldEstado) return;
+
+            // Regla de facturas: no se puede revertir una factura emitida a Borrador
+            if (newEstado === 'Borrador') {
+                invSelect.value = oldEstado;
+                if (typeof window.showTallerToast === 'function') {
+                    window.showTallerToast('Una factura emitida no puede volver a estado Borrador', 'error');
+                }
+                return;
+            }
+
+            pendingInvoiceStateChange = {
+                select: invSelect,
+                rowid: rowid,
+                oldEstado: oldEstado,
+                newEstado: newEstado,
+                ref: ref,
+                tr: tr
+            };
+
+            if (newEstado === 'Pendiente') {
+                const modal = document.getElementById('pendienteConfirmModal');
+                const desc = document.getElementById('pendienteModalDesc');
+                if (desc) {
+                    if (oldEstado === 'Borrador') {
+                        desc.textContent = 'Se validará la factura borrador ' + (ref ? '(' + ref + ') ' : '') + 'y se le asignará su número fiscal oficial en Dolibarr.';
+                    } else {
+                        desc.textContent = 'La factura ' + (ref ? '(' + ref + ') ' : '') + 'se marcará como pendiente de cobro en el sistema.';
+                    }
+                }
+                if (modal) modal.classList.add('active');
+            } else if (newEstado === 'Pagada') {
+                const modal = document.getElementById('pagadaConfirmModal');
+                const desc = document.getElementById('pagadaModalDesc');
+                if (desc) {
+                    if (oldEstado === 'Borrador') {
+                        desc.textContent = 'Se validará la factura oficial ' + (ref ? '(' + ref + ') ' : '') + 'y se registrará el cobro total en el sistema.';
+                    } else {
+                        desc.textContent = 'Se registrará el cobro completo de la factura ' + (ref ? '(' + ref + ') ' : '') + 'en el sistema.';
+                    }
+                }
+                if (modal) modal.classList.add('active');
+            }
+        });
+
+        // Cancelar / Rechazar cambio de estado en factura
+        document.addEventListener('click', function (e) {
+            const cancelPendiente = e.target.closest('#btnCancelPendiente');
+            const modalPendiente = document.getElementById('pendienteConfirmModal');
+            if (cancelPendiente || (modalPendiente && e.target === modalPendiente)) {
+                if (modalPendiente) modalPendiente.classList.remove('active');
+                if (pendingInvoiceStateChange && pendingInvoiceStateChange.select) {
+                    pendingInvoiceStateChange.select.value = pendingInvoiceStateChange.oldEstado;
+                }
+                pendingInvoiceStateChange = null;
+            }
+
+            const cancelPagada = e.target.closest('#btnCancelPagada');
+            const modalPagada = document.getElementById('pagadaConfirmModal');
+            if (cancelPagada || (modalPagada && e.target === modalPagada)) {
+                if (modalPagada) modalPagada.classList.remove('active');
+                if (pendingInvoiceStateChange && pendingInvoiceStateChange.select) {
+                    pendingInvoiceStateChange.select.value = pendingInvoiceStateChange.oldEstado;
+                }
+                pendingInvoiceStateChange = null;
+            }
+        });
+
+        // Confirmar cambio de estado en factura (Pendiente o Pagada)
+        document.addEventListener('click', function (e) {
+            const confirmPendiente = e.target.closest('#btnConfirmPendiente');
+            const confirmPagada = e.target.closest('#btnConfirmPagada');
+            if (!confirmPendiente && !confirmPagada) return;
+
+            if (!pendingInvoiceStateChange) return;
+
+            const { select, rowid, oldEstado, newEstado, tr } = pendingInvoiceStateChange;
+            const modalToClose = confirmPendiente ? document.getElementById('pendienteConfirmModal') : document.getElementById('pagadaConfirmModal');
+            const clickedBtn = confirmPendiente || confirmPagada;
+            clickedBtn.disabled = true;
+
+            const tokenInput = document.querySelector('#tallerGlobalDeleteForm input[name="token"]');
+            const token = tokenInput ? tokenInput.value : '';
+
+            const formData = new FormData();
+            formData.append('action', 'update_factura_estado');
+            formData.append('rowid', rowid);
+            formData.append('new_estado', newEstado);
+            formData.append('ajax', '1');
+            if (token) formData.append('token', token);
+
+            fetch(window.location.pathname, {
+                method: 'POST',
+                body: formData
+            })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                clickedBtn.disabled = false;
+                if (modalToClose) modalToClose.classList.remove('active');
+
+                if (data && data.success) {
+                    const finalEstado = data.new_estado || newEstado;
+                    select.setAttribute('data-current-estado', finalEstado);
+
+                    // Actualizar estilos del selector
+                    select.classList.remove('status-borrador', 'status-pendiente', 'status-pagada');
+                    if (finalEstado === 'Pagada') {
+                        select.classList.add('status-pagada');
+                    } else if (finalEstado === 'Pendiente') {
+                        select.classList.add('status-pendiente');
+                    } else {
+                        select.classList.add('status-borrador');
+                    }
+
+                    // Si dejó de ser borrador: actualizar opciones, número y deshabilitar edición/eliminación
+                    if (!data.is_borrador) {
+                        const borradorOpt = select.querySelector('option[value="Borrador"]');
+                        if (borradorOpt) borradorOpt.remove();
+
+                        if (data.ref && tr) {
+                            const refLink = tr.querySelector('.factura-ref-link') || tr.querySelector('td:first-child a');
+                            if (refLink) {
+                                refLink.textContent = data.ref;
+                            }
+                            select.setAttribute('data-ref', data.ref);
+                        }
+
+                        if (tr) {
+                            const editBtn = tr.querySelector('.btn-edit-factura');
+                            if (editBtn) {
+                                editBtn.disabled = true;
+                                editBtn.classList.add('is-disabled');
+                                editBtn.setAttribute('title', 'Solo se pueden editar facturas en estado Borrador');
+                                const editSvg = editBtn.querySelector('svg');
+                                if (editSvg) editSvg.setAttribute('stroke', '#cbd5e1');
+                            }
+                            const delBtn = tr.querySelector('.btn-delete-action');
+                            if (delBtn) {
+                                delBtn.disabled = true;
+                                delBtn.classList.add('is-disabled');
+                                delBtn.setAttribute('title', 'Solo se pueden eliminar facturas en estado Borrador');
+                            }
+                        }
+                    }
+
+                    if (tr) {
+                        tr.setAttribute('data-estado', finalEstado);
+                    }
+
+                    if (typeof window.showTallerToast === 'function') {
+                        window.showTallerToast('Estado de factura actualizado a ' + finalEstado);
+                    }
+                } else {
+                    select.value = oldEstado;
+                    if (typeof window.showTallerToast === 'function') {
+                        window.showTallerToast((data && data.error) || 'Error al actualizar el estado de la factura', 'error');
+                    }
+                }
+                pendingInvoiceStateChange = null;
+            })
+            .catch(function (err) {
+                clickedBtn.disabled = false;
+                if (modalToClose) modalToClose.classList.remove('active');
+                select.value = oldEstado;
+                console.error('Error al actualizar estado de factura:', err);
+                if (typeof window.showTallerToast === 'function') {
+                    window.showTallerToast('Error de conexión al actualizar estado', 'error');
+                }
+                pendingInvoiceStateChange = null;
             });
         });
 
@@ -1209,18 +1553,24 @@ if (window.__tallerProLoaded) {
 
             if (orderCosteMoHidden) orderCosteMoHidden.value = laborSum.toFixed(2);
             if (orderLineasJsonHidden) {
+                const orderNotasInput = document.getElementById('orderNotas');
+                const userNotes = orderNotasInput ? orderNotasInput.value.trim() : '';
+
                 orderLineasJsonHidden.value = JSON.stringify({
                     materiales: currentRepMaterials,
                     reparaciones: currentRepLabor,
                     descuento_global: descuento,
                     iva_porcentaje: ivaPorcentaje,
-                    total: grandTotal.toFixed(2)
+                    total: grandTotal.toFixed(2),
+                    notas_usuario: userNotes
                 });
             }
         }
 
         if (repTotDescuentoGlobal) repTotDescuentoGlobal.addEventListener('input', renderRepTotalsSummary);
         if (repTotIva) repTotIva.addEventListener('input', renderRepTotalsSummary);
+        const orderNotasField = document.getElementById('orderNotas');
+        if (orderNotasField) orderNotasField.addEventListener('input', renderRepTotalsSummary);
 
         // Añadir línea de Material
         if (btnAddRepMaterialLine) {
@@ -1379,6 +1729,8 @@ if (window.__tallerProLoaded) {
             }
             if (estadoSelect) estadoSelect.value = 'en_curso';
             if (averiaInput) averiaInput.value = '';
+            const orderNotasInput = document.getElementById('orderNotas');
+            if (orderNotasInput) orderNotasInput.value = '';
 
             if (repMatCatalogo) repMatCatalogo.value = '';
             if (repMatCodigo) repMatCodigo.value = '';
@@ -1510,6 +1862,19 @@ if (window.__tallerProLoaded) {
                 if (repTotIva) repTotIva.value = '21';
             }
 
+            const orderNotasInput = document.getElementById('orderNotas');
+            if (orderNotasInput) {
+                if (parsed && parsed.notas_usuario !== undefined) {
+                    orderNotasInput.value = parsed.notas_usuario;
+                } else if (parsed && parsed.notas && typeof parsed.notas === 'string') {
+                    orderNotasInput.value = parsed.notas;
+                } else if (notas && !notas.startsWith('{') && !notas.startsWith('[')) {
+                    orderNotasInput.value = notas;
+                } else {
+                    orderNotasInput.value = '';
+                }
+            }
+
             renderRepMaterialsTable();
             renderRepLaborTable();
             renderRepTotalsSummary();
@@ -1555,17 +1920,22 @@ if (window.__tallerProLoaded) {
                     if (averiaInput) averiaInput.focus();
                     return;
                 }
-                if (!confirm('¿Deseas guardar los cambios y emitir la factura oficial de Dolibarr para esta reparación?')) {
-                    return;
+                // Abrir modal propio de confirmación de facturación
+                pendingFacturarFromModal = true;
+                pendingFacturarUrl = null;
+                const modal = document.getElementById('facturarConfirmModal');
+                if (modal) {
+                    modal.classList.add('active');
+                } else {
+                    const actionInput = document.getElementById('reparacionFormAction');
+                    if (actionInput) actionInput.value = 'save_and_facturar';
+
+                    const estadoSelect = document.getElementById('orderEstadoSelect');
+                    if (estadoSelect) estadoSelect.value = 'finalizada';
+
+                    renderRepTotalsSummary();
+                    repForm.submit();
                 }
-                const actionInput = document.getElementById('reparacionFormAction');
-                if (actionInput) actionInput.value = 'save_and_facturar';
-
-                const estadoSelect = document.getElementById('orderEstadoSelect');
-                if (estadoSelect) estadoSelect.value = 'finalizada';
-
-                renderRepTotalsSummary();
-                repForm.submit();
             });
         }
 
@@ -1692,6 +2062,23 @@ if (window.__tallerProLoaded) {
                     globalSearchInput.value = '';
                     resetDashboardView();
                     globalSearchInput.blur();
+                }
+            });
+        }
+
+        // ==========================================
+        // Configuracion: Toggle Switch Mostrar IBAN
+        // ==========================================
+        var ibanSwitch = document.getElementById('taller_mostrar_iban');
+        var ibanStatus = document.getElementById('taller_mostrar_iban_status');
+        if (ibanSwitch && ibanStatus) {
+            ibanSwitch.addEventListener('change', function () {
+                if (this.checked) {
+                    ibanStatus.textContent = 'Activado (se mostrará en facturas emitidas)';
+                    ibanStatus.className = 'tallerpro-switch-label is-active';
+                } else {
+                    ibanStatus.textContent = 'Desactivado (oculto en facturas emitidas)';
+                    ibanStatus.className = 'tallerpro-switch-label is-inactive';
                 }
             });
         }
