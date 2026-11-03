@@ -278,6 +278,21 @@ if (window.__tallerProLoaded) {
             });
         });
 
+        // Auto-activar pestaña si viene en la URL (?tab=facturas o #tab-materiales)
+        try {
+            const urlParamsTab = new URLSearchParams(window.location.search);
+            const queryTab = urlParamsTab.get('tab');
+            const hashTab = window.location.hash ? window.location.hash.replace('#', '') : '';
+            const activeTabName = hashTab || queryTab;
+            if (activeTabName) {
+                const targetBtn = document.querySelector(`.tallerpro-tab-btn[data-tab="${activeTabName}"]`) ||
+                                  document.querySelector(`.tallerpro-tab-btn[data-tab="tab-${activeTabName}"]`);
+                if (targetBtn) {
+                    targetBtn.click();
+                }
+            }
+        } catch (err) {}
+
         // Materiales Modal handling (Create & Edit)
         const matModal = document.getElementById('tallerMaterialModal');
         const matForm = document.getElementById('tallerMaterialForm');
@@ -2179,6 +2194,16 @@ if (window.__tallerProLoaded) {
             });
         }
 
+        // Auto-abrir modal si viene un vehículo preseleccionado en la URL
+        const preselectedVeh = document.getElementById('orderVehiculoSelect')?.getAttribute('data-preselected');
+        if (preselectedVeh && parseInt(preselectedVeh) > 0) {
+            setTimeout(function () {
+                if (openRepModalBtn) openRepModalBtn.click();
+                const vehSelect = document.getElementById('orderVehiculoSelect');
+                if (vehSelect) vehSelect.value = preselectedVeh;
+            }, 100);
+        }
+
         // Dashboard Global Search (In-Page integrated results)
         const globalSearchInput = document.getElementById('tallerGlobalSearchInput');
         const searchResultsContainer = document.getElementById('tallerDashboardSearchResults');
@@ -2292,9 +2317,3 @@ if (window.__tallerProLoaded) {
     }); // Cierre DOMContentLoaded
 
 } // Cierre if window.__tallerProLoaded
-
-
-
-
-
-
