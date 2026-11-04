@@ -103,16 +103,8 @@ custom/taller/
 ├── facturas.php            # Ciclo de facturación oficial y vista documental
 ├── configuracion.php       # Panel de configuración y parámetros del taller
 ├── tallerindex.php         # Dashboard principal con métricas y KPIs
-├── MEJORAS_POSIBLES.md     # Hoja de ruta y backlog de futuras funcionalidades
 └── README.md               # Documentación general del módulo
 ```
-
----
-
-## Hoja de Ruta y Futuras Mejoras
-
-Para consultar el backlog detallado con propuestas de evolución (croquis interactivo de inspección de daños, firma digital táctil, avisos por WhatsApp, control de tiempos de mecánicos y planificación de boxes), consulta el documento:
-👉 **[MEJORAS_POSIBLES.md](MEJORAS_POSIBLES.md)**
 
 ---
 
