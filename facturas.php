@@ -134,6 +134,15 @@ if ($action == 'get_next_factura_numero') {
 
 // Acción: Crear Factura Nativa en Dolibarr
 if ($action == 'create_factura' || $action == 'add_factura') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
 	$fecha = trim(GETPOST('fecha', 'alpha'));
 	if (empty($fecha) && !empty($_POST['fecha'])) {
 		$fecha = trim($_POST['fecha']);
@@ -208,6 +217,15 @@ if ($action == 'create_factura' || $action == 'add_factura') {
 
 // Acción: Actualizar Factura
 if ($action == 'update_factura' || $action == 'edit_factura') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
 	$rowid = GETPOSTINT('rowid');
 	if (empty($rowid) && !empty($_POST['rowid'])) {
 		$rowid = (int) $_POST['rowid'];
@@ -251,7 +269,14 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 
 			$old_ref = $fac->ref;
 
-			// Regla: mientras la factura esté en estado borrador solo se le puede editar el estado
+			// Actualizar Fecha y Notas (públicas) en la factura borrador
+			if (!empty($fecha)) {
+				$fac->date = dol_stringtotime($fecha);
+			}
+			$fac->note_public = $notas;
+			$fac->update($user);
+
+			// Actualizar el estado si se cambia a Pendiente o Pagada
 			if ($estado == 'Pendiente' || $estado == 'Pagada') {
 				$res_val = $fac->validate($user);
 				if ($res_val >= 0) {
@@ -283,6 +308,17 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 
 // Acción: Cambiar Estado de Factura directamente desde la tabla (Borrador -> Pendiente / Pagada, Pendiente <-> Pagada)
 if ($action == 'update_factura_estado' || $action == 'update_estado') {
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		if (GETPOST('ajax', 'int') || !empty($_POST['ajax']) || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+			header('Content-Type: application/json');
+			echo json_encode(array('success' => false, 'error' => 'Token de seguridad inválido'));
+			exit;
+		}
+		accessforbidden('Invalid security token');
+	}
+
 	$rowid = GETPOSTINT('rowid');
 	if (empty($rowid) && !empty($_POST['rowid'])) {
 		$rowid = (int) $_POST['rowid'];
@@ -481,6 +517,14 @@ if ($action == 'get_factura_lineas') {
 
 // AJAX: Añadir línea (Material o Reparación)
 if ($action == 'add_factura_linea') {
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		header('Content-Type: application/json');
+		echo json_encode(array('status' => 'error', 'message' => 'Token de seguridad inválido'));
+		exit;
+	}
+
 	$fk_factura = GETPOSTINT('fk_factura');
 	if (empty($fk_factura) && !empty($_POST['fk_factura'])) {
 		$fk_factura = (int) $_POST['fk_factura'];
@@ -557,11 +601,10 @@ if ($action == 'add_factura_linea') {
 		exit;
 	}
 
-	$saved_ref = $fac->ref;
-	$was_validated = ($fac->status == Facture::STATUS_VALIDATED || $fac->status == Facture::STATUS_CLOSED);
-	$was_paid = ($fac->status == Facture::STATUS_CLOSED || $fac->paye == 1);
-	if ($was_validated) {
-		$fac->setDraft($user);
+	if ($fac->statut != Facture::STATUS_DRAFT) {
+		header('Content-Type: application/json');
+		echo json_encode(array('status' => 'error', 'message' => 'Solo se pueden añadir líneas a facturas en estado Borrador'));
+		exit;
 	}
 
 	// Anti-duplicate protection: avoid inserting the exact same line within 3 seconds
@@ -569,10 +612,6 @@ if ($action == 'add_factura_linea') {
 	foreach ($fac->lines as $existing_line) {
 		if ($existing_line->desc == $descripcion && $existing_line->qty == $cantidad && $existing_line->subprice == $precio) {
 			if (abs(dol_now() - $existing_line->date_creation) <= 3) {
-				if ($was_validated) {
-					$fac->validate($user, $saved_ref);
-					if ($was_paid) $fac->setPaid($user);
-				}
 				header('Content-Type: application/json');
 				echo json_encode(array(
 					'status' => 'ok',
@@ -615,13 +654,6 @@ if ($action == 'add_factura_linea') {
 	$tva_tx = 21.0;
 	$line_id = $fac->addline($descripcion, $precio, $cantidad, $tva_tx, 0, 0, $fk_product_line, $descuento, '', '', 0, 0, 0, 'HT', 0, $product_type, -1, 0, '', 0, 0, null, 0, '', array(), 100, 0, null, 0, $codigo, 0);
 
-	if ($was_validated) {
-		$fac->validate($user, $saved_ref);
-		if ($was_paid) {
-			$fac->setPaid($user);
-		}
-	}
-
 	if ($line_id > 0) {
 		$fac->fetch($fk_factura);
 		header('Content-Type: application/json');
@@ -641,6 +673,14 @@ if ($action == 'add_factura_linea') {
 
 // AJAX: Eliminar línea
 if ($action == 'delete_factura_linea') {
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		header('Content-Type: application/json');
+		echo json_encode(array('status' => 'error', 'message' => 'Token de seguridad inválido o expirado'));
+		exit;
+	}
+
 	$linea_id = GETPOSTINT('linea_id');
 	if (empty($linea_id) && !empty($_POST['linea_id'])) {
 		$linea_id = (int) $_POST['linea_id'];
@@ -653,19 +693,12 @@ if ($action == 'delete_factura_linea') {
 	if ($fk_factura > 0 && $linea_id > 0) {
 		$fac = new Facture($db);
 		if ($fac->fetch($fk_factura) > 0) {
-			$saved_ref = $fac->ref;
-			$was_validated = ($fac->status == Facture::STATUS_VALIDATED || $fac->status == Facture::STATUS_CLOSED);
-			$was_paid = ($fac->status == Facture::STATUS_CLOSED || $fac->paye == 1);
-			if ($was_validated) {
-				$fac->setDraft($user);
+			if ($fac->statut != Facture::STATUS_DRAFT) {
+				header('Content-Type: application/json');
+				echo json_encode(array('status' => 'error', 'message' => 'Solo se pueden eliminar líneas de facturas en estado Borrador'));
+				exit;
 			}
 			$fac->deleteline($linea_id, $fac->id);
-			if ($was_validated) {
-				$fac->validate($user, $saved_ref);
-				if ($was_paid) {
-					$fac->setPaid($user);
-				}
-			}
 			$fac->fetch($fk_factura);
 			header('Content-Type: application/json');
 			echo json_encode(array('status' => 'ok', 'new_total' => (float) $fac->total_ttc));
@@ -673,12 +706,20 @@ if ($action == 'delete_factura_linea') {
 		}
 	}
 	header('Content-Type: application/json');
-	echo json_encode(array('status' => 'ok'));
+	echo json_encode(array('status' => 'error', 'message' => 'No se pudo eliminar la línea'));
 	exit;
 }
 
 // AJAX: Guardar totales de factura
 if ($action == 'save_factura_totales') {
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		header('Content-Type: application/json');
+		echo json_encode(array('status' => 'error', 'message' => 'Token de seguridad inválido o expirado'));
+		exit;
+	}
+
 	$fk_factura = GETPOSTINT('fk_factura');
 	if (empty($fk_factura) && !empty($_POST['fk_factura'])) {
 		$fk_factura = (int) $_POST['fk_factura'];
@@ -693,23 +734,16 @@ if ($action == 'save_factura_totales') {
 	if ($fk_factura > 0) {
 		$fac = new Facture($db);
 		if ($fac->fetch($fk_factura) > 0) {
-			$saved_ref = $fac->ref;
-			$was_validated = ($fac->status == Facture::STATUS_VALIDATED || $fac->status == Facture::STATUS_CLOSED);
-			$was_paid = ($fac->status == Facture::STATUS_CLOSED || $fac->paye == 1);
-			if ($was_validated) {
-				$fac->setDraft($user);
+			if ($fac->statut != Facture::STATUS_DRAFT) {
+				header('Content-Type: application/json');
+				echo json_encode(array('status' => 'error', 'message' => 'Solo se pueden modificar totales de facturas en estado Borrador'));
+				exit;
 			}
 			if ($descuento_global >= 0) {
 				$fac->remise_percent = $descuento_global;
 				$fac->update($user);
 			}
 			$fac->update_price();
-			if ($was_validated) {
-				$fac->validate($user, $saved_ref);
-				if ($was_paid) {
-					$fac->setPaid($user);
-				}
-			}
 			$fac->fetch($fk_factura);
 			header('Content-Type: application/json');
 			echo json_encode(array('status' => 'ok', 'new_total' => (float) $fac->total_ttc));
@@ -986,6 +1020,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<span class="tallerpro-nav-text"><?php echo $langs->trans("Facturas"); ?></span>
 						</a>
 					</li>
+					<?php if (!empty($user->admin)): ?>
 					<li>
 						<a href="<?php echo $setup_url; ?>" class="tallerpro-nav-item">
 							<span class="tallerpro-nav-icon">
@@ -997,6 +1032,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<span class="tallerpro-nav-text"><?php echo $langs->trans("Configuracion"); ?></span>
 						</a>
 					</li>
+					<?php endif; ?>
 				</ul>
 			</div>
 		</div>
@@ -1028,7 +1064,17 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 			</button>
 			<div class="tallerpro-topbar-brand">
 				<span class="tallerpro-topbar-dot">•</span>
-				<span class="tallerpro-topbar-title">TallerPro</span>
+				<div class="tallerpro-topbar-breadcrumb">
+					<a href="<?php echo $index_url; ?>" class="tallerpro-topbar-breadcrumb-parent">TallerPro</a>
+					<span class="tallerpro-topbar-breadcrumb-sep">/</span>
+					<?php if ($view_id > 0 && $factura_single): ?>
+						<a href="<?php echo $facturas_url; ?>" class="tallerpro-topbar-breadcrumb-parent"><?php echo $langs->trans("Facturas"); ?></a>
+						<span class="tallerpro-topbar-breadcrumb-sep">/</span>
+						<span class="tallerpro-topbar-breadcrumb-current"><?php echo dol_escape_htmltag($factura_single->numero_factura); ?></span>
+					<?php else: ?>
+						<span class="tallerpro-topbar-breadcrumb-current"><?php echo $langs->trans("Facturas"); ?></span>
+					<?php endif; ?>
+				</div>
 			</div>
 			<div class="tallerpro-topbar-right"></div>
 		</header>
@@ -1458,13 +1504,13 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				<input type="hidden" name="rowid" id="facturaFormRowid" value="0">
 
 				<!-- Aviso para facturas en estado borrador -->
-				<div id="facEditNotice" style="display: none; padding: 10px 14px; margin-bottom: 16px; background: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #dc2626; border-radius: 8px; font-size: 13px; color: #991b1b; line-height: 1.45;">
-					<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 5px;">
+				<div id="facEditNotice" style="display: none; padding: 10px 14px; margin-bottom: 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-left: 4px solid #2563eb; border-radius: 8px; font-size: 13px; color: #1e40af; line-height: 1.45;">
+					<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 5px;">
 						<circle cx="12" cy="12" r="10"></circle>
 						<line x1="12" y1="16" x2="12" y2="12"></line>
 						<line x1="12" y1="8" x2="12.01" y2="8"></line>
 					</svg>
-					<strong>Factura en borrador:</strong> Solo se permite modificar el estado para validarla (Pendiente o Pagada).
+					<strong>Edición de factura:</strong> Es posible modificar la fecha, las notas y el estado.
 				</div>
 
 				<div class="tallerpro-form-group">

@@ -292,6 +292,15 @@ if (empty($action) && !empty($_POST['action'])) {
 
 // Acción: Crear Reparación
 if ($action == 'create_reparacion' || $action == 'add_reparacion') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
 	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
 	if (empty($fk_vehiculo) && !empty($_POST['fk_vehiculo'])) {
 		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
@@ -365,6 +374,15 @@ if ($action == 'create_reparacion' || $action == 'add_reparacion') {
 
 // Acción: Actualizar Reparación
 if ($action == 'update_reparacion' || $action == 'edit_reparacion') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
 	$rowid = GETPOSTINT('rowid');
 	if (empty($rowid) && !empty($_POST['rowid'])) {
 		$rowid = (int) $_POST['rowid'];
@@ -442,6 +460,17 @@ if ($action == 'update_reparacion' || $action == 'edit_reparacion') {
 
 // Acción: Cambiar Estado directamente desde la tabla
 if ($action == 'toggle_estado' || $action == 'update_estado') {
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		if (GETPOST('ajax', 'int') || !empty($_POST['ajax']) || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+			header('Content-Type: application/json');
+			echo json_encode(array('success' => false, 'error' => 'Token de seguridad inválido'));
+			exit;
+		}
+		accessforbidden('Invalid security token');
+	}
+
 	$rowid = GETPOSTINT('rowid');
 	if (empty($rowid) && !empty($_POST['rowid'])) {
 		$rowid = (int) $_POST['rowid'];
@@ -472,6 +501,12 @@ if ($action == 'toggle_estado' || $action == 'update_estado') {
 
 // Acción: Facturar Reparación (Convierte la orden de reparación en Factura oficial de Dolibarr)
 if ($action == 'facturar_reparacion' || $action == 'facturar') {
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
 	$rowid = GETPOSTINT('rowid');
 	if (empty($rowid) && !empty($_POST['rowid'])) {
 		$rowid = (int) $_POST['rowid'];
@@ -587,6 +622,15 @@ if ($action == 'facturar_reparacion' || $action == 'facturar') {
 
 // Acción: Guardar cambios y Facturar desde el modal
 if ($action == 'save_and_facturar') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
 	$rowid = GETPOSTINT('rowid');
 	if (empty($rowid) && !empty($_POST['rowid'])) {
 		$rowid = (int) $_POST['rowid'];
@@ -633,7 +677,8 @@ if ($action == 'save_and_facturar') {
 			}
 		}
 
-		header("Location: " . $_SERVER['PHP_SELF'] . "?action=facturar_reparacion&rowid=" . $target_rep_id);
+		$token_val = (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : ''));
+		header("Location: " . $_SERVER['PHP_SELF'] . "?action=facturar_reparacion&rowid=" . $target_rep_id . "&token=" . $token_val);
 		exit;
 	}
 }
@@ -862,6 +907,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<span class="tallerpro-nav-text"><?php echo $langs->trans("Facturas"); ?></span>
 						</a>
 					</li>
+					<?php if (!empty($user->admin)): ?>
 					<li>
 						<a href="<?php echo $setup_url; ?>" class="tallerpro-nav-item">
 							<span class="tallerpro-nav-icon">
@@ -873,6 +919,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<span class="tallerpro-nav-text"><?php echo $langs->trans("Configuracion"); ?></span>
 						</a>
 					</li>
+					<?php endif; ?>
 				</ul>
 			</div>
 		</div>
@@ -923,12 +970,12 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<p class="tallerpro-page-subtitle" id="reparacionesCountSubtitle" style="color: #64748b; font-size: 13.5px; margin: 0;"><?php echo !empty($reparaciones_list) ? count($reparaciones_list) : 4; ?> órdenes registradas</p>
 					</div>
 					<div>
-						<button type="button" class="tallerpro-btn-primary" id="tallerOpenModalBtn" style="padding: 10px 18px; font-size: 14px; font-weight: 600; border-radius: 8px; display: inline-flex; align-items: center; gap: 8px;">
-							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+						<button type="button" class="tallerpro-btn-primary" id="tallerOpenModalBtn">
+							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
 								<line x1="12" y1="5" x2="12" y2="19"></line>
 								<line x1="5" y1="12" x2="19" y2="12"></line>
 							</svg>
-							<span>Nueva Reparación</span>
+							<span>Añadir</span>
 						</button>
 					</div>
 				</div>

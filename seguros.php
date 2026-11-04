@@ -91,6 +91,15 @@ if (empty($action) && !empty($_POST['action'])) {
 
 // Acción: Crear Seguro
 if ($action == 'create_seguro' || $action == 'add_seguro') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
 	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
 	if (empty($fk_vehiculo) && !empty($_POST['fk_vehiculo'])) {
 		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
@@ -165,6 +174,15 @@ if ($action == 'create_seguro' || $action == 'add_seguro') {
 
 // Acción: Actualizar Seguro
 if ($action == 'update_seguro' || $action == 'edit_seguro') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
 	$rowid = GETPOSTINT('rowid');
 	if (empty($rowid) && !empty($_POST['rowid'])) {
 		$rowid = (int) $_POST['rowid'];
@@ -441,6 +459,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<span class="tallerpro-nav-text"><?php echo $langs->trans("Facturas"); ?></span>
 						</a>
 					</li>
+					<?php if (!empty($user->admin)): ?>
 					<li>
 						<a href="<?php echo $setup_url; ?>" class="tallerpro-nav-item">
 							<span class="tallerpro-nav-icon">
@@ -452,6 +471,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<span class="tallerpro-nav-text"><?php echo $langs->trans("Configuracion"); ?></span>
 						</a>
 					</li>
+					<?php endif; ?>
 				</ul>
 			</div>
 		</div>
@@ -483,7 +503,11 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 			</button>
 			<div class="tallerpro-topbar-brand">
 				<span class="tallerpro-topbar-dot">•</span>
-				<span class="tallerpro-topbar-title">TallerPro</span>
+				<div class="tallerpro-topbar-breadcrumb">
+					<a href="<?php echo $index_url; ?>" class="tallerpro-topbar-breadcrumb-parent">TallerPro</a>
+					<span class="tallerpro-topbar-breadcrumb-sep">/</span>
+					<span class="tallerpro-topbar-breadcrumb-current"><?php echo $langs->trans("Seguros"); ?></span>
+				</div>
 			</div>
 			<div class="tallerpro-topbar-right"></div>
 		</header>
@@ -626,7 +650,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 
 	<!-- Modal Registro Seguros -->
 	<div class="tallerpro-modal-backdrop" id="tallerSeguroModal">
-		<div class="tallerpro-modal-card">
+		<div class="tallerpro-modal-card" style="max-width: 540px;">
 			<div class="tallerpro-modal-header">
 				<h2 class="tallerpro-modal-title" id="tallerSeguroModalTitle">Nuevo registro</h2>
 				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="Cerrar">
@@ -661,16 +685,25 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<input type="text" name="poliza" id="seg_poliza" class="tallerpro-form-input" />
 				</div>
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Tipo</label>
-					<input type="text" name="tipo" id="seg_tipo" class="tallerpro-form-input" placeholder="Todo riesgo, terceros..." />
+					<label class="tallerpro-form-label">Tipo de seguro</label>
+					<select name="tipo" id="seg_tipo" class="tallerpro-form-select">
+						<option value="Responsabilidad civil obligatoria">Responsabilidad civil obligatoria</option>
+						<option value="Terceros básico">Terceros básico</option>
+						<option value="Terceros ampliado">Terceros ampliado</option>
+						<option value="Todo riesgo con franquicia">Todo riesgo con franquicia</option>
+						<option value="Todo riesgo sin franquicia">Todo riesgo sin franquicia</option>
+						<option value="Otro / No especificado" selected>Otro / No especificado</option>
+					</select>
 				</div>
-				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Inicio</label>
-					<input type="date" name="fecha_inicio" id="seg_fecha_inicio" class="tallerpro-form-input" />
-				</div>
-				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Fin</label>
-					<input type="date" name="fecha_fin" id="seg_fecha_fin" class="tallerpro-form-input" />
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+					<div class="tallerpro-form-group">
+						<label class="tallerpro-form-label">Inicio</label>
+						<input type="date" name="fecha_inicio" id="seg_fecha_inicio" class="tallerpro-form-input" />
+					</div>
+					<div class="tallerpro-form-group">
+						<label class="tallerpro-form-label">Fin</label>
+						<input type="date" name="fecha_fin" id="seg_fecha_fin" class="tallerpro-form-input" />
+					</div>
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Teléfono</label>

@@ -1,5 +1,8 @@
 #!/usr/bin/env php -d memory_limit=256M
 <?php
+if (php_sapi_name() !== 'cli') {
+	die("Este script solo puede ejecutarse desde la línea de comandos (CLI).\n");
+}
 /**
  * buildzip.php
  *

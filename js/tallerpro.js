@@ -293,6 +293,52 @@ if (window.__tallerProLoaded) {
             }
         } catch (err) {}
 
+        // Clientes Modal handling (Create & Edit)
+        const clientModal = document.getElementById('tallerClientModal');
+        const clientForm = document.getElementById('tallerClientForm');
+        const clientModalTitle = document.getElementById('tallerClientModalTitle');
+        const clientFormAction = document.getElementById('clientFormAction');
+        const clientFormSocid = document.getElementById('clientFormSocid');
+        const addClientBtn = document.getElementById('tallerOpenModalBtn');
+
+        if (addClientBtn && clientForm && clientModal) {
+            addClientBtn.addEventListener('click', function () {
+                clientForm.reset();
+                if (clientModalTitle) clientModalTitle.textContent = 'Nuevo registro de cliente';
+                if (clientFormAction) clientFormAction.value = 'create_client';
+                if (clientFormSocid) clientFormSocid.value = '0';
+            });
+        }
+
+        const editClientBtns = document.querySelectorAll('.btn-edit-client');
+        editClientBtns.forEach(function (btn) {
+            btn.addEventListener('click', function (e) {
+                e.preventDefault();
+                if (!clientModal || !clientForm) return;
+
+                if (clientModalTitle) clientModalTitle.textContent = 'Editar cliente';
+                if (clientFormAction) clientFormAction.value = 'update_client';
+                if (clientFormSocid) clientFormSocid.value = btn.dataset.id || '0';
+
+                const clientName = document.getElementById('client_name');
+                const clientPhone = document.getElementById('client_phone');
+                const clientEmail = document.getElementById('client_email');
+                const clientCif = document.getElementById('client_cif');
+                const clientAddress = document.getElementById('client_address');
+                const clientNotes = document.getElementById('client_notes');
+
+                if (clientName) clientName.value = btn.dataset.name || '';
+                if (clientPhone) clientPhone.value = btn.dataset.phone || '';
+                if (clientEmail) clientEmail.value = btn.dataset.email || '';
+                if (clientCif) clientCif.value = btn.dataset.cif || '';
+                if (clientAddress) clientAddress.value = btn.dataset.address || '';
+                if (clientNotes) clientNotes.value = btn.dataset.notes || '';
+
+                clientModal.classList.add('active');
+                if (clientName) clientName.focus();
+            });
+        });
+
         // Materiales Modal handling (Create & Edit)
         const matModal = document.getElementById('tallerMaterialModal');
         const matForm = document.getElementById('tallerMaterialForm');
@@ -355,6 +401,8 @@ if (window.__tallerProLoaded) {
                 if (segModalTitle) segModalTitle.textContent = 'Nuevo registro';
                 if (segFormAction) segFormAction.value = 'create_seguro';
                 if (segFormRowid) segFormRowid.value = '0';
+                const segTipo = document.getElementById('seg_tipo');
+                if (segTipo) segTipo.value = 'Otro / No especificado';
             });
         }
 
@@ -365,6 +413,8 @@ if (window.__tallerProLoaded) {
             if (segModalTitle) segModalTitle.textContent = 'Nuevo registro';
             if (segFormAction) segFormAction.value = 'create_seguro';
             if (segFormRowid) segFormRowid.value = '0';
+            const segTipo = document.getElementById('seg_tipo');
+            if (segTipo) segTipo.value = 'Otro / No especificado';
             segModal.classList.add('active');
         }
 
@@ -390,7 +440,20 @@ if (window.__tallerProLoaded) {
                 if (segVehiculo) segVehiculo.value = btn.dataset.vehiculo || '';
                 if (segCompania) segCompania.value = btn.dataset.compania || '';
                 if (segPoliza) segPoliza.value = btn.dataset.poliza || '';
-                if (segTipo) segTipo.value = btn.dataset.tipo || '';
+                if (segTipo) {
+                    const tipoVal = (btn.dataset.tipo || '').trim();
+                    let found = false;
+                    for (let i = 0; i < segTipo.options.length; i++) {
+                        if (segTipo.options[i].value === tipoVal) {
+                            segTipo.selectedIndex = i;
+                            found = true;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        segTipo.value = 'Otro / No especificado';
+                    }
+                }
                 if (segFechaInicio) segFechaInicio.value = btn.dataset.fechainicio || '';
                 if (segFechaFin) segFechaFin.value = btn.dataset.fechafin || '';
                 if (segTelefono) segTelefono.value = btn.dataset.telefono || '';
@@ -591,7 +654,7 @@ if (window.__tallerProLoaded) {
                 e.preventDefault();
                 if (!facModal || !facForm) return;
 
-                if (facModalTitle) facModalTitle.textContent = 'Editar estado de factura';
+                if (facModalTitle) facModalTitle.textContent = 'Editar factura';
                 if (facFormAction) facFormAction.value = 'update_factura';
                 if (facFormRowid) facFormRowid.value = btn.dataset.id || '0';
 
@@ -605,19 +668,20 @@ if (window.__tallerProLoaded) {
                     facNumero.readOnly = true;
                 }
 
-                // Mientras la factura esté en estado borrador solo se puede editar el estado:
-                // Bloquear el resto de campos (Fecha, Cliente, Vehículo, Total, Notas)
+                // Fecha: editable
                 if (facFecha) {
                     facFecha.value = btn.dataset.fecha || '';
-                    facFecha.readOnly = true;
-                    facFecha.style.pointerEvents = 'none';
-                    facFecha.style.backgroundColor = '#f8fafc';
-                    facFecha.style.color = '#64748b';
+                    facFecha.readOnly = false;
+                    facFecha.disabled = false;
+                    facFecha.style.pointerEvents = '';
+                    facFecha.style.backgroundColor = '#ffffff';
+                    facFecha.style.color = '#0f172a';
                 }
 
                 const clientSocId = btn.dataset.soc || '';
                 const vehicleId = btn.dataset.vehiculo || '';
 
+                // Cliente y Vehículo permanecen bloqueados (solo lectura)
                 if (facSoc) {
                     facSoc.value = clientSocId;
                     facSoc.disabled = true;
@@ -633,6 +697,7 @@ if (window.__tallerProLoaded) {
                     facVehiculo.style.color = '#64748b';
                 }
 
+                // Total: bloqueado (calculado por las líneas de factura)
                 if (facTotal) {
                     facTotal.value = btn.dataset.total || '0.00';
                     facTotal.readOnly = true;
@@ -640,24 +705,26 @@ if (window.__tallerProLoaded) {
                     facTotal.style.backgroundColor = '#f8fafc';
                     facTotal.style.color = '#64748b';
                 }
+
+                // Notas: editable
                 if (facNotas) {
                     facNotas.value = btn.dataset.notas || '';
-                    facNotas.readOnly = true;
-                    facNotas.style.pointerEvents = 'none';
-                    facNotas.style.backgroundColor = '#f8fafc';
-                    facNotas.style.color = '#64748b';
+                    facNotas.readOnly = false;
+                    facNotas.disabled = false;
+                    facNotas.style.pointerEvents = '';
+                    facNotas.style.backgroundColor = '#ffffff';
+                    facNotas.style.color = '#0f172a';
                 }
 
-                // El único campo editable es el estado:
+                // Estado: editable
                 if (facEstado) {
                     facEstado.value = btn.dataset.estado || 'Borrador';
                     facEstado.disabled = false;
                     facEstado.style.pointerEvents = '';
                     facEstado.style.backgroundColor = '#ffffff';
                     facEstado.style.color = '#0f172a';
-                    facEstado.style.borderColor = '#dc2626';
-                    facEstado.style.boxShadow = '0 0 0 2px rgba(220, 38, 38, 0.15)';
-                    setTimeout(function () { facEstado.focus(); }, 150);
+                    facEstado.style.borderColor = '#059669';
+                    facEstado.style.boxShadow = '0 0 0 2px rgba(5, 150, 105, 0.15)';
                 }
 
                 if (facEditNotice) {

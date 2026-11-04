@@ -115,6 +115,15 @@ if (empty($action) && !empty($_POST['action'])) {
 
 // Acción: Crear Material
 if ($action == 'create_material' || $action == 'add_material') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
 	$nombre = trim(GETPOST('nombre', 'alphanohtml'));
 	if (empty($nombre) && !empty($_POST['nombre'])) {
 		$nombre = trim($_POST['nombre']);
@@ -192,6 +201,15 @@ if ($action == 'create_material' || $action == 'add_material') {
 
 // Acción: Actualizar Material
 if ($action == 'update_material' || $action == 'edit_material') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
 	$rowid = GETPOSTINT('rowid');
 	if (empty($rowid) && !empty($_POST['rowid'])) {
 		$rowid = (int) $_POST['rowid'];
@@ -490,6 +508,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<span class="tallerpro-nav-text"><?php echo $langs->trans("Facturas"); ?></span>
 						</a>
 					</li>
+					<?php if (!empty($user->admin)): ?>
 					<li>
 						<a href="<?php echo $setup_url; ?>" class="tallerpro-nav-item">
 							<span class="tallerpro-nav-icon">
@@ -501,6 +520,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<span class="tallerpro-nav-text"><?php echo $langs->trans("Configuracion"); ?></span>
 						</a>
 					</li>
+					<?php endif; ?>
 				</ul>
 			</div>
 		</div>
@@ -532,7 +552,11 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 			</button>
 			<div class="tallerpro-topbar-brand">
 				<span class="tallerpro-topbar-dot">•</span>
-				<span class="tallerpro-topbar-title">TallerPro</span>
+				<div class="tallerpro-topbar-breadcrumb">
+					<a href="<?php echo $index_url; ?>" class="tallerpro-topbar-breadcrumb-parent">TallerPro</a>
+					<span class="tallerpro-topbar-breadcrumb-sep">/</span>
+					<span class="tallerpro-topbar-breadcrumb-current"><?php echo $langs->trans("Materiales"); ?></span>
+				</div>
 			</div>
 			<div class="tallerpro-topbar-right"></div>
 		</header>

@@ -79,6 +79,15 @@ if (empty($action) && !empty($_POST['action'])) {
 
 // Acción: Crear Cliente en módulo Terceros de Dolibarr
 if ($action == 'create_client' || $action == 'add_client') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
 	$name    = trim(GETPOST('name', 'alphanohtml'));
 	if (empty($name) && !empty($_POST['name'])) {
 		$name = trim($_POST['name']);
@@ -135,6 +144,83 @@ if ($action == 'create_client' || $action == 'add_client') {
 		} else {
 			$errmsg = !empty($soc->error) ? $soc->error : (!empty($soc->errors) ? implode(', ', $soc->errors) : 'Error al crear el cliente');
 			setEventMessages($errmsg, $soc->errors, 'errors');
+		}
+	}
+}
+
+// Acción: Actualizar Cliente en módulo Terceros de Dolibarr
+if ($action == 'update_client' || $action == 'edit_client') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
+	$socid = GETPOSTINT('socid');
+	if (empty($socid) && !empty($_POST['socid'])) {
+		$socid = (int) $_POST['socid'];
+	}
+	if (empty($socid) && !empty($_POST['rowid'])) {
+		$socid = (int) $_POST['rowid'];
+	}
+
+	$name    = trim(GETPOST('name', 'alphanohtml'));
+	if (empty($name) && !empty($_POST['name'])) {
+		$name = trim($_POST['name']);
+	}
+	$phone   = trim(GETPOST('phone', 'alpha'));
+	if (empty($phone) && !empty($_POST['phone'])) {
+		$phone = trim($_POST['phone']);
+	}
+	$email   = trim(GETPOST('email', 'custom', 0, FILTER_SANITIZE_EMAIL));
+	if (empty($email) && !empty($_POST['email'])) {
+		$email = trim($_POST['email']);
+	}
+	$cif     = trim(GETPOST('cif', 'alphanohtml'));
+	if (empty($cif) && !empty($_POST['cif'])) {
+		$cif = trim($_POST['cif']);
+	}
+	$address = trim(GETPOST('address', 'alphanohtml'));
+	if (empty($address) && !empty($_POST['address'])) {
+		$address = trim($_POST['address']);
+	}
+	$notes   = trim(GETPOST('notes', 'restricthtml'));
+	if (empty($notes) && !empty($_POST['notes'])) {
+		$notes = trim($_POST['notes']);
+	}
+
+	if ($socid <= 0) {
+		setEventMessages("ID de cliente inválido", null, 'errors');
+	} elseif (empty($name)) {
+		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("Name")), null, 'errors');
+	} else {
+		$soc = new Societe($db);
+		$res = $soc->fetch($socid);
+		if ($res > 0) {
+			$soc->name         = $name;
+			$soc->nom          = $name;
+			$soc->phone        = $phone;
+			$soc->email        = $email;
+			$soc->idprof1      = $cif;
+			$soc->siren        = $cif;
+			$soc->address      = $address;
+			$soc->note_private = $notes;
+
+			$result = $soc->update($socid, $user);
+			if ($result >= 0) {
+				setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
+				$stay_detail = GETPOSTINT('stay_detail');
+				header("Location: " . $_SERVER['PHP_SELF'] . ($stay_detail ? '?id=' . $socid : ''));
+				exit;
+			} else {
+				$errmsg = !empty($soc->error) ? $soc->error : (!empty($soc->errors) ? implode(', ', $soc->errors) : 'Error al actualizar el cliente');
+				setEventMessages($errmsg, $soc->errors, 'errors');
+			}
+		} else {
+			setEventMessages("Cliente no encontrado", null, 'errors');
 		}
 	}
 }
@@ -240,13 +326,13 @@ if ($socid > 0) {
 }
 
 // Consultar clientes reales de la base de datos (llx_societe) con conteo de vehículos
-$sql = "SELECT s.rowid, s.nom as name, s.phone, s.email, s.address, s.siren as cif, ";
+$sql = "SELECT s.rowid, s.nom as name, s.phone, s.email, s.address, s.siren as cif, s.note_private as notes, ";
 $sql .= "COUNT(v.rowid) as nb_vehiculos ";
 $sql .= " FROM " . MAIN_DB_PREFIX . "societe as s";
 $sql .= " LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON (v.fk_soc = s.rowid AND v.status = 1)";
 $sql .= " WHERE s.client IN (1, 2, 3)";
 $sql .= " AND s.entity IN (" . getEntity('societe') . ")";
-$sql .= " GROUP BY s.rowid, s.nom, s.phone, s.email, s.address, s.siren";
+$sql .= " GROUP BY s.rowid, s.nom, s.phone, s.email, s.address, s.siren, s.note_private";
 $sql .= " ORDER BY s.nom ASC";
 
 $resql = $db->query($sql);
@@ -272,7 +358,7 @@ llxHeader($morehead, 'Clientes - TallerPro', '', '', 0, 0, array(), array(), '',
 
 
 $dolibarr_root_url = DOL_URL_ROOT . '/index.php';
-$setup_url = dol_buildpath('/taller/admin/setup.php', 1);
+$setup_url = dol_buildpath('/taller/configuracion.php', 1);
 $index_url = dol_buildpath('/taller/tallerindex.php', 1);
 $clientes_url = dol_buildpath('/taller/clientes.php', 1);
 $vehiculos_url = dol_buildpath('/taller/vehiculos.php', 1);
@@ -399,6 +485,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<span class="tallerpro-nav-text"><?php echo $langs->trans("Facturas"); ?></span>
 						</a>
 					</li>
+					<?php if (!empty($user->admin)): ?>
 					<li>
 						<a href="<?php echo $setup_url; ?>" class="tallerpro-nav-item">
 							<span class="tallerpro-nav-icon">
@@ -410,6 +497,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<span class="tallerpro-nav-text"><?php echo $langs->trans("Configuracion"); ?></span>
 						</a>
 					</li>
+					<?php endif; ?>
 				</ul>
 			</div>
 		</div>
@@ -441,7 +529,17 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 			</button>
 			<div class="tallerpro-topbar-brand">
 				<span class="tallerpro-topbar-dot">•</span>
-				<span class="tallerpro-topbar-title">TallerPro</span>
+				<div class="tallerpro-topbar-breadcrumb">
+					<a href="<?php echo $index_url; ?>" class="tallerpro-topbar-breadcrumb-parent">TallerPro</a>
+					<span class="tallerpro-topbar-breadcrumb-sep">/</span>
+					<?php if ($client_detail): ?>
+						<a href="<?php echo $clientes_url; ?>" class="tallerpro-topbar-breadcrumb-parent"><?php echo $langs->trans("Clientes"); ?></a>
+						<span class="tallerpro-topbar-breadcrumb-sep">/</span>
+						<span class="tallerpro-topbar-breadcrumb-current"><?php echo dol_escape_htmltag($client_detail->nom); ?></span>
+					<?php else: ?>
+						<span class="tallerpro-topbar-breadcrumb-current"><?php echo $langs->trans("Clientes"); ?></span>
+					<?php endif; ?>
+				</div>
 			</div>
 			<div class="tallerpro-topbar-right"></div>
 		</header>
@@ -504,9 +602,25 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 
 						<!-- Tarjeta 1: Información del Cliente -->
 						<div class="tallerpro-client-card">
-							<div class="tallerpro-client-main-info">
-								<h1 class="tallerpro-client-name"><?php echo dol_escape_htmltag($client_detail->nom); ?></h1>
-								<p class="tallerpro-client-contact"><?php echo dol_escape_htmltag($contact_str); ?></p>
+							<div class="tallerpro-client-main-info" style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+								<div>
+									<h1 class="tallerpro-client-name"><?php echo dol_escape_htmltag($client_detail->nom); ?></h1>
+									<p class="tallerpro-client-contact"><?php echo dol_escape_htmltag($contact_str); ?></p>
+								</div>
+								<button type="button" class="tallerpro-action-btn btn-edit-client"
+									title="Editar cliente"
+									data-id="<?php echo (int) $client_detail->id; ?>"
+									data-name="<?php echo dol_escape_htmltag($client_detail->nom); ?>"
+									data-phone="<?php echo dol_escape_htmltag($client_detail->phone ?? ''); ?>"
+									data-email="<?php echo dol_escape_htmltag($client_detail->email ?? ''); ?>"
+									data-cif="<?php echo dol_escape_htmltag(!empty($client_detail->idprof1) ? $client_detail->idprof1 : $client_detail->siren); ?>"
+									data-address="<?php echo dol_escape_htmltag($client_detail->address ?? ''); ?>"
+									data-notes="<?php echo dol_escape_htmltag($client_detail->note_private ?? ''); ?>">
+									<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+										<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+										<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+									</svg>
+								</button>
 							</div>
 							<div class="tallerpro-client-meta-group">
 								<div class="tallerpro-client-meta-item">
@@ -658,12 +772,20 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															<line x1="10" y1="14" x2="21" y2="3"></line>
 														</svg>
 													</a>
-													<a href="<?php echo $edit_url; ?>" class="tallerpro-action-btn" title="Editar en Dolibarr">
+													<button type="button" class="tallerpro-action-btn btn-edit-client"
+														title="Editar cliente"
+														data-id="<?php echo (int) $obj->rowid; ?>"
+														data-name="<?php echo dol_escape_htmltag($obj->name); ?>"
+														data-phone="<?php echo dol_escape_htmltag($obj->phone ?? ''); ?>"
+														data-email="<?php echo dol_escape_htmltag($obj->email ?? ''); ?>"
+														data-cif="<?php echo dol_escape_htmltag($obj->cif ?? ''); ?>"
+														data-address="<?php echo dol_escape_htmltag($obj->address ?? ''); ?>"
+														data-notes="<?php echo dol_escape_htmltag($obj->notes ?? ''); ?>">
 														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 															<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
 															<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
 														</svg>
-													</a>
+													</button>
 													<button type="button"
 														class="tallerpro-action-btn btn-delete-action"
 														title="Eliminar"
@@ -694,11 +816,11 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 		</div>
 	</div>
 
-	<!-- Modal Nuevo Registro Clientes -->
+	<!-- Modal Nuevo Registro / Edición Clientes -->
 	<div class="tallerpro-modal-backdrop" id="tallerClientModal">
-		<div class="tallerpro-modal-card">
+		<div class="tallerpro-modal-card" style="max-width: 520px;">
 			<div class="tallerpro-modal-header">
-				<h2 class="tallerpro-modal-title">Nuevo registro de cliente</h2>
+				<h2 class="tallerpro-modal-title" id="tallerClientModalTitle">Nuevo registro de cliente</h2>
 				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="Cerrar">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<line x1="18" y1="6" x2="6" y2="18"></line>
@@ -708,23 +830,27 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 			</div>
 			<form class="tallerpro-modal-form" id="tallerClientForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
 				<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
-				<input type="hidden" name="action" value="create_client">
+				<input type="hidden" name="action" id="clientFormAction" value="create_client">
+				<input type="hidden" name="socid" id="clientFormSocid" value="0">
+				<input type="hidden" name="stay_detail" id="clientFormStayDetail" value="<?php echo $client_detail ? '1' : '0'; ?>">
 
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Nombre / Razón Social <span class="tallerpro-required">*</span></label>
 					<input type="text" name="name" id="client_name" class="tallerpro-form-input" placeholder="Ej: Talleres Mecánicos SL o Juan Pérez" required autocomplete="off" />
 				</div>
-				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Teléfono</label>
-					<input type="text" name="phone" id="client_phone" class="tallerpro-form-input" placeholder="Ej: 600123456" />
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+					<div class="tallerpro-form-group">
+						<label class="tallerpro-form-label">Teléfono</label>
+						<input type="text" name="phone" id="client_phone" class="tallerpro-form-input" placeholder="Ej: 600123456" />
+					</div>
+					<div class="tallerpro-form-group">
+						<label class="tallerpro-form-label">DNI / CIF</label>
+						<input type="text" name="cif" id="client_cif" class="tallerpro-form-input" placeholder="Ej: B12345678" />
+					</div>
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Email</label>
 					<input type="email" name="email" id="client_email" class="tallerpro-form-input" placeholder="ejemplo@correo.com" />
-				</div>
-				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">DNI / CIF</label>
-					<input type="text" name="cif" id="client_cif" class="tallerpro-form-input" placeholder="Ej: B12345678" />
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Dirección</label>

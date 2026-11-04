@@ -91,6 +91,15 @@ if (empty($action) && !empty($_POST['action'])) {
 
 // Acción: Crear Vehículo
 if ($action == 'create_vehiculo' || $action == 'add_vehiculo') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
 	$matricula = strtoupper(trim(GETPOST('matricula', 'alphanohtml')));
 	if (empty($matricula) && !empty($_POST['matricula'])) {
 		$matricula = strtoupper(trim($_POST['matricula']));
@@ -490,6 +499,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<span class="tallerpro-nav-text"><?php echo $langs->trans("Facturas"); ?></span>
 						</a>
 					</li>
+					<?php if (!empty($user->admin)): ?>
 					<li>
 						<a href="<?php echo $setup_url; ?>" class="tallerpro-nav-item">
 							<span class="tallerpro-nav-icon">
@@ -501,6 +511,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<span class="tallerpro-nav-text"><?php echo $langs->trans("Configuracion"); ?></span>
 						</a>
 					</li>
+					<?php endif; ?>
 				</ul>
 			</div>
 		</div>
@@ -532,7 +543,17 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 			</button>
 			<div class="tallerpro-topbar-brand">
 				<span class="tallerpro-topbar-dot">•</span>
-				<span class="tallerpro-topbar-title">TallerPro</span>
+				<div class="tallerpro-topbar-breadcrumb">
+					<a href="<?php echo $index_url; ?>" class="tallerpro-topbar-breadcrumb-parent">TallerPro</a>
+					<span class="tallerpro-topbar-breadcrumb-sep">/</span>
+					<?php if ($veh_detail): ?>
+						<a href="<?php echo $vehiculos_url; ?>" class="tallerpro-topbar-breadcrumb-parent"><?php echo $langs->trans("Vehiculos"); ?></a>
+						<span class="tallerpro-topbar-breadcrumb-sep">/</span>
+						<span class="tallerpro-topbar-breadcrumb-current"><?php echo dol_escape_htmltag($veh_detail->matricula); ?></span>
+					<?php else: ?>
+						<span class="tallerpro-topbar-breadcrumb-current"><?php echo $langs->trans("Vehiculos"); ?></span>
+					<?php endif; ?>
+				</div>
 			</div>
 			<div class="tallerpro-topbar-right"></div>
 		</header>
@@ -712,16 +733,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<!-- Contenido Pestaña 2: Reparaciones -->
 						<div class="tallerpro-tab-pane" id="tab-reparaciones">
 							<div class="tallerpro-vehicle-detail-card">
-								<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-									<h2 class="tallerpro-vehicle-detail-card-title" style="margin: 0;">Reparaciones del vehículo</h2>
-									<a href="<?php echo $reparaciones_url; ?>?new_vehiculo=<?php echo (int) $veh_detail->rowid; ?>" class="tallerpro-btn-primary" style="font-size: 13px; padding: 7px 14px; text-decoration: none !important;">
-										<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-											<line x1="12" y1="5" x2="12" y2="19"></line>
-											<line x1="5" y1="12" x2="19" y2="12"></line>
-										</svg>
-										<span>+ Nueva Reparación</span>
-									</a>
-								</div>
+								<h2 class="tallerpro-vehicle-detail-card-title">Reparaciones del vehículo</h2>
 								<?php if (!empty($veh_repairs)): ?>
 									<div class="tallerpro-detail-list">
 										<?php foreach ($veh_repairs as $vr): ?>
@@ -789,16 +801,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<!-- Contenido Pestaña 4: Seguros -->
 						<div class="tallerpro-tab-pane" id="tab-seguros">
 							<div class="tallerpro-vehicle-detail-card">
-								<div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
-									<h2 class="tallerpro-vehicle-detail-card-title" style="margin: 0;">Seguro del vehículo</h2>
-									<a href="<?php echo $seguros_url; ?>?new_vehiculo=<?php echo (int) $veh_detail->rowid; ?>" class="tallerpro-btn-primary" style="font-size: 13px; padding: 7px 14px; text-decoration: none !important;">
-										<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-											<line x1="12" y1="5" x2="12" y2="19"></line>
-											<line x1="5" y1="12" x2="19" y2="12"></line>
-										</svg>
-										<span>+ Registrar Seguro</span>
-									</a>
-								</div>
+								<h2 class="tallerpro-vehicle-detail-card-title">Seguro del vehículo</h2>
 								<?php if (!empty($veh_seguros)): ?>
 									<div class="tallerpro-detail-list">
 										<?php foreach ($veh_seguros as $vs): ?>
@@ -991,7 +994,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 
 	<!-- Modal Nuevo Registro Vehículos -->
 	<div class="tallerpro-modal-backdrop" id="tallerVehiculoModal">
-		<div class="tallerpro-modal-card">
+		<div class="tallerpro-modal-card" style="max-width: 540px;">
 			<div class="tallerpro-modal-header">
 				<h2 class="tallerpro-modal-title">Nuevo registro de vehículo</h2>
 				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="Cerrar">
@@ -1018,21 +1021,25 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<?php endforeach; ?>
 					</select>
 				</div>
-				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Marca</label>
-					<input type="text" name="marca" id="veh_marca" class="tallerpro-form-input" placeholder="Ej: BMW, Renault..." />
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+					<div class="tallerpro-form-group">
+						<label class="tallerpro-form-label">Marca</label>
+						<input type="text" name="marca" id="veh_marca" class="tallerpro-form-input" placeholder="Ej: BMW, Renault..." />
+					</div>
+					<div class="tallerpro-form-group">
+						<label class="tallerpro-form-label">Modelo</label>
+						<input type="text" name="modelo" id="veh_modelo" class="tallerpro-form-input" placeholder="Ej: 318 D, Mégane..." />
+					</div>
 				</div>
-				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Modelo</label>
-					<input type="text" name="modelo" id="veh_modelo" class="tallerpro-form-input" placeholder="Ej: 318 D, Mégane..." />
-				</div>
-				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Año</label>
-					<input type="text" name="anio" id="veh_anio" class="tallerpro-form-input" placeholder="Ej: 2018" />
-				</div>
-				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Color</label>
-					<input type="text" name="color" id="veh_color" class="tallerpro-form-input" placeholder="Ej: Blanco, Negro..." />
+				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
+					<div class="tallerpro-form-group">
+						<label class="tallerpro-form-label">Año</label>
+						<input type="text" name="anio" id="veh_anio" class="tallerpro-form-input" placeholder="Ej: 2018" />
+					</div>
+					<div class="tallerpro-form-group">
+						<label class="tallerpro-form-label">Color</label>
+						<input type="text" name="color" id="veh_color" class="tallerpro-form-input" placeholder="Ej: Blanco, Negro..." />
+					</div>
 				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Nº bastidor (VIN)</label>

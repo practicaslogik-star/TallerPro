@@ -365,6 +365,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<span class="tallerpro-nav-text"><?php echo $langs->trans("Facturas"); ?></span>
 						</a>
 					</li>
+					<?php if (!empty($user->admin)): ?>
 					<li>
 						<a href="<?php echo $setup_url; ?>" class="tallerpro-nav-item">
 							<span class="tallerpro-nav-icon">
@@ -376,6 +377,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<span class="tallerpro-nav-text"><?php echo $langs->trans("Configuracion"); ?></span>
 						</a>
 					</li>
+					<?php endif; ?>
 				</ul>
 			</div>
 		</div>
@@ -407,7 +409,11 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 			</button>
 			<div class="tallerpro-topbar-brand">
 				<span class="tallerpro-topbar-dot">•</span>
-				<span class="tallerpro-topbar-title">TallerPro</span>
+				<div class="tallerpro-topbar-breadcrumb">
+					<span class="tallerpro-topbar-breadcrumb-parent">TallerPro</span>
+					<span class="tallerpro-topbar-breadcrumb-sep">/</span>
+					<span class="tallerpro-topbar-breadcrumb-current"><?php echo $langs->trans("Inicio"); ?></span>
+				</div>
 			</div>
 			<div class="tallerpro-topbar-right">
 				<a href="<?php echo $dolibarr_root_url; ?>" class="tallerpro-back-dolibarr" title="Volver al menú principal de Dolibarr">

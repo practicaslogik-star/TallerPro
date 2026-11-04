@@ -62,6 +62,9 @@ $langs->loadLangs(array("admin", "taller@taller"));
 if (!isModEnabled('taller')) {
 	accessforbidden('Module not enabled');
 }
+if (empty($user->admin)) {
+	accessforbidden('Solo los administradores pueden gestionar la configuración del taller');
+}
 
 require_once DOL_DOCUMENT_ROOT . '/core/lib/security.lib.php';
 
@@ -69,6 +72,14 @@ $action = GETPOST('action', 'aZ09');
 
 // Guardar datos editados del taller
 if ($action == 'update_settings') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
 	$nombre = trim(GETPOST('taller_nombre', 'alphanohtml'));
 	$cif = trim(GETPOST('taller_cif', 'alphanohtml'));
 	$email = trim(GETPOST('taller_email', 'alphanohtml'));
@@ -302,7 +313,11 @@ $configuracion_url = dol_buildpath('/taller/configuracion.php', 1);
 			</button>
 			<div class="tallerpro-topbar-brand">
 				<span class="tallerpro-topbar-dot">•</span>
-				<span class="tallerpro-topbar-title">TallerPro</span>
+				<div class="tallerpro-topbar-breadcrumb">
+					<a href="<?php echo $index_url; ?>" class="tallerpro-topbar-breadcrumb-parent">TallerPro</a>
+					<span class="tallerpro-topbar-breadcrumb-sep">/</span>
+					<span class="tallerpro-topbar-breadcrumb-current"><?php echo $langs->trans("Configuracion"); ?></span>
+				</div>
 			</div>
 			<div class="tallerpro-topbar-right">
 				<a href="<?php echo $dolibarr_root_url; ?>" class="tallerpro-back-dolibarr" title="Volver al menú principal de Dolibarr">
@@ -405,7 +420,7 @@ $configuracion_url = dol_buildpath('/taller/configuracion.php', 1);
 						</div>
 
 						<div style="margin-top: 20px; display: flex; justify-content: flex-end;">
-							<button type="submit" class="tallerpro-btn-primary" style="padding: 9px 20px; font-size: 13.5px; font-weight: 600; border-radius: 8px;">
+							<button type="submit" class="tallerpro-btn-save" style="padding: 9px 20px; font-size: 13.5px; font-weight: 600; border-radius: 8px;">
 								Guardar cambios
 							</button>
 						</div>

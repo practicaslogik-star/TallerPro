@@ -1,15 +1,48 @@
-/* TallerPro Stylesheet for Dolibarr */
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
 
-/* Reset and Override Dolibarr default framing on TallerPro view */
+:root {
+  --tp-font: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --tp-bg: #f8fafc;
+  --tp-bg-card: #ffffff;
+  --tp-border: #e2e8f0;
+  --tp-border-subtle: #f1f5f9;
+  --tp-border-strong: #cbd5e1;
+  --tp-text-dark: #0f172a;
+  --tp-text-body: #1e293b;
+  --tp-text-muted: #64748b;
+  --tp-text-subtle: #94a3b8;
+  --tp-primary: #1e293b;
+  --tp-primary-hover: #0f172a;
+  --tp-sidebar-bg: #121316;
+  --tp-sidebar-border: #1e2024;
+  --tp-red: #ef4444;
+  --tp-red-dark: #dc2626;
+  --tp-green: #059669;
+  --tp-green-dark: #047857;
+  --tp-blue: #2563eb;
+  --tp-blue-dark: #1d4ed8;
+  --tp-blue-navy: #0f2b5c;
+  --tp-blue-navy-hover: #0a1e40;
+  --tp-radius-sm: 6px;
+  --tp-radius: 8px;
+  --tp-radius-lg: 12px;
+  --tp-radius-xl: 16px;
+  --tp-radius-pill: 9999px;
+  --tp-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.02);
+  --tp-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.04);
+  --tp-shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
+  --tp-transition: all 0.15s ease;
+}
+
+/* Dolibarr Frame Reset */
 body.page-tallerpro {
-    margin: 0 !important;
-    padding: 0 !important;
-    background-color: #f8fafc !important;
-    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif !important;
-    overflow: hidden !important;
-    color: #1e293b;
-    -webkit-font-smoothing: antialiased;
+  margin: 0 !important;
+  padding: 0 !important;
+  background-color: var(--tp-bg) !important;
+  font-family: var(--tp-font) !important;
+  overflow: hidden !important;
+  color: var(--tp-text-body);
+  -webkit-font-smoothing: antialiased;
 }
 
 body.page-tallerpro #id-top,
@@ -21,4370 +54,4026 @@ body.page-tallerpro .side-nav,
 body.page-tallerpro #id-footer,
 body.page-tallerpro div.bottommenu,
 body.page-tallerpro footer {
-    display: none !important;
+  display: none !important;
 }
 
 body.page-tallerpro #id-container,
 body.page-tallerpro #id-right,
 body.page-tallerpro div.fiche,
 body.page-tallerpro div.fichecenter {
-    margin: 0 !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    padding: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 100% !important;
-    float: none !important;
-    border: none !important;
-    box-shadow: none !important;
-    background: transparent !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 100% !important;
+  float: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
 }
 
-/* Base Layout - Viewport Fixed so it ignores all Dolibarr container limits */
+/* Layout & Sidebar */
 .tallerpro-layout {
-    position: fixed !important;
-    top: 0 !important;
-    left: 0 !important;
-    width: 100vw !important;
-    height: 100vh !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    display: flex !important;
-    background-color: #f8fafc !important;
-    z-index: 99999 !important;
-    overflow: hidden !important;
-    box-sizing: border-box !important;
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: flex !important;
+  background-color: var(--tp-bg) !important;
+  z-index: 99999 !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
 }
 
-/* Sidebar */
 .tallerpro-sidebar {
-    width: 215px;
-    min-width: 215px;
-    height: 100vh;
-    background-color: #121316;
-    color: #ffffff;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    z-index: 100;
-    flex-shrink: 0;
-    box-sizing: border-box;
-    user-select: none;
-    border-right: 1px solid #1e2024;
-    box-shadow: 2px 0 12px rgba(0, 0, 0, 0.25);
+  width: 215px;
+  min-width: 215px;
+  height: 100vh;
+  background-color: var(--tp-sidebar-bg);
+  color: #ffffff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), min-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 100;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  user-select: none;
+  border-right: 1px solid var(--tp-sidebar-border);
+  box-shadow: 2px 0 12px rgba(0, 0, 0, 0.25);
 }
 
 .tallerpro-sidebar.collapsed {
-    width: 68px;
-    min-width: 68px;
+  width: 68px;
+  min-width: 68px;
 }
 
 .tallerpro-sidebar-top {
-    display: flex;
-    flex-direction: column;
+  display: flex;
+  flex-direction: column;
 }
 
-/* Brand Section */
 .tallerpro-brand {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 20px 16px 18px;
-    text-decoration: none !important;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 16px 18px;
+  text-decoration: none !important;
 }
 
 .tallerpro-brand-logo {
-    width: 36px;
-    height: 36px;
-    border-radius: 9px;
-    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #ffffff;
-    flex-shrink: 0;
-    box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+  background: linear-gradient(135deg, var(--tp-red) 0%, var(--tp-red-dark) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);
 }
 
 .tallerpro-brand-info {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    white-space: nowrap;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
 .tallerpro-brand-title {
-    font-size: 15px;
-    font-weight: 700;
-    color: #ffffff;
-    line-height: 1.2;
-    letter-spacing: -0.01em;
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
 }
 
 .tallerpro-brand-subtitle {
-    font-size: 11px;
-    color: #a1a1aa;
-    font-weight: 400;
-    margin-top: 1px;
+  font-size: 11px;
+  color: #a1a1aa;
+  font-weight: 400;
+  margin-top: 1px;
 }
 
-/* Navigation Section */
 .tallerpro-nav-section {
-    margin-top: 8px;
+  margin-top: 8px;
 }
 
 .tallerpro-section-title {
-    padding: 0 18px;
-    font-size: 11px;
-    color: #71717a;
-    font-weight: 600;
-    margin-bottom: 8px;
-    letter-spacing: 0.04em;
-    text-transform: capitalize;
+  padding: 0 18px;
+  font-size: 11px;
+  color: #71717a;
+  font-weight: 600;
+  margin-bottom: 8px;
+  letter-spacing: 0.04em;
+  text-transform: capitalize;
 }
 
 .tallerpro-nav-list {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding: 0 10px;
-    margin: 0;
-    list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 0 10px;
+  margin: 0;
+  list-style: none;
 }
 
 .tallerpro-nav-item,
 a.tallerpro-nav-item,
 a.tallerpro-nav-item:link,
 a.tallerpro-nav-item:visited {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 9px 12px;
-    border-radius: 8px;
-    color: #a1a1aa !important;
-    font-size: 13.5px;
-    font-weight: 500;
-    text-decoration: none !important;
-    transition: all 0.15s ease;
-    cursor: pointer;
-    white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-radius: var(--tp-radius);
+  color: #a1a1aa !important;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-decoration: none !important;
+  transition: var(--tp-transition);
+  cursor: pointer;
+  white-space: nowrap;
 }
 
 .tallerpro-nav-item:hover,
 a.tallerpro-nav-item:hover {
-    background-color: #1e2024;
-    color: #ffffff !important;
+  background-color: var(--tp-sidebar-border);
+  color: #ffffff !important;
 }
 
 .tallerpro-nav-item.active,
 a.tallerpro-nav-item.active {
-    background-color: #1e2024 !important;
-    color: #ffffff !important;
-    font-weight: 600;
-    box-shadow: inset 3px 0 0 #ef4444 !important;
+  background-color: var(--tp-sidebar-border) !important;
+  color: #ffffff !important;
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--tp-red) !important;
 }
 
 .tallerpro-nav-icon,
 .tallerpro-nav-icon svg {
-    width: 18px;
-    height: 18px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    color: #a1a1aa !important;
-    stroke: #a1a1aa !important;
-    transition: color 0.15s ease;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #a1a1aa !important;
+  stroke: #a1a1aa !important;
+  transition: color 0.15s ease;
 }
 
 .tallerpro-nav-item:hover .tallerpro-nav-icon,
 .tallerpro-nav-item:hover .tallerpro-nav-icon svg {
-    color: #ffffff !important;
-    stroke: #ffffff !important;
+  color: #ffffff !important;
+  stroke: #ffffff !important;
 }
 
 .tallerpro-nav-item.active .tallerpro-nav-icon,
 .tallerpro-nav-item.active .tallerpro-nav-icon svg {
-    color: #ef4444 !important;
-    stroke: #ef4444 !important;
+  color: var(--tp-red) !important;
+  stroke: var(--tp-red) !important;
 }
 
 .tallerpro-nav-text {
-    flex: 1;
+  flex: 1;
 }
 
-/* Sidebar Bottom & Collapse Button */
 .tallerpro-sidebar-bottom {
-    padding: 20px 16px;
-    display: flex;
-    align-items: center;
+  padding: 20px 16px;
+  display: flex;
+  align-items: center;
 }
 
 .tallerpro-collapse-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background-color: #18191c;
-    border: 1px solid #27292e;
-    color: #a1a1aa;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    outline: none;
-    padding: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background-color: #18191c;
+  border: 1px solid #27292e;
+  color: #a1a1aa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+  padding: 0;
 }
 
 .tallerpro-collapse-btn:hover {
-    background-color: #1e2024;
-    color: #ef4444;
-    border-color: #dc2626;
+  background-color: var(--tp-sidebar-border);
+  color: var(--tp-red);
+  border-color: var(--tp-red-dark);
 }
 
 .tallerpro-collapse-btn svg {
-    transition: transform 0.25s ease;
+  transition: transform 0.25s ease;
 }
 
-/* Collapsed Sidebar Styles */
 .tallerpro-sidebar.collapsed .tallerpro-brand-info,
 .tallerpro-sidebar.collapsed .tallerpro-section-title,
 .tallerpro-sidebar.collapsed .tallerpro-nav-text {
-    display: none;
+  display: none;
 }
 
 .tallerpro-sidebar.collapsed .tallerpro-brand {
-    justify-content: center;
-    padding: 20px 0 18px;
+  justify-content: center;
+  padding: 20px 0 18px;
 }
 
 .tallerpro-sidebar.collapsed .tallerpro-nav-list {
-    padding: 0 6px;
+  padding: 0 6px;
 }
 
 .tallerpro-sidebar.collapsed .tallerpro-nav-item {
-    justify-content: center;
-    padding: 9px 0;
+  justify-content: center;
+  padding: 9px 0;
 }
 
 .tallerpro-sidebar.collapsed .tallerpro-sidebar-bottom {
-    justify-content: center;
-    padding: 20px 0;
+  justify-content: center;
+  padding: 20px 0;
 }
 
 .tallerpro-sidebar.collapsed .tallerpro-collapse-btn svg {
-    transform: rotate(180deg);
+  transform: rotate(180deg);
 }
 
-/* Main Content Area */
+/* Main Area & Topbar */
 .tallerpro-main {
-    flex: 1;
-    width: calc(100vw - 215px);
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    background-color: #f8fafc;
-    overflow-y: auto;
-    overflow-x: hidden;
-    box-sizing: border-box;
+  flex: 1;
+  width: calc(100vw - 215px);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background-color: var(--tp-bg);
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
-/* Topbar */
 .tallerpro-topbar {
-    width: 100%;
-    height: 50px;
-    background: #ffffff;
-    border-bottom: 1px solid #edf2f7;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 32px;
-    flex-shrink: 0;
-    box-sizing: border-box;
-    position: sticky;
-    top: 0;
-    z-index: 500;
+  width: 100%;
+  height: 50px;
+  background: var(--tp-bg-card);
+  border-bottom: 1px solid #edf2f7;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 32px;
+  flex-shrink: 0;
+  box-sizing: border-box;
+  position: sticky;
+  top: 0;
+  z-index: 500;
 }
 
 .tallerpro-topbar-sidebar-toggle {
-    order: 1;
-    background: transparent;
-    border: none;
-    padding: 0;
-    margin: 0 10px 0 0;
-    outline: none;
-    color: #64748b;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.15s ease;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-    flex-shrink: 0;
+  order: 1;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0 10px 0 0;
+  outline: none;
+  color: var(--tp-text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--tp-transition);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  flex-shrink: 0;
 }
 
 .tallerpro-topbar-sidebar-toggle:hover {
-    color: #0f172a;
+  color: var(--tp-text-dark);
 }
 
 .tallerpro-toggle-icon-desktop {
-    display: block;
+  display: block;
 }
 
 .tallerpro-toggle-icon-mobile {
-    display: none;
+  display: none;
 }
 
 .tallerpro-topbar-brand {
-    order: 2;
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 13.5px;
-    font-weight: 600;
-    color: #1e293b;
+  order: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--tp-text-body);
 }
 
 .tallerpro-topbar-dot {
-    color: #ef4444;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
+  color: var(--tp-red);
+  font-size: 14px;
+  display: flex;
+  align-items: center;
 }
 
 .tallerpro-topbar-title {
-    color: #1e293b;
-    font-weight: 600;
+  color: var(--tp-text-body);
+  font-weight: 600;
+}
+
+.tallerpro-topbar-breadcrumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.tallerpro-topbar-breadcrumb-parent {
+  color: var(--tp-text-muted);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.tallerpro-topbar-breadcrumb-parent:hover {
+  color: var(--tp-text-body);
+}
+
+.tallerpro-topbar-breadcrumb-sep {
+  color: var(--tp-border-strong);
+  font-size: 12px;
+}
+
+.tallerpro-topbar-breadcrumb-current {
+  color: var(--tp-text-body);
+}
+
+.tallerpro-topbar-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  background: var(--tp-bg);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-pill);
+  font-size: 12px;
+  font-weight: 500;
+  color: #475569;
+}
+
+.tallerpro-status-dot-green {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
 }
 
 .tallerpro-topbar-right {
-    order: 3;
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 12px;
+  order: 3;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .tallerpro-back-dolibarr {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11.5px;
-    font-weight: 500;
-    color: #94a3b8;
-    text-decoration: none !important;
-    padding: 4px 10px;
-    border-radius: 6px;
-    border: 1px solid #e2e8f0;
-    background: #ffffff;
-    transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: var(--tp-text-subtle);
+  text-decoration: none !important;
+  padding: 4px 10px;
+  border-radius: var(--tp-radius-sm);
+  border: 1px solid var(--tp-border);
+  background: var(--tp-bg-card);
+  transition: var(--tp-transition);
 }
 
 .tallerpro-back-dolibarr:hover {
-    background: #f1f5f9;
-    color: #0f172a;
-    border-color: #cbd5e1;
+  background: var(--tp-border-subtle);
+  color: var(--tp-text-dark);
+  border-color: var(--tp-border-strong);
 }
 
-/* Content Wrapper - Centering */
+/* Page Wrappers & Layout */
 .tallerpro-content-wrapper {
-    flex: 1;
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-    padding: 36px 24px 60px;
-    box-sizing: border-box;
-    background-color: #f8fafc;
+  flex: 1;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 36px 24px 60px;
+  box-sizing: border-box;
+  background-color: var(--tp-bg);
 }
 
-/* Centered Content Container with optimal proportions matching reference */
 .tallerpro-content {
-    width: 100%;
-    max-width: 820px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-    transition: max-width 0.2s ease;
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  transition: max-width 0.2s ease;
 }
 
-/* Wide Content Container for views with tables and detail cards */
 .tallerpro-content:has(.tallerpro-table-card),
 .tallerpro-content:has(.tallerpro-table),
 .tallerpro-content:has(.tallerpro-client-card) {
-    max-width: 1400px;
+  max-width: 1400px;
 }
 
-/* Content Header */
 .tallerpro-content-header {
-    margin-bottom: 20px;
+  margin-bottom: 20px;
 }
 
 .tallerpro-page-title {
-    font-size: 26px;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 0 0 4px 0;
-    letter-spacing: -0.02em;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--tp-text-dark);
+  margin: 0 0 4px 0;
+  letter-spacing: -0.02em;
 }
 
 .tallerpro-page-subtitle {
-    font-size: 13.5px;
-    color: #64748b;
-    margin: 0;
-    font-weight: 400;
+  font-size: 13.5px;
+  color: var(--tp-text-muted);
+  margin: 0;
+  font-weight: 400;
 }
 
-/* Search Bar Card */
-.tallerpro-search-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    height: 48px;
-    padding: 0 16px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    margin-bottom: 18px;
-    box-sizing: border-box;
-    width: 100%;
+.tallerpro-header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  margin-bottom: 20px;
 }
 
-.tallerpro-search-card:focus-within {
-    border-color: #dc2626;
-    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
-}
-
-.tallerpro-search-icon {
-    color: #94a3b8;
-    display: flex;
-    align-items: center;
-    flex-shrink: 0;
-}
-
-.tallerpro-search-input {
-    border: none;
-    outline: none;
-    width: 100%;
-    font-size: 13.5px;
-    color: #1e293b;
-    background: transparent;
-    font-family: inherit;
-}
-
-.tallerpro-search-input::placeholder {
-    color: #94a3b8;
-    font-weight: 400;
-}
-
-/* KPI Metrics Grid */
+/* Metrics & Activity (KPIs) */
 .tallerpro-kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
-    margin-bottom: 16px;
-    width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-bottom: 16px;
+  width: 100%;
 }
 
 .tallerpro-kpi-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    height: 84px;
-    min-height: 84px;
-    padding: 0 20px;
-    box-sizing: border-box;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-    text-decoration: none !important;
-    color: inherit;
-    cursor: pointer;
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-lg);
+  height: 84px;
+  min-height: 84px;
+  padding: 0 20px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  box-shadow: var(--tp-shadow-sm);
+  text-decoration: none !important;
+  color: inherit;
+  cursor: pointer;
 }
 
 .tallerpro-kpi-card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-    border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: var(--tp-shadow-md);
+  border-color: var(--tp-border-strong);
 }
 
 .tallerpro-kpi-info {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 3px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
 }
 
 .tallerpro-kpi-value {
-    font-size: 26px;
-    font-weight: 700;
-    color: #0f172a;
-    line-height: 1;
-    letter-spacing: -0.02em;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--tp-text-dark);
+  line-height: 1;
+  letter-spacing: -0.02em;
 }
 
 .tallerpro-kpi-label {
-    font-size: 12.5px;
-    color: #64748b;
-    font-weight: 500;
+  font-size: 12.5px;
+  color: var(--tp-text-muted);
+  font-weight: 500;
 }
 
 .tallerpro-kpi-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
 .tallerpro-kpi-icon svg {
-    width: 26px;
-    height: 26px;
+  width: 26px;
+  height: 26px;
 }
 
-/* Icon Colors (Paleta Deportiva y Mecánica: Negro, Antracita, Rojo, Gris) */
-.tallerpro-icon-clientes {
-    color: #475569;
-}
+.tallerpro-icon-clientes { color: #475569; }
+.tallerpro-icon-vehiculos { color: #334155; }
+.tallerpro-icon-reparaciones { color: var(--tp-red); }
+.tallerpro-icon-materiales { color: var(--tp-red-dark); }
+.tallerpro-icon-seguros { color: #475569; }
+.tallerpro-icon-facturas { color: var(--tp-red); }
 
-.tallerpro-icon-vehiculos {
-    color: #334155;
-}
-
-.tallerpro-icon-reparaciones {
-    color: #ef4444;
-}
-
-.tallerpro-icon-materiales {
-    color: #dc2626;
-}
-
-.tallerpro-icon-seguros {
-    color: #475569;
-}
-
-.tallerpro-icon-facturas {
-    color: #ef4444;
-}
-
-/* Activity / Recent Panels Grid */
 .tallerpro-activity-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 14px;
-    width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+  width: 100%;
 }
 
 .tallerpro-activity-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 18px 20px;
-    height: 245px;
-    box-sizing: border-box;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-    overflow: hidden;
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-lg);
+  padding: 18px 20px;
+  height: 245px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  box-shadow: var(--tp-shadow-sm);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  overflow: hidden;
 }
 
 .tallerpro-activity-card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
-    border-color: #cbd5e1;
+  transform: translateY(-1px);
+  box-shadow: var(--tp-shadow-md);
+  border-color: var(--tp-border-strong);
 }
 
 .tallerpro-activity-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13.5px;
-    font-weight: 600;
-    color: #0f172a;
-    margin-bottom: 14px;
-    flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--tp-text-dark);
+  margin-bottom: 14px;
+  flex-shrink: 0;
 }
 
 .tallerpro-activity-header svg {
-    color: #1e293b;
-    width: 16px;
-    height: 16px;
+  color: var(--tp-text-body);
+  width: 16px;
+  height: 16px;
 }
 
 .tallerpro-empty-state {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 13px;
-    color: #94a3b8;
-    font-weight: 400;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--tp-text-subtle);
+  font-weight: 400;
 }
 
-/* Activity Items List */
 .tallerpro-activity-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin: 0;
-    padding: 0 4px 0 0;
-    list-style: none;
-    flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden;
-    scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 transparent;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0 4px 0 0;
+  list-style: none;
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--tp-border-strong) transparent;
 }
 
-.tallerpro-activity-list::-webkit-scrollbar {
-    width: 5px;
-}
-
-.tallerpro-activity-list::-webkit-scrollbar-track {
-    background: transparent;
-}
-
+.tallerpro-activity-list::-webkit-scrollbar { width: 5px; }
+.tallerpro-activity-list::-webkit-scrollbar-track { background: transparent; }
 .tallerpro-activity-list::-webkit-scrollbar-thumb {
-    background-color: #cbd5e1;
-    border-radius: 4px;
+  background-color: var(--tp-border-strong);
+  border-radius: 4px;
 }
-
-.tallerpro-activity-list::-webkit-scrollbar-thumb:hover {
-    background-color: #94a3b8;
-}
+.tallerpro-activity-list::-webkit-scrollbar-thumb:hover { background-color: var(--tp-text-subtle); }
 
 .tallerpro-activity-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 9px 12px;
-    border-radius: 8px;
-    background-color: #f8fafc;
-    border: 1px solid #f1f5f9;
-    text-decoration: none !important;
-    color: inherit;
-    transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 12px;
+  border-radius: var(--tp-radius);
+  background-color: var(--tp-bg);
+  border: 1px solid var(--tp-border-subtle);
+  text-decoration: none !important;
+  color: inherit;
+  transition: var(--tp-transition);
 }
 
 .tallerpro-activity-item:hover {
-    background-color: #f1f5f9;
-    border-color: #cbd5e1;
-    transform: translateX(2px);
+  background-color: var(--tp-border-subtle);
+  border-color: var(--tp-border-strong);
+  transform: translateX(2px);
 }
 
 .tallerpro-activity-item-left {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-width: 0;
-    flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
 }
 
 .tallerpro-activity-item-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    color: #0f172a;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tp-text-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tallerpro-activity-badge {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 7px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    color: #0f172a;
-    background: #e2e8f0;
-    border: 1px solid #cbd5e1;
-    border-radius: 5px;
-    font-family: monospace, sans-serif;
-    flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--tp-text-dark);
+  background: var(--tp-border);
+  border: 1px solid var(--tp-border-strong);
+  border-radius: 5px;
+  font-family: monospace, sans-serif;
+  flex-shrink: 0;
 }
 
 .tallerpro-activity-item-desc {
-    font-size: 12px;
-    color: #64748b;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  font-size: 12px;
+  color: var(--tp-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tallerpro-activity-item-right {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-    text-align: right;
-    margin-left: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  text-align: right;
+  margin-left: 12px;
 }
 
 .tallerpro-activity-cost {
-    font-size: 13px;
-    font-weight: 700;
-    color: #0f172a;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--tp-text-dark);
 }
 
 .tallerpro-activity-arrow {
-    color: #94a3b8;
-    display: flex;
-    align-items: center;
+  color: var(--tp-text-subtle);
+  display: flex;
+  align-items: center;
 }
 
-/* Global Search Dropdown */
+/* Search & Filters */
 .tallerpro-search-container {
-    position: relative;
-    width: 100%;
+  position: relative;
+  width: 100%;
 }
 
-/* Dashboard In-Page Search Results */
+.tallerpro-search-card {
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: 10px;
+  height: 48px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--tp-shadow-sm);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  margin-bottom: 18px;
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.tallerpro-search-card:focus-within {
+  border-color: var(--tp-red-dark);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+.tallerpro-search-icon {
+  color: var(--tp-text-subtle);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.tallerpro-search-input {
+  border: none;
+  outline: none;
+  width: 100%;
+  font-size: 13.5px;
+  color: var(--tp-text-body);
+  background: transparent;
+  font-family: inherit;
+}
+
+.tallerpro-search-input::placeholder {
+  color: var(--tp-text-subtle);
+  font-weight: 400;
+}
+
 .tallerpro-dashboard-search-results {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    margin-bottom: 24px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
 }
 
 .tallerpro-search-section-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 18px 22px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    box-sizing: border-box;
-    width: 100%;
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-lg);
+  padding: 18px 22px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .tallerpro-search-section-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .tallerpro-search-section-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 15px;
-    font-weight: 600;
-    color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--tp-text-body);
 }
 
 .tallerpro-search-section-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tp-text-body);
 }
 
 .tallerpro-search-count-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: #f1f5f9;
-    color: #475569;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 2px 9px;
-    border-radius: 9999px;
-    line-height: 1.4;
-    margin-left: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tp-border-subtle);
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: var(--tp-radius-pill);
+  line-height: 1.4;
+  margin-left: 2px;
 }
 
 .tallerpro-search-empty-text {
-    font-size: 13.5px;
-    color: #64748b;
-    padding: 2px 0 2px 0;
+  font-size: 13.5px;
+  color: var(--tp-text-muted);
+  padding: 2px 0;
 }
 
 .tallerpro-search-items-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
 }
 
 .tallerpro-search-item-card {
-    display: block;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 14px 18px;
-    text-decoration: none !important;
-    transition: all 0.15s ease-in-out;
-    box-sizing: border-box;
-    width: 100%;
+  display: block;
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius);
+  padding: 14px 18px;
+  text-decoration: none !important;
+  transition: var(--tp-transition);
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .tallerpro-search-item-card:hover {
-    background: #f8fafc;
-    border-color: #cbd5e1;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+  background: var(--tp-bg);
+  border-color: var(--tp-border-strong);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
 }
 
 .tallerpro-search-item-title {
-    font-size: 14.5px;
-    font-weight: 600;
-    color: #0f172a;
-    margin-bottom: 4px;
-    line-height: 1.3;
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--tp-text-dark);
+  margin-bottom: 4px;
+  line-height: 1.3;
 }
 
 .tallerpro-search-item-sub {
-    font-size: 13px;
-    color: #64748b;
-    line-height: 1.3;
+  font-size: 13px;
+  color: var(--tp-text-muted);
+  line-height: 1.3;
 }
 
-/* Global Search Dropdown (Legacy / Generic) */
 .tallerpro-search-dropdown {
-    position: absolute;
-    top: calc(100% - 10px);
-    left: 0;
-    right: 0;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.08);
-    z-index: 1000;
-    max-height: 380px;
-    overflow-y: auto;
-    padding: 8px 0;
-    display: none;
+  position: absolute;
+  top: calc(100% - 10px);
+  left: 0;
+  right: 0;
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: 10px;
+  box-shadow: var(--tp-shadow-lg);
+  z-index: 1000;
+  max-height: 380px;
+  overflow-y: auto;
+  padding: 8px 0;
+  display: none;
 }
 
 .tallerpro-search-dropdown.active {
-    display: block;
+  display: block;
 }
 
 .tallerpro-search-group-title {
-    padding: 8px 16px 4px;
-    font-size: 11px;
-    font-weight: 700;
-    color: #94a3b8;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+  padding: 8px 16px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--tp-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .tallerpro-search-result-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 16px;
-    text-decoration: none !important;
-    color: inherit;
-    transition: background-color 0.12s ease;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  text-decoration: none !important;
+  color: inherit;
+  transition: background-color 0.12s ease;
 }
 
 .tallerpro-search-result-item:hover {
-    background-color: #f1f5f9;
+  background-color: var(--tp-border-subtle);
 }
 
 .tallerpro-search-result-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #0f172a;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tp-text-dark);
 }
 
 .tallerpro-search-result-sub {
-    font-size: 12px;
-    color: #64748b;
+  font-size: 12px;
+  color: var(--tp-text-muted);
 }
 
-/* Empty Card Container for Empty Views */
-.tallerpro-empty-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 50px 24px;
-    text-align: center;
-    color: #475569;
-    font-size: 14px;
-    font-weight: 400;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-    width: 100%;
-    box-sizing: border-box;
+.tallerpro-reparaciones-filter-card {
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-lg);
+  padding: 12px 18px;
+  margin-bottom: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: var(--tp-shadow-sm);
 }
 
-/* Header Actions & Primary Button */
-.tallerpro-header-actions {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    margin-bottom: 20px;
+.tallerpro-filter-search-box {
+  position: relative;
+  width: 320px;
+  max-width: 100%;
 }
 
-.tallerpro-btn-primary {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background-color: #dc2626;
-    color: #ffffff !important;
-    font-size: 13.5px;
-    font-weight: 600;
-    padding: 8px 16px;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    text-decoration: none !important;
-    transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
-    box-shadow: 0 1px 2px rgba(220, 38, 38, 0.2);
+.tallerpro-filter-search-box svg {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--tp-text-subtle);
+  pointer-events: none;
 }
 
-.tallerpro-btn-primary:hover {
-    background-color: #b91c1c;
-    box-shadow: 0 4px 10px rgba(220, 38, 38, 0.3);
-    transform: translateY(-1px);
+.tallerpro-filter-search-input {
+  width: 100%;
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius);
+  padding: 8px 12px 8px 36px;
+  font-size: 13.5px;
+  color: var(--tp-text-body);
+  outline: none;
+  box-sizing: border-box;
+  transition: var(--tp-transition);
 }
 
-/* Table Card & Data Table */
+.tallerpro-filter-search-input:focus {
+  border-color: var(--tp-red-dark);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+.tallerpro-filter-search-input::placeholder {
+  color: var(--tp-text-subtle);
+}
+
+.tallerpro-filter-state-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tallerpro-filter-state-label {
+  font-size: 13px;
+  color: var(--tp-text-muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tallerpro-filter-state-select {
+  appearance: none;
+  background-color: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius);
+  padding: 7px 32px 7px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--tp-text-body);
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+  outline: none;
+  transition: var(--tp-transition);
+}
+
+.tallerpro-filter-state-select:focus {
+  border-color: var(--tp-red-dark);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+}
+
+/* Tables, Data Cards & Badges */
 .tallerpro-table-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    overflow-x: auto;
-    overflow-y: hidden;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-    width: 100%;
-    box-sizing: border-box;
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-lg);
+  overflow-x: auto;
+  overflow-y: hidden;
+  box-shadow: var(--tp-shadow-sm);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .tallerpro-table {
-    width: 100%;
-    border-collapse: collapse;
-    text-align: left;
-    table-layout: auto;
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+  table-layout: auto;
 }
 
 .tallerpro-table th {
-    background-color: #ffffff;
-    padding: 14px 20px;
-    font-size: 13px;
-    font-weight: 600;
-    color: #64748b;
-    border-bottom: 1px solid #f1f5f9;
-    white-space: nowrap;
+  background-color: var(--tp-bg-card);
+  padding: 14px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tp-text-muted);
+  border-bottom: 1px solid var(--tp-border-subtle);
+  white-space: nowrap;
 }
 
 .tallerpro-table td {
-    padding: 16px 20px;
-    font-size: 13.5px;
-    color: #1e293b;
-    border-bottom: 1px solid #f1f5f9;
-    vertical-align: middle;
-    white-space: nowrap;
+  padding: 16px 20px;
+  font-size: 13.5px;
+  color: var(--tp-text-body);
+  border-bottom: 1px solid var(--tp-border-subtle);
+  vertical-align: middle;
+  white-space: nowrap;
 }
 
 .tallerpro-table tr:last-child td {
-    border-bottom: none;
+  border-bottom: none;
 }
 
 .tallerpro-table tr:hover td {
-    background-color: #f8fafc;
+  background-color: var(--tp-bg);
 }
 
-/* Badge Pill */
+.tallerpro-empty-card {
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-lg);
+  padding: 50px 24px;
+  text-align: center;
+  color: #475569;
+  font-size: 14px;
+  font-weight: 400;
+  box-shadow: var(--tp-shadow-sm);
+  width: 100%;
+  box-sizing: border-box;
+}
+
 .tallerpro-badge-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 22px;
-    height: 22px;
-    padding: 0 8px;
-    background-color: #f1f5f9;
-    color: #0f172a;
-    border-radius: 9999px;
-    font-size: 12px;
-    font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 8px;
+  background-color: var(--tp-border-subtle);
+  color: var(--tp-text-dark);
+  border-radius: var(--tp-radius-pill);
+  font-size: 12px;
+  font-weight: 600;
 }
 
-/* Table Actions */
-.tallerpro-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 12px;
+.tallerpro-badge {
+  display: inline-block;
+  background: var(--tp-border-subtle);
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: var(--tp-radius-sm);
+  line-height: 1.2;
 }
 
-.tallerpro-action-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: 4px;
-    border-radius: 4px;
-    transition: transform 0.15s ease, opacity 0.15s ease;
-    text-decoration: none !important;
-}
-
-
-
-.tallerpro-action-btn svg {
-    display: block;
-}
-
-.tallerpro-action-text {
-    display: none;
-}
-
-.tallerpro-truncate {
-    max-width: 150px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: inline-block;
-    vertical-align: middle;
-}
-
-.tallerpro-btn-table-primary {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background-color: #dc2626;
-    color: #ffffff !important;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 5px 11px;
-    border-radius: 6px;
-    border: none;
-    cursor: pointer;
-    text-decoration: none !important;
-    transition: background-color 0.15s ease, transform 0.1s ease;
-}
-
-.tallerpro-btn-table-primary:hover {
-    background-color: #b91c1c;
-    transform: translateY(-1px);
-}
-
-.tallerpro-btn-table-secondary {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background-color: #ffffff;
-    color: #1e293b !important;
-    border: 1px solid #e2e8f0;
-    font-size: 12px;
-    font-weight: 500;
-    padding: 5px 11px;
-    border-radius: 6px;
-    cursor: pointer;
-    text-decoration: none !important;
-    transition: background-color 0.15s ease, border-color 0.15s ease;
-}
-
-.tallerpro-btn-table-secondary:hover {
-    background-color: #f8fafc;
-    border-color: #cbd5e1;
+.tallerpro-badge-primary {
+  background: #fef2f2;
+  color: var(--tp-red-dark);
 }
 
 .tallerpro-badge-status-pagada {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 3px 12px;
-    background-color: #ecfdf5;
-    color: #047857;
-    border: 1px solid #a7f3d0;
-    border-radius: 9999px;
-    font-size: 12px;
-    font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 12px;
+  background-color: #ecfdf5;
+  color: var(--tp-green-dark);
+  border: 1px solid #a7f3d0;
+  border-radius: var(--tp-radius-pill);
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .tallerpro-badge-status-pendiente {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 3px 12px;
-    background-color: #fffbeb;
-    color: #b45309;
-    border: 1px solid #fde68a;
-    border-radius: 9999px;
-    font-size: 12px;
-    font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 12px;
+  background-color: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+  border-radius: var(--tp-radius-pill);
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .tallerpro-badge-status-borrador {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 3px 12px;
-    background-color: #f1f5f9;
-    color: #475569;
-    border: 1px solid #cbd5e1;
-    border-radius: 9999px;
-    font-size: 12px;
-    font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 12px;
+  background-color: var(--tp-border-subtle);
+  color: #475569;
+  border: 1px solid var(--tp-border-strong);
+  border-radius: var(--tp-radius-pill);
+  font-size: 12px;
+  font-weight: 600;
 }
 
-/* ==========================================================================
-   Modal Dialogs
-   ========================================================================== */
+.tallerpro-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: var(--tp-radius-pill);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.tallerpro-status-pill.status-finalizada {
+  background-color: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.tallerpro-status-pill.status-en-curso {
+  background-color: var(--tp-bg);
+  color: #334155;
+  border: 1px solid var(--tp-border-strong);
+}
+
+.tallerpro-status-pill svg {
+  color: currentColor;
+  opacity: 0.8;
+}
+
+.tallerpro-status-pill.clickable {
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.tallerpro-status-pill.clickable:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.tallerpro-status-select {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--tp-radius-pill);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 26px 4px 12px;
+  cursor: pointer;
+  outline: none;
+  transition: var(--tp-transition);
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 11px;
+  border: 1px solid transparent;
+  line-height: 1.3;
+  font-family: inherit;
+}
+
+.tallerpro-status-select.status-finalizada {
+  background-color: #dcfce7;
+  color: #15803d;
+  border-color: #bbf7d0;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2315803d' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+
+.tallerpro-status-select.status-en_curso {
+  background-color: var(--tp-bg);
+  color: #334155;
+  border-color: var(--tp-border-strong);
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+
+.tallerpro-status-select.status-pagada {
+  background-color: #ecfdf5;
+  color: var(--tp-green-dark);
+  border-color: #a7f3d0;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23047857' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+
+.tallerpro-status-select.status-pendiente {
+  background-color: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b45309' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+
+.tallerpro-status-select.status-borrador {
+  background-color: var(--tp-border-subtle);
+  color: #475569;
+  border-color: var(--tp-border-strong);
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+
+.tallerpro-status-select:focus {
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.2);
+}
+
+.tallerpro-stock-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: var(--tp-radius-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.tallerpro-stock-badge.in-stock {
+  background-color: #ecfdf5;
+  color: var(--tp-green-dark);
+  border: 1px solid #a7f3d0;
+}
+
+.tallerpro-stock-badge.low-stock {
+  background-color: #fffbeb;
+  color: #b45309;
+  border: 1px solid #fde68a;
+}
+
+.tallerpro-stock-badge.out-stock {
+  background-color: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.tallerpro-stock-badge svg { flex-shrink: 0; }
+
+.tallerpro-warehouse-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  background: var(--tp-bg);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--tp-text-body);
+}
+
+.tallerpro-warehouse-pill svg {
+  flex-shrink: 0;
+  color: var(--tp-red-dark);
+}
+
+.tallerpro-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.tallerpro-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+  text-decoration: none !important;
+}
+
+.tallerpro-action-btn svg { display: block; }
+.tallerpro-action-text { display: none; }
+
+.tallerpro-truncate {
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Global Buttons */
+.tallerpro-btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: var(--tp-primary);
+  color: #ffffff !important;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: var(--tp-radius);
+  border: none;
+  cursor: pointer;
+  text-decoration: none !important;
+  transition: var(--tp-transition);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15);
+}
+
+.tallerpro-btn-primary:hover {
+  background-color: var(--tp-primary-hover);
+  box-shadow: 0 4px 10px rgba(15, 23, 42, 0.25);
+  transform: translateY(-1px);
+}
+
+.tallerpro-btn-table-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background-color: var(--tp-blue);
+  color: #ffffff !important;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 11px;
+  border-radius: var(--tp-radius-sm);
+  border: none;
+  cursor: pointer;
+  text-decoration: none !important;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+  transition: var(--tp-transition);
+}
+
+.tallerpro-btn-table-primary:hover {
+  background-color: var(--tp-blue-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.3);
+}
+
+.tallerpro-btn-table-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background-color: var(--tp-bg-card);
+  color: var(--tp-text-body) !important;
+  border: 1px solid var(--tp-border);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 11px;
+  border-radius: var(--tp-radius-sm);
+  cursor: pointer;
+  text-decoration: none !important;
+  transition: var(--tp-transition);
+}
+
+.tallerpro-btn-table-secondary:hover {
+  background-color: var(--tp-bg);
+  border-color: var(--tp-border-strong);
+}
+
+.tallerpro-btn-stock-mvt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  color: #334155;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 14px;
+  border-radius: var(--tp-radius);
+  cursor: pointer;
+  transition: var(--tp-transition);
+}
+
+.tallerpro-btn-stock-mvt:hover {
+  background: var(--tp-bg);
+  border-color: var(--tp-border-strong);
+  color: var(--tp-text-dark);
+}
+
+.tallerpro-btn-pdf {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background-color: var(--tp-blue-navy);
+  color: #ffffff !important;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: var(--tp-radius);
+  border: none;
+  cursor: pointer;
+  text-decoration: none !important;
+  transition: var(--tp-transition);
+  box-shadow: 0 1px 2px rgba(15, 43, 92, 0.2);
+}
+
+.tallerpro-btn-pdf:hover {
+  background-color: var(--tp-blue-navy-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(15, 43, 92, 0.3);
+}
+
+.tallerpro-btn-facturar-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #ecfdf5;
+  color: var(--tp-green);
+  border: 1px solid #a7f3d0;
+  border-radius: var(--tp-radius-sm);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+}
+
+.tallerpro-btn-facturar-action:hover {
+  background-color: #d1fae5;
+  border-color: #6ee7b7;
+  color: var(--tp-green-dark);
+  text-decoration: none;
+}
+
+.tallerpro-btn-facturada-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background-color: var(--tp-bg);
+  color: #475569;
+  border: 1px solid var(--tp-border-strong);
+  border-radius: var(--tp-radius-sm);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+  transition: var(--tp-transition);
+  user-select: none;
+}
+
+.tallerpro-btn-facturada-link:hover {
+  background-color: var(--tp-border-subtle);
+  border-color: var(--tp-text-subtle);
+  color: var(--tp-text-dark);
+  text-decoration: none;
+}
+
+.tallerpro-btn-facturada-link svg {
+  color: var(--tp-green);
+  flex-shrink: 0;
+}
+
+.tallerpro-btn-add-line {
+  background: var(--tp-primary);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: var(--tp-radius);
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  height: 38px;
+  box-sizing: border-box;
+  transition: var(--tp-transition);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.15);
+}
+
+.tallerpro-btn-add-line:hover:not(:disabled) {
+  background: var(--tp-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(15, 23, 42, 0.25);
+}
+
+.tallerpro-btn-add-line:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.tallerpro-btn-add-line-secondary {
+  background: var(--tp-text-muted);
+  color: #ffffff;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: 7px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.tallerpro-btn-add-line-secondary:hover {
+  background: #475569;
+}
+
+.tallerpro-btn-save-totals {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--tp-green);
+  color: #ffffff;
+  padding: 10px 16px;
+  border-radius: var(--tp-radius);
+  font-weight: 600;
+  font-size: 13.5px;
+  border: none;
+  cursor: pointer;
+  margin-top: 14px;
+  transition: var(--tp-transition);
+  box-shadow: 0 1px 2px rgba(5, 150, 105, 0.2);
+}
+
+.tallerpro-btn-save-totals:hover {
+  background: var(--tp-green-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(5, 150, 105, 0.3);
+}
+
+.tallerpro-btn-emitir-factura {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background-color: var(--tp-green);
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: var(--tp-radius);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(5, 150, 105, 0.2);
+  transition: var(--tp-transition);
+  width: 100%;
+  margin-top: 8px;
+}
+
+.tallerpro-btn-emitir-factura:hover {
+  background-color: var(--tp-green-dark);
+}
+
+.tallerpro-btn-modal-listo {
+  background: #0f3ba8;
+  color: #ffffff;
+  padding: 9px 24px;
+  border-radius: var(--tp-radius);
+  font-weight: 700;
+  font-size: 13.5px;
+  border: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  white-space: nowrap;
+  transition: var(--tp-transition);
+  box-shadow: 0 1px 2px rgba(15, 59, 168, 0.2);
+}
+
+.tallerpro-btn-modal-listo:hover {
+  background: #0d318e;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(15, 59, 168, 0.3);
+}
+
+/* Modals & Forms */
 .tallerpro-modal-backdrop {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: rgba(15, 23, 42, 0.5);
-    backdrop-filter: blur(3px);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 999999;
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-    transition: opacity 0.2s ease, visibility 0.2s ease;
-    padding: 24px 16px;
-    box-sizing: border-box;
-    overflow-y: auto;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999999;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
+  padding: 24px 16px;
+  box-sizing: border-box;
+  overflow-y: auto;
 }
 
 .tallerpro-modal-backdrop.active {
-    opacity: 1;
-    visibility: visible;
-    pointer-events: auto;
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
 }
 
 .tallerpro-modal-card {
-    background: #ffffff;
-    border-radius: 16px;
-    width: 100%;
-    max-width: 480px;
-    max-height: calc(100vh - 48px);
-    overflow-y: auto;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-    padding: 24px 28px;
-    box-sizing: border-box;
-    transform: translateY(-8px) scale(0.98);
-    transition: transform 0.2s ease;
-    margin: auto;
+  background: var(--tp-bg-card);
+  border-radius: var(--tp-radius-xl);
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  padding: 24px 28px;
+  box-sizing: border-box;
+  transform: translateY(-8px) scale(0.98);
+  transition: transform 0.2s ease;
+  margin: auto;
 }
 
-.tallerpro-modal-card::-webkit-scrollbar {
-    width: 6px;
-}
-
+.tallerpro-modal-card::-webkit-scrollbar { width: 6px; }
 .tallerpro-modal-card::-webkit-scrollbar-thumb {
-    background-color: #cbd5e1;
-    border-radius: 4px;
+  background-color: var(--tp-border-strong);
+  border-radius: 4px;
 }
 
 .tallerpro-modal-backdrop.active .tallerpro-modal-card {
-    transform: translateY(0) scale(1);
+  transform: translateY(0) scale(1);
 }
 
 .tallerpro-modal-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
 }
 
 .tallerpro-modal-title {
-    font-size: 18px;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 0;
-    letter-spacing: -0.01em;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--tp-text-dark);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.tallerpro-modal-subtitle {
+  font-size: 13px;
+  color: var(--tp-text-muted);
+  margin-top: 3px;
+  font-weight: 400;
 }
 
 .tallerpro-modal-close {
-    background: transparent;
-    border: none;
-    color: #94a3b8;
-    cursor: pointer;
-    padding: 4px;
-    border-radius: 6px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: color 0.15s ease, background-color 0.15s ease;
+  background: transparent;
+  border: none;
+  color: var(--tp-text-subtle);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--tp-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--tp-transition);
 }
 
 .tallerpro-modal-close:hover {
-    color: #334155;
-    background-color: #f1f5f9;
+  color: #334155;
+  background-color: var(--tp-border-subtle);
 }
 
 .tallerpro-modal-form {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
 }
 
 .tallerpro-form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .tallerpro-form-label {
-    font-size: 13.5px;
-    font-weight: 600;
-    color: #1e293b;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--tp-text-body);
 }
 
 .tallerpro-required {
-    color: #ef4444;
-    font-weight: 700;
-    margin-left: 2px;
+  color: var(--tp-red);
+  font-weight: 700;
+  margin-left: 2px;
 }
 
 .tallerpro-form-input,
 .tallerpro-form-select,
 .tallerpro-form-textarea {
-    width: 100%;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 9px 13px;
-    font-size: 13.5px;
-    color: #0f172a;
-    font-family: inherit;
-    box-sizing: border-box;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-    height: 38px !important;
-    line-height: normal;
+  width: 100%;
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius);
+  padding: 9px 13px;
+  font-size: 13.5px;
+  color: var(--tp-text-dark);
+  font-family: inherit;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  height: 38px !important;
+  line-height: normal;
 }
 
 .tallerpro-form-input.tallerpro-input-readonly,
-.tallerpro-form-input[readonly] {
-    background-color: #f1f5f9;
-    border-color: #cbd5e1;
-    color: #475569;
-    cursor: not-allowed;
-    user-select: none;
-    font-weight: 600;
+.tallerpro-form-input[readonly],
+.tallerpro-form-input:read-only {
+  background-color: var(--tp-border-subtle);
+  border-color: var(--tp-border-strong);
+  color: #475569;
+  cursor: not-allowed;
+  user-select: none;
+  font-weight: 600;
 }
 
 .tallerpro-form-input.tallerpro-input-readonly:focus,
-.tallerpro-form-input[readonly]:focus {
-    border-color: #cbd5e1;
-    box-shadow: none;
-    outline: none;
+.tallerpro-form-input[readonly]:focus,
+.tallerpro-form-input:read-only:focus {
+  border-color: var(--tp-border-strong);
+  box-shadow: none;
+  outline: none;
 }
 
 .tallerpro-form-help-text {
-    font-size: 11.5px;
-    color: #64748b;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    margin-top: 3px;
-    font-weight: 500;
+  font-size: 11.5px;
+  color: var(--tp-text-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 3px;
+  font-weight: 500;
 }
 
 .tallerpro-form-select {
-    appearance: none;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f172a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right 12px center;
-    background-size: 16px;
-    cursor: pointer;
-    padding-right: 36px;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f172a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px;
+  cursor: pointer;
+  padding-right: 36px;
 }
 
 .tallerpro-input-with-icon {
-    position: relative;
-    width: 100%;
+  position: relative;
+  width: 100%;
 }
 
 .tallerpro-input-with-icon .tallerpro-form-input {
-    padding-right: 36px;
+  padding-right: 36px;
 }
 
 .tallerpro-input-icon {
-    position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    pointer-events: none;
-    color: #64748b;
-    display: flex;
-    align-items: center;
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--tp-text-muted);
+  display: flex;
+  align-items: center;
 }
 
 .tallerpro-form-input:focus,
 .tallerpro-form-select:focus,
 .tallerpro-form-textarea:focus {
-    outline: none;
-    border-color: #dc2626;
-    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+  outline: none;
+  border-color: var(--tp-red-dark);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
 }
 
 .tallerpro-form-textarea {
-    min-height: 80px;
-    resize: vertical;
+  min-height: 80px;
+  resize: vertical;
 }
 
 .tallerpro-modal-footer {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    gap: 10px;
-    margin-top: 15px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
+  margin-top: 15px;
 }
 
 .tallerpro-btn-cancel {
-    background-color: transparent;
-    color: #64748b;
-    font-size: 13.5px;
-    font-weight: 500;
-    padding: 8px 16px;
-    border-radius: 8px;
-    border: 1px solid #cbd5e1;
-    cursor: pointer;
-    transition: background-color 0.15s ease, color 0.15s ease;
+  background-color: transparent;
+  color: var(--tp-text-muted);
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: var(--tp-radius);
+  border: 1px solid var(--tp-border-strong);
+  cursor: pointer;
+  transition: var(--tp-transition);
 }
 
 .tallerpro-btn-cancel:hover {
-    background-color: #f1f5f9;
-    color: #1e293b;
+  background-color: var(--tp-border-subtle);
+  color: var(--tp-text-body);
+}
+
+.tallerpro-btn-cancel-text {
+  background: transparent;
+  border: none;
+  color: var(--tp-text-muted);
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: var(--tp-radius-sm);
+  transition: color 0.15s ease;
+}
+
+.tallerpro-btn-cancel-text:hover {
+  color: var(--tp-text-dark);
 }
 
 .tallerpro-btn-submit,
 .tallerpro-btn-save {
-    background-color: #dc2626;
-    color: #ffffff;
-    font-size: 13.5px;
-    font-weight: 600;
-    padding: 8px 22px;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    box-shadow: 0 1px 2px rgba(220, 38, 38, 0.2);
-    transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+  background-color: var(--tp-green);
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 600;
+  padding: 8px 22px;
+  border-radius: var(--tp-radius);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(5, 150, 105, 0.2);
+  transition: var(--tp-transition);
 }
 
 .tallerpro-btn-submit:hover,
 .tallerpro-btn-save:hover {
-    background-color: #b91c1c;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 10px rgba(220, 38, 38, 0.3);
-}
-
-/* ==========================================================================
-   Responsive Breakpoints: Tablet & movil (Drawer y Tarjetas)
-   ========================================================================== */
-
-/* 1. movil Y TABLET (≤ 1024px): Menú lateral en modo Drawer Deslizante */
-@media (max-width: 1024px) {
-    .tallerpro-sidebar {
-        position: fixed !important;
-        top: 0 !important;
-        left: -320px !important;
-        width: 280px !important;
-        min-width: 280px !important;
-        max-width: 85vw !important;
-        height: 100vh !important;
-        z-index: 999999 !important;
-        transition: left 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        box-shadow: 8px 0 30px rgba(0, 0, 0, 0.35) !important;
-    }
-
-    .tallerpro-sidebar.mobile-open {
-        left: 0 !important;
-    }
-
-    /* En movil y tablet SIEMPRE mostrar los textos completos del menú (ignorar .collapsed) */
-    .tallerpro-sidebar.collapsed {
-        width: 280px !important;
-        min-width: 280px !important;
-    }
-
-    .tallerpro-sidebar .tallerpro-brand-info,
-    .tallerpro-sidebar.collapsed .tallerpro-brand-info {
-        display: flex !important;
-    }
-
-    .tallerpro-sidebar .tallerpro-section-title,
-    .tallerpro-sidebar.collapsed .tallerpro-section-title {
-        display: block !important;
-    }
-
-    .tallerpro-sidebar .tallerpro-nav-text,
-    .tallerpro-sidebar.collapsed .tallerpro-nav-text {
-        display: block !important;
-        flex: 1 !important;
-        opacity: 1 !important;
-        visibility: visible !important;
-    }
-
-    .tallerpro-sidebar .tallerpro-nav-item,
-    .tallerpro-sidebar.collapsed .tallerpro-nav-item {
-        justify-content: flex-start !important;
-        padding: 9px 12px !important;
-        gap: 12px !important;
-    }
-
-    .tallerpro-sidebar .tallerpro-brand,
-    .tallerpro-sidebar.collapsed .tallerpro-brand {
-        justify-content: space-between !important;
-        padding: 18px 16px !important;
-    }
-
-    /* Ocultar el botón de colapso de escritorio */
-    .tallerpro-sidebar-bottom,
-    .tallerpro-collapse-btn {
-        display: none !important;
-    }
-
-    /* Cabecera del Sidebar con botón de cerrar (X) */
-    .tallerpro-brand {
-        display: flex !important;
-        justify-content: space-between !important;
-        align-items: center !important;
-        padding: 18px 16px !important;
-    }
-
-    .tallerpro-sidebar-close {
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        width: 32px !important;
-        height: 32px !important;
-        border-radius: 8px !important;
-        background: rgba(255, 255, 255, 0.08) !important;
-        border: none !important;
-        color: #ffffff !important;
-        cursor: pointer !important;
-        transition: all 0.15s ease !important;
-        flex-shrink: 0 !important;
-    }
-
-    .tallerpro-sidebar-close:hover {
-        background: rgba(239, 68, 68, 0.25) !important;
-        color: #ef4444 !important;
-    }
-
-    /* Fondo oscuro traslúcido (Overlay) - Siempre DETRÁS del sidebar */
-    .tallerpro-sidebar-overlay {
-        position: fixed !important;
-        top: 0 !important;
-        left: 0 !important;
-        width: 100vw !important;
-        height: 100vh !important;
-        background-color: rgba(18, 19, 22, 0.65) !important;
-        backdrop-filter: blur(3px) !important;
-        -webkit-backdrop-filter: blur(3px) !important;
-        z-index: 99990 !important;
-        opacity: 0 !important;
-        visibility: hidden !important;
-        transition: opacity 0.25s ease, visibility 0.25s ease !important;
-    }
-
-    .tallerpro-sidebar-overlay.active {
-        opacity: 1 !important;
-        visibility: visible !important;
-    }
-
-    /* El espacio de trabajo ocupa el ancho completo */
-    .tallerpro-main {
-        width: 100vw !important;
-        max-width: 100vw !important;
-        margin-left: 0 !important;
-    }
-
-    .tallerpro-topbar {
-        padding: 0 16px !important;
-        height: 60px !important;
-    }
-
-    /* Botón Hamburguesa en Móvil y Tablet */
-    .tallerpro-toggle-icon-desktop {
-        display: none !important;
-    }
-
-    .tallerpro-toggle-icon-mobile {
-        display: block !important;
-    }
-
-    .tallerpro-topbar-sidebar-toggle {
-        order: 3 !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        width: 38px !important;
-        height: 38px !important;
-        border-radius: 9px !important;
-        background: #ffffff !important;
-        border: 1px solid #e2e8f0 !important;
-        color: #1e293b !important;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
-        cursor: pointer !important;
-        transition: all 0.15s ease !important;
-        margin: 0 !important;
-        flex-shrink: 0 !important;
-    }
-
-    .tallerpro-topbar-sidebar-toggle:hover,
-    .tallerpro-topbar-sidebar-toggle:active {
-        background: #f8fafc !important;
-        border-color: #cbd5e1 !important;
-        color: #dc2626 !important;
-        transform: translateY(-1px) !important;
-    }
-
-    /* Botón Volver a Dolibarr: A LA IZQUIERDA en Móvil y Tablet */
-    .tallerpro-topbar-right {
-        order: 1 !important;
-        margin-left: 0 !important;
-        margin-right: 0 !important;
-        display: flex !important;
-        align-items: center !important;
-        flex-shrink: 0 !important;
-    }
-
-    .tallerpro-topbar-right:empty {
-        display: none !important;
-    }
-
-    .tallerpro-back-dolibarr {
-        display: inline-flex !important;
-        align-items: center !important;
-        gap: 6px !important;
-        font-size: 12px !important;
-        font-weight: 500 !important;
-        color: #64748b !important;
-        text-decoration: none !important;
-        padding: 6px 12px !important;
-        border-radius: 8px !important;
-        border: 1px solid #e2e8f0 !important;
-        background: #ffffff !important;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
-        flex-shrink: 0 !important;
-    }
-
-    .tallerpro-back-dolibarr:hover,
-    .tallerpro-back-dolibarr:active {
-        color: #dc2626 !important;
-        border-color: #cbd5e1 !important;
-        background: #f8fafc !important;
-    }
-
-    /* Brand / Título o Migas de Pan: AL CENTRO en Móvil y Tablet */
-    .tallerpro-topbar-brand {
-        order: 2 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: flex-start !important;
-        flex: 1 1 auto !important;
-        padding: 0 8px !important;
-        overflow: hidden !important;
-    }
-
-    .tallerpro-topbar:has(.tallerpro-back-dolibarr) .tallerpro-topbar-brand {
-        justify-content: center !important;
-        text-align: center !important;
-    }
-
-    .tallerpro-topbar-title {
-        font-size: 14.5px !important;
-        font-weight: 600 !important;
-        color: #0f172a !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
-
-    .tallerpro-topbar-breadcrumb {
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        gap: 6px !important;
-        font-size: 13px !important;
-        white-space: nowrap !important;
-        overflow: hidden !important;
-        text-overflow: ellipsis !important;
-    }
-
-    .tallerpro-topbar-dot {
-        display: none !important;
-    }
-
-    .tallerpro-kpi-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-
-    .tallerpro-content-wrapper {
-        padding: 20px 16px 40px !important;
-    }
-
-    .tallerpro-table th,
-    .tallerpro-table td {
-        padding: 12px 14px;
-        font-size: 13px;
-    }
-}
-
-/* En escritorio ocultar siempre el botón X del sidebar */
-@media (min-width: 1025px) {
-    .tallerpro-sidebar-close {
-        display: none !important;
-    }
-}
-
-/* 2. PANTALLAS ESTRECHAS / movil Y TABLET VERTICAL (≤ 820px): Transformación a Tarjetas */
-@media (max-width: 820px) {
-    .tallerpro-kpi-grid {
-        grid-template-columns: repeat(2, 1fr) !important;
-        gap: 10px !important;
-    }
-
-    .tallerpro-kpi-card {
-        padding: 0 14px !important;
-        height: 76px !important;
-        min-height: 76px !important;
-    }
-
-    .tallerpro-kpi-value {
-        font-size: 22px !important;
-    }
-
-    .tallerpro-kpi-label {
-        font-size: 11.5px !important;
-    }
-
-    .tallerpro-kpi-icon svg {
-        width: 22px !important;
-        height: 22px !important;
-    }
-
-    .tallerpro-activity-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .tallerpro-content-wrapper {
-        padding: 16px 12px 40px !important;
-    }
-
-    /* Salto de línea limpio en la cabecera (Título y botón + Añadir) */
-    .tallerpro-content>div:first-child[style*="display: flex"] {
-        flex-wrap: wrap !important;
-        gap: 12px !important;
-        align-items: center !important;
-        margin-bottom: 16px !important;
-    }
-
-    /* =========================================================================
-       Transformación Responsiva: Tablas -> Tarjetas (Estilo Moderno & Sobrio)
-       ========================================================================= */
-    .tallerpro-table-card {
-        background: transparent !important;
-        border: none !important;
-        box-shadow: none !important;
-        border-radius: 0 !important;
-        overflow: visible !important;
-        padding: 0 !important;
-    }
-
-    .tallerpro-table {
-        display: block !important;
-        width: 100% !important;
-        border: none !important;
-        background: transparent !important;
-    }
-
-    /* Ocultar encabezados horizontales de escritorio */
-    .tallerpro-table thead {
-        display: none !important;
-    }
-
-    .tallerpro-table tbody {
-        display: flex !important;
-        flex-direction: column !important;
-        gap: 14px !important;
-        width: 100% !important;
-    }
-
-    /* Cada fila es una tarjeta individual elegante y sobria */
-    .tallerpro-table tbody tr {
-        display: flex !important;
-        flex-direction: column !important;
-        background: #ffffff !important;
-        border: 1px solid #e2e8f0 !important;
-        border-radius: 16px !important;
-        box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 2px 4px -2px rgba(15, 23, 42, 0.03) !important;
-        padding: 0 !important;
-        margin: 0 !important;
-        overflow: hidden !important;
-        box-sizing: border-box !important;
-        transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease !important;
-        width: 100% !important;
-    }
-
-    .tallerpro-table tbody tr:hover {
-        background-color: #ffffff !important;
-        border-color: #cbd5e1 !important;
-        box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04) !important;
-    }
-
-    /* Fila vacía / sin registros */
-    .tallerpro-table tbody tr.tallerpro-empty-row,
-    .tallerpro-table tbody tr:has(td[colspan]) {
-        background: #f8fafc !important;
-        border: 1px dashed #cbd5e1 !important;
-        box-shadow: none !important;
-        padding: 28px 16px !important;
-    }
-
-    .tallerpro-table tbody td[colspan] {
-        display: block !important;
-        text-align: center !important;
-        border: none !important;
-        padding: 0 !important;
-        color: #94a3b8 !important;
-        font-size: 13.5px !important;
-    }
-
-    .tallerpro-table tbody td[colspan]::before {
-        display: none !important;
-    }
-
-    /* Cabecera de la Tarjeta (Primer campo: Matrícula, Nombre, Ref) */
-    .tallerpro-table tbody td.tallerpro-card-header-cell,
-    .tallerpro-table tbody td:first-child:not([colspan]) {
-        background-color: #f8fafc !important;
-        border-bottom: 1px solid #e2e8f0 !important;
-        padding: 13px 18px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
-    }
-
-    .tallerpro-table tbody td.tallerpro-card-header-cell::before,
-    .tallerpro-table tbody td:first-child:not([colspan])::before {
-        content: attr(data-label);
-        display: inline-flex !important;
-        align-items: center !important;
-        background: #e2e8f0 !important;
-        color: #334155 !important;
-        font-size: 10.5px !important;
-        font-weight: 700 !important;
-        padding: 3px 8px !important;
-        border-radius: 6px !important;
-        letter-spacing: 0.05em !important;
-        text-transform: uppercase !important;
-        margin-right: 12px !important;
-        flex-shrink: 0 !important;
-    }
-
-    .tallerpro-table tbody td.tallerpro-card-header-cell a,
-    .tallerpro-table tbody td.tallerpro-card-header-cell,
-    .tallerpro-table tbody td:first-child:not([colspan]) a,
-    .tallerpro-table tbody td:first-child:not([colspan]) {
-        font-size: 16px !important;
-        font-weight: 700 !important;
-        color: #0f172a !important;
-        letter-spacing: -0.01em !important;
-        text-align: right !important;
-    }
-
-    .tallerpro-table tbody td.tallerpro-card-header-cell a:hover,
-    .tallerpro-table tbody td:first-child:not([colspan]) a:hover {
-        color: #dc2626 !important;
-    }
-
-    /* Cuerpo de la Tarjeta (Filas de datos) */
-    .tallerpro-table tbody td.tallerpro-card-field-cell,
-    .tallerpro-table tbody td:not(:first-child):not(.tallerpro-actions-cell):not([colspan]) {
-        background: #ffffff !important;
-        padding: 10px 18px !important;
-        border-bottom: 1px solid #f1f5f9 !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: space-between !important;
-        gap: 12px !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
-        font-size: 13.5px !important;
-        color: #1e293b !important;
-        white-space: normal !important;
-        word-break: break-word !important;
-    }
-
-    .tallerpro-table tbody td.tallerpro-card-field-cell::before,
-    .tallerpro-table tbody td:not(:first-child):not(.tallerpro-actions-cell):not([colspan])::before {
-        content: attr(data-label);
-        display: inline-block !important;
-        font-size: 11px !important;
-        font-weight: 600 !important;
-        color: #64748b !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.04em !important;
-        margin-right: 8px !important;
-        flex-shrink: 0 !important;
-        text-align: left !important;
-    }
-
-    .tallerpro-table tbody td.tallerpro-card-field-cell a {
-        color: #dc2626 !important;
-        font-weight: 600 !important;
-        text-decoration: none !important;
-    }
-
-    .tallerpro-table tbody td.tallerpro-card-field-cell a:hover {
-        text-decoration: underline !important;
-    }
-
-    .tallerpro-table tbody td .tallerpro-truncate {
-        max-width: 100% !important;
-        white-space: normal !important;
-        word-break: break-word !important;
-        overflow: visible !important;
-        text-overflow: clip !important;
-    }
-
-    /* Pie de la Tarjeta (Barra de Acciones) */
-    .tallerpro-table tbody td.tallerpro-actions-cell,
-    .tallerpro-table tbody td:has(.tallerpro-actions) {
-        background-color: #f8fafc !important;
-        border-top: 1px solid #e2e8f0 !important;
-        border-bottom: none !important;
-        padding: 10px 16px !important;
-        margin: 0 !important;
-        display: flex !important;
-        justify-content: flex-end !important;
-        align-items: center !important;
-        width: 100% !important;
-        box-sizing: border-box !important;
-    }
-
-    .tallerpro-table tbody td.tallerpro-actions-cell::before,
-    .tallerpro-table tbody td:has(.tallerpro-actions)::before {
-        display: none !important;
-    }
-
-    .tallerpro-table tbody td .tallerpro-actions {
-        width: 100% !important;
-        justify-content: flex-end !important;
-        gap: 10px !important;
-        display: flex !important;
-        align-items: center !important;
-        flex-wrap: wrap !important;
-    }
-
-    /* Dimensiones generosas y correctas de botones de acción en tarjetas */
-    .tallerpro-table tbody td .tallerpro-action-btn,
-    .tallerpro-table tbody td .tallerpro-btn-facturar-action,
-    .tallerpro-table tbody td .tallerpro-btn-facturada-link {
-        width: auto !important;
-        min-width: 76px !important;
-        height: 36px !important;
-        padding: 0 14px !important;
-        display: inline-flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        gap: 7px !important;
-        border-radius: 9px !important;
-        font-size: 13px !important;
-        font-weight: 600 !important;
-        line-height: 1 !important;
-        white-space: nowrap !important;
-        cursor: pointer !important;
-        text-decoration: none !important;
-        box-sizing: border-box !important;
-        transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
-    }
-
-    .tallerpro-table tbody td .tallerpro-action-btn svg,
-    .tallerpro-table tbody td .tallerpro-btn-facturar-action svg,
-    .tallerpro-table tbody td .tallerpro-btn-facturada-link svg {
-        width: 15px !important;
-        height: 15px !important;
-        min-width: 15px !important;
-        min-height: 15px !important;
-        stroke-width: 2.2 !important;
-        display: block !important;
-        flex-shrink: 0 !important;
-    }
-
-    .tallerpro-table tbody td .tallerpro-action-btn svg path,
-    .tallerpro-table tbody td .tallerpro-action-btn svg polyline,
-    .tallerpro-table tbody td .tallerpro-action-btn svg line,
-    .tallerpro-table tbody td .tallerpro-action-btn svg rect,
-    .tallerpro-table tbody td .tallerpro-action-btn svg circle,
-    .tallerpro-table tbody td .tallerpro-btn-facturar-action svg path,
-    .tallerpro-table tbody td .tallerpro-btn-facturar-action svg polyline,
-    .tallerpro-table tbody td .tallerpro-btn-facturar-action svg line,
-    .tallerpro-table tbody td .tallerpro-btn-facturar-action svg rect,
-    .tallerpro-table tbody td .tallerpro-btn-facturar-action svg circle {
-        stroke: currentColor !important;
-    }
-
-    .tallerpro-table tbody td .tallerpro-action-btn .tallerpro-action-text,
-    .tallerpro-table tbody td .tallerpro-btn-facturar-action span,
-    .tallerpro-table tbody td .tallerpro-btn-facturada-link span {
-        display: inline !important;
-        font-size: 12.5px !important;
-        font-weight: 600 !important;
-        line-height: 1 !important;
-        white-space: nowrap !important;
-    }
-
-    /* Botón Ver (Neutro / Principal) */
-    .tallerpro-table tbody td .tallerpro-action-btn.tallerpro-btn-view,
-    .tallerpro-table tbody td .tallerpro-action-btn:not(.tallerpro-btn-delete):not(.tallerpro-btn-edit):not(.tallerpro-btn-facturar-action) {
-        background: #ffffff !important;
-        border: 1px solid #cbd5e1 !important;
-        color: #334155 !important;
-    }
-
-    .tallerpro-table tbody td .tallerpro-action-btn.tallerpro-btn-view:hover,
-    .tallerpro-table tbody td .tallerpro-action-btn:not(.tallerpro-btn-delete):not(.tallerpro-btn-edit):not(.tallerpro-btn-facturar-action):hover {
-        background: #f1f5f9 !important;
-        border-color: #94a3b8 !important;
-        color: #0f172a !important;
-        transform: translateY(-1px) !important;
-    }
-
-    /* Botón Editar (Azul sutil) */
-    .tallerpro-table tbody td .tallerpro-action-btn.tallerpro-btn-edit {
-        background: #f1f5f9 !important;
-        border: 1px solid #cbd5e1 !important;
-        color: #1e293b !important;
-    }
-
-    .tallerpro-table tbody td .tallerpro-action-btn.tallerpro-btn-edit:hover {
-        background: #1e2024 !important;
-        border-color: #1e2024 !important;
-        color: #ffffff !important;
-        transform: translateY(-1px) !important;
-    }
-
-    /* Botón Eliminar (Rojo sobrio) */
-    .tallerpro-table tbody td .tallerpro-action-btn.tallerpro-btn-delete,
-    .tallerpro-table tbody td .tallerpro-action-btn[onclick*="confirm"] {
-        background: #fff1f2 !important;
-        border: 1px solid #fecdd3 !important;
-        color: #e11d48 !important;
-    }
-
-    .tallerpro-table tbody td .tallerpro-action-btn.tallerpro-btn-delete:hover,
-    .tallerpro-table tbody td .tallerpro-action-btn[onclick*="confirm"]:hover {
-        background: #ffe4e6 !important;
-        border-color: #fda4af !important;
-        color: #be123c !important;
-        transform: translateY(-1px) !important;
-    }
-
-    /* Botón Facturar (Verde sobrio) */
-    .tallerpro-table tbody td .tallerpro-btn-facturar-action,
-    .tallerpro-table tbody td .tallerpro-action-btn.tallerpro-btn-facturar-action {
-        background: #f0fdf4 !important;
-        border: 1px solid #bbf7d0 !important;
-        color: #16a34a !important;
-    }
-
-    .tallerpro-table tbody td .tallerpro-btn-facturar-action:hover,
-    .tallerpro-table tbody td .tallerpro-action-btn.tallerpro-btn-facturar-action:hover {
-        background: #dcfce7 !important;
-        border-color: #86efac !important;
-        color: #15803d !important;
-        transform: translateY(-1px) !important;
-    }
-
-    /* Enlace Factura Emitida */
-    .tallerpro-table tbody td .tallerpro-btn-facturada-link {
-        background: #f8fafc !important;
-        border: 1px solid #cbd5e1 !important;
-        color: #475569 !important;
-        text-decoration: none !important;
-    }
-
-    .tallerpro-table tbody td .tallerpro-btn-facturada-link:hover {
-        background: #f1f5f9 !important;
-        border-color: #94a3b8 !important;
-        color: #0f172a !important;
-        transform: translateY(-1px) !important;
-        text-decoration: none !important;
-    }
-}
-
-/* Dolibarr System Message Alerts */
-.tallerpro-content .error,
-.tallerpro-content div.error {
-    background-color: #fee2e2 !important;
-    border: 1px solid #f87171 !important;
-    color: #991b1b !important;
-    padding: 12px 16px !important;
-    border-radius: 8px !important;
-    margin-bottom: 16px !important;
-    font-size: 13.5px !important;
-}
-
-.tallerpro-content .ok,
-.tallerpro-content div.ok {
-    background-color: #dcfce7 !important;
-    border: 1px solid #4ade80 !important;
-    color: #166534 !important;
-    padding: 12px 16px !important;
-    border-radius: 8px !important;
-    margin-bottom: 16px !important;
-    font-size: 13.5px !important;
-}
-
-/* ==========================================================================
-   Client Detail View Components
-   ========================================================================== */
-.tallerpro-detail-container {
-    max-width: 1040px;
-    margin: 0 auto;
-    width: 100%;
-    box-sizing: border-box;
-    padding: 4px 0 32px 0;
-}
-
-.tallerpro-back-to-list {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    color: #64748b;
-    text-decoration: none !important;
-    margin-bottom: 22px;
-    transition: color 0.15s ease;
-}
-
-.tallerpro-back-to-list:hover {
-    color: #0f172a;
-}
-
-.tallerpro-back-to-list svg {
-    color: inherit;
-    transition: transform 0.15s ease;
-}
-
-.tallerpro-back-to-list:hover svg {
-    transform: translateX(-3px);
-}
-
-.tallerpro-client-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 24px 28px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 22px;
-    box-sizing: border-box;
-    gap: 32px;
-}
-
-.tallerpro-client-main-info {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    flex: 1;
-    min-width: 0;
-}
-
-.tallerpro-client-name {
-    font-size: 24px;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 0;
-    letter-spacing: -0.02em;
-    line-height: 1.25;
-}
-
-.tallerpro-client-contact {
-    font-size: 13.5px;
-    color: #64748b;
-    margin: 0;
-    font-weight: 400;
-}
-
-.tallerpro-client-meta-group {
-    display: flex;
-    gap: 48px;
-    flex-shrink: 0;
-}
-
-.tallerpro-client-meta-item {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.tallerpro-client-meta-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: #64748b;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-}
-
-.tallerpro-client-meta-value {
-    font-size: 13.5px;
-    font-weight: 500;
-    color: #0f172a;
-    max-width: 280px;
-    word-break: break-word;
-    line-height: 1.4;
-}
-
-.tallerpro-detail-section-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 20px 24px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-    margin-bottom: 20px;
-    box-sizing: border-box;
-}
-
-.tallerpro-detail-section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 16px;
-}
-
-.tallerpro-detail-section-title {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 15px;
-    font-weight: 600;
-    color: #0f172a;
-}
-
-.tallerpro-detail-section-title svg {
-    color: #1e293b;
-    width: 18px;
-    height: 18px;
-    flex-shrink: 0;
-}
-
-.tallerpro-badge-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 20px;
-    height: 22px;
-    padding: 0 9px;
-    background-color: #f1f5f9;
-    color: #475569;
-    border-radius: 9999px;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-.tallerpro-detail-list {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.tallerpro-detail-item {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 16px 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.tallerpro-detail-item:hover {
-    border-color: #cbd5e1;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
-}
-
-.tallerpro-detail-item-main {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-}
-
-.tallerpro-detail-item-title {
-    font-size: 14.5px;
-    font-weight: 700;
-    color: #0f172a;
-    letter-spacing: 0.01em;
-}
-
-.tallerpro-detail-item-sub {
-    font-size: 13px;
-    color: #64748b;
-}
-
-.tallerpro-detail-item-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 13px;
-    font-weight: 500;
-    color: #64748b;
-    text-decoration: none !important;
-    padding: 6px 10px;
-    border-radius: 6px;
-    transition: color 0.15s ease, background-color 0.15s ease;
-}
-
-.tallerpro-detail-item-link:hover {
-    color: #dc2626;
-    background-color: #f8fafc;
-}
-
-.tallerpro-detail-item-link svg {
-    color: inherit;
-}
-
-.tallerpro-btn-ver-factura {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    background-color: #1e2024;
-    color: #ffffff !important;
-    font-size: 13px;
-    font-weight: 500;
-    padding: 7px 16px;
-    border-radius: 6px;
-    text-decoration: none !important;
-    transition: background-color 0.15s ease, transform 0.1s ease;
-    cursor: pointer;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-.tallerpro-btn-ver-factura:hover {
-    background-color: #0f172a;
-    color: #ffffff !important;
-}
-
-.tallerpro-btn-ver-factura svg {
-    color: #ffffff;
-}
-
-.tallerpro-detail-item-end {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 4px;
-}
-
-.tallerpro-detail-item-price {
-    font-size: 15px;
-    font-weight: 700;
-    color: #0f172a;
-}
-
-.tallerpro-badge-status-pagada {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2px 8px;
-    background-color: #eff6ff;
-    color: #0284c7;
-    border-radius: 4px;
-    font-size: 11.5px;
-    font-weight: 500;
-}
-
-.tallerpro-badge-status-pendiente {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2px 8px;
-    background-color: #fef3c7;
-    color: #b45309;
-    border-radius: 4px;
-    font-size: 11.5px;
-    font-weight: 500;
-}
-
-.tallerpro-empty-message {
-    color: #94a3b8;
-    font-size: 13px;
-    padding: 24px 0;
-    text-align: center;
-}
-
-@media (max-width: 768px) {
-    .tallerpro-client-card {
-        flex-direction: column;
-        gap: 16px;
-    }
-
-    .tallerpro-client-meta-group {
-        flex-direction: column;
-        gap: 12px;
-    }
-
-    .tallerpro-detail-item {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-    }
-
-    .tallerpro-detail-item-end {
-        align-items: flex-start;
-    }
-}
-
-/* Vehicle Detail View & Tabs */
-.tallerpro-detail-container {
-    max-width: 1040px;
-    margin: 0 auto;
-    width: 100%;
-    box-sizing: border-box;
-    padding: 4px 0 32px 0;
-}
-
-.tallerpro-back-to-list {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    color: #64748b;
-    text-decoration: none !important;
-    margin-bottom: 22px;
-    transition: color 0.15s ease;
-}
-
-.tallerpro-back-to-list:hover {
-    color: #0f172a;
-}
-
-.tallerpro-back-to-list svg {
-    color: inherit;
-    transition: transform 0.15s ease;
-}
-
-.tallerpro-back-to-list:hover svg {
-    transform: translateX(-3px);
-}
-
-.tallerpro-vehicle-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 24px 28px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 22px;
-    box-sizing: border-box;
-    gap: 32px;
-}
-
-.tallerpro-vehicle-main-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    flex-shrink: 0;
-}
-
-.tallerpro-vehicle-plate {
-    font-size: 26px;
-    font-weight: 700;
-    color: #0f172a;
-    margin: 0;
-    letter-spacing: 0.02em;
-    line-height: 1.2;
-}
-
-.tallerpro-vehicle-model {
-    font-size: 14px;
-    color: #64748b;
-    margin: 0;
-    font-weight: 500;
-}
-
-.tallerpro-vehicle-meta-group {
-    display: flex;
-    gap: 48px;
-    align-items: flex-start;
-    flex-wrap: wrap;
-}
-
-.tallerpro-vehicle-meta-item {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.tallerpro-vehicle-meta-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: #64748b;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-}
-
-.tallerpro-vehicle-meta-value {
-    font-size: 13.5px;
-    font-weight: 500;
-    color: #0f172a;
-    max-width: 260px;
-    word-break: break-word;
-    line-height: 1.4;
-}
-
-/* Tabs */
-.tallerpro-tabs-container {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 20px;
-    overflow-x: auto;
-    padding-bottom: 2px;
-}
-
-.tallerpro-tab-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 7px 16px;
-    font-size: 13.5px;
-    font-weight: 500;
-    color: #64748b;
-    background-color: #f1f5f9;
-    border: 1.5px solid transparent;
-    border-radius: 8px;
-    text-decoration: none !important;
-    cursor: pointer;
-    transition: all 0.15s ease;
-    white-space: nowrap;
-    user-select: none;
-    font-family: inherit;
-}
-
-.tallerpro-tab-btn svg {
-    width: 15px;
-    height: 15px;
-    color: #64748b;
-    transition: color 0.15s ease;
-    flex-shrink: 0;
-}
-
-.tallerpro-tab-btn:hover {
-    background-color: #e2e8f0;
-    color: #0f172a;
-}
-
-.tallerpro-tab-btn:hover svg {
-    color: #0f172a;
-}
-
-.tallerpro-tab-btn.active {
-    background-color: #ffffff;
-    border-color: #dc2626;
-    color: #dc2626;
-    font-weight: 600;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-}
-
-.tallerpro-tab-btn.active svg {
-    color: #dc2626;
-}
-
-/* Tab panes */
-.tallerpro-tab-pane {
-    display: none;
-}
-
-.tallerpro-tab-pane.active {
-    display: block;
-}
-
-.tallerpro-vehicle-detail-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 24px 28px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
-    box-sizing: border-box;
-    margin-bottom: 24px;
-}
-
-.tallerpro-vehicle-detail-card-title {
-    font-size: 15px;
-    font-weight: 600;
-    color: #0f172a;
-    margin: 0 0 24px 0;
-}
-
-.tallerpro-vehicle-owner-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    column-gap: 48px;
-    row-gap: 22px;
-}
-
-.tallerpro-vehicle-owner-field {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.tallerpro-vehicle-owner-label {
-    font-size: 11px;
-    font-weight: 600;
-    color: #64748b;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-}
-
-.tallerpro-vehicle-owner-value {
-    font-size: 14px;
-    font-weight: 500;
-    color: #0f172a;
-    line-height: 1.4;
-}
-
-@media (max-width: 768px) {
-    .tallerpro-vehicle-card {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 16px;
-    }
-
-    .tallerpro-vehicle-meta-group {
-        flex-direction: column;
-        gap: 12px;
-    }
-
-    .tallerpro-vehicle-owner-grid {
-        grid-template-columns: 1fr;
-        row-gap: 16px;
-    }
-}
-
-/* Badge & Seguros helper classes */
-.tallerpro-badge {
-    display: inline-block;
-    background: #f1f5f9;
-    color: #475569;
-    font-size: 0.78rem;
-    font-weight: 500;
-    padding: 3px 8px;
-    border-radius: 6px;
-    line-height: 1.2;
-}
-
-.tallerpro-badge-primary {
-    background: #fef2f2;
-    color: #dc2626;
-}
-
-.tallerpro-seguro-item {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 16px;
-    margin-bottom: 12px;
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 16px;
-}
-
-.tallerpro-seguro-item:last-child {
-    margin-bottom: 0;
-}
-
-.tallerpro-seguro-main {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-}
-
-.tallerpro-seguro-header {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.tallerpro-seguro-company {
-    font-size: 15px;
-    font-weight: 600;
-    color: #0f172a;
-}
-
-.tallerpro-seguro-details {
-    font-size: 13px;
-    color: #64748b;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-}
-
-.tallerpro-seguro-notes {
-    font-size: 12.5px;
-    color: #475569;
-    margin-top: 4px;
-    background: #ffffff;
-    padding: 6px 10px;
-    border-radius: 6px;
-    border: 1px solid #e2e8f0;
-}
-
-/* ==========================================================================
-   Detalle de Factura (Modal Extendido)
-   ========================================================================== */
+  background-color: var(--tp-green-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(5, 150, 105, 0.3);
+}
+
+.tallerpro-checkbox-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12.5px;
+  color: #475569;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  height: 38px;
+  margin: 0;
+}
+
+/* Modales Extensas (Facturas y Órdenes) */
 form.tallerpro-modal-card-lg,
 .tallerpro-modal-card-lg {
-    max-width: 900px !important;
-    width: 96% !important;
-    max-height: 90vh;
-    overflow: hidden !important;
-    display: flex;
-    flex-direction: column;
-    padding: 0 !important;
+  max-width: 900px !important;
+  width: 96% !important;
+  max-height: 90vh;
+  overflow: hidden !important;
+  display: flex;
+  flex-direction: column;
+  padding: 0 !important;
 }
 
 form.tallerpro-modal-card-lg .tallerpro-modal-header,
 .tallerpro-modal-card-lg .tallerpro-modal-header {
-    padding: 18px 24px;
-    margin: 0;
-    border-bottom: 1px solid #e2e8f0;
-    background: #ffffff;
-    flex-shrink: 0;
+  padding: 18px 24px;
+  margin: 0;
+  border-bottom: 1px solid var(--tp-border);
+  background: var(--tp-bg-card);
+  flex-shrink: 0;
 }
 
 form.tallerpro-modal-card-lg .tallerpro-modal-body,
 .tallerpro-modal-card-lg .tallerpro-modal-body {
-    padding: 20px 24px 24px;
-    overflow-y: auto !important;
-    flex: 1 1 auto;
-    min-height: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    box-sizing: border-box;
+  padding: 20px 24px 24px;
+  overflow-y: auto !important;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-sizing: border-box;
 }
 
-.tallerpro-modal-body::-webkit-scrollbar {
-    width: 6px;
-}
-
+.tallerpro-modal-body::-webkit-scrollbar { width: 6px; }
 .tallerpro-modal-body::-webkit-scrollbar-thumb {
-    background-color: #cbd5e1;
-    border-radius: 4px;
+  background-color: var(--tp-border-strong);
+  border-radius: 4px;
 }
 
-.tallerpro-form-input:read-only,
-.tallerpro-form-input[readonly] {
-    background-color: #f1f5f9;
-    color: #1e293b;
-    font-weight: 600;
-    cursor: default;
-    border-color: #cbd5e1;
+.tallerpro-modal-card.tallerpro-modal-order-card {
+  max-width: 820px !important;
+  padding: 24px 28px !important;
+  border-radius: var(--tp-radius-xl) !important;
+}
+
+.tallerpro-order-top-row {
+  display: grid;
+  grid-template-columns: 2fr 1.1fr 1.1fr;
+  gap: 14px;
 }
 
 .tallerpro-invoice-section {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 16px 18px;
-    margin-bottom: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-lg);
+  padding: 16px 18px;
+  margin-bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .tallerpro-invoice-section-title {
-    font-size: 14.5px;
-    font-weight: 700;
-    color: #0f172a;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin: 0;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--tp-text-dark);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
 }
 
 .tallerpro-invoice-section-title svg,
 .tallerpro-invoice-section-heading svg {
-    color: #dc2626 !important;
-    stroke: #dc2626 !important;
-    flex-shrink: 0;
+  color: var(--tp-red-dark) !important;
+  stroke: var(--tp-red-dark) !important;
+  flex-shrink: 0;
 }
 
 .tallerpro-grid-mat-row1 {
-    display: grid;
-    grid-template-columns: 2fr 1fr 2.5fr;
-    gap: 12px;
-    align-items: flex-end;
+  display: grid;
+  grid-template-columns: 2fr 1fr 2.5fr;
+  gap: 12px;
+  align-items: flex-end;
 }
 
 .tallerpro-grid-mat-row2 {
-    display: grid;
-    grid-template-columns: 85px 110px 95px 120px 1fr;
-    gap: 12px;
-    align-items: flex-end;
+  display: grid;
+  grid-template-columns: 85px 1fr 1fr 1.2fr 180px;
+  gap: 12px;
+  align-items: flex-end;
 }
 
 .tallerpro-grid-rep-row1 {
-    display: grid;
-    grid-template-columns: 2.8fr 1fr 1fr 1.2fr;
-    gap: 12px;
-    align-items: flex-end;
+  display: grid;
+  grid-template-columns: 2.8fr 1fr 1fr 1.2fr;
+  gap: 12px;
+  align-items: flex-end;
 }
 
 .tallerpro-grid-rep-row2 {
-    display: flex;
-    gap: 16px;
-    align-items: flex-end;
+  display: grid;
+  grid-template-columns: 1fr 180px;
+  gap: 12px;
+  align-items: flex-end;
 }
 
-.tallerpro-grid-rep-row2 .tallerpro-form-group:first-child {
-    flex: 1;
-}
-
+.tallerpro-grid-rep-row2 .tallerpro-form-group:first-child,
 .tallerpro-grid-rep-row2 .tallerpro-form-group:last-child {
-    flex: 0 0 auto;
+  width: 100%;
+}
+
+.tallerpro-grid-rep-row2 #rep_mo_notas {
+  min-height: 44px;
+  height: 44px;
+  padding: 7px 12px;
+  resize: vertical;
+}
+
+.tallerpro-grid-rep-row2 .tallerpro-btn-add-line,
+.tallerpro-grid-mat-row2 .tallerpro-btn-add-line {
+  width: 100%;
+  min-width: 180px;
 }
 
 .tallerpro-invoice-empty-box {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 14px 16px;
-    text-align: center;
-    color: #64748b;
-    font-size: 13px;
-    margin-top: 4px;
+  background: var(--tp-bg);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius);
+  padding: 14px 16px;
+  text-align: center;
+  color: var(--tp-text-muted);
+  font-size: 13px;
+  margin-top: 4px;
 }
 
 .tallerpro-invoice-lines-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    margin-top: 6px;
-    width: 100%;
-    overflow-x: auto;
-}
-
-.tallerpro-invoice-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13.5px;
-}
-
-.tallerpro-invoice-table thead th {
-    color: #64748b;
-    font-size: 12.5px;
-    font-weight: 600;
-    padding: 8px 10px;
-    border-bottom: 1px solid #e2e8f0;
-    text-align: left;
-    white-space: nowrap;
-}
-
-.tallerpro-invoice-table tbody td {
-    padding: 9px 10px;
-    color: #1e293b;
-    border-bottom: 1px solid #f1f5f9;
-    vertical-align: middle;
-    font-size: 13px;
-}
-
-.tallerpro-invoice-table tbody tr:hover {
-    background-color: #f8fafc;
-}
-
-.tallerpro-invoice-table tbody tr:last-child td {
-    border-bottom: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 6px;
+  width: 100%;
+  overflow-x: auto;
 }
 
 .tallerpro-invoice-line-item {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 10px 14px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
+  background: var(--tp-bg);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius);
+  padding: 10px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .tallerpro-invoice-line-main {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
 }
 
 .tallerpro-invoice-line-title {
-    font-size: 13.5px;
-    font-weight: 600;
-    color: #0f172a;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--tp-text-dark);
 }
 
 .tallerpro-invoice-line-meta {
-    font-size: 12px;
-    color: #64748b;
+  font-size: 12px;
+  color: var(--tp-text-muted);
 }
 
 .tallerpro-invoice-line-right {
-    display: flex;
-    align-items: center;
-    gap: 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
 .tallerpro-invoice-line-price {
-    font-size: 14px;
-    font-weight: 700;
-    color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--tp-text-dark);
 }
 
 .tallerpro-invoice-totals-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 18px 22px;
-    display: flex;
-    flex-direction: column;
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-lg);
+  padding: 18px 22px;
+  display: flex;
+  flex-direction: column;
 }
 
 .tallerpro-invoice-totals-grid {
-    display: grid;
-    grid-template-columns: 1.1fr 1.4fr;
-    gap: 32px;
-    align-items: flex-start;
+  display: grid;
+  grid-template-columns: 1.1fr 1.4fr;
+  gap: 32px;
+  align-items: flex-start;
 }
 
 .tallerpro-totals-inputs {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .tallerpro-totals-summary {
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
-    font-size: 13.5px;
-    color: #475569;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  font-size: 13.5px;
+  color: #475569;
 }
 
 .tallerpro-totals-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13.5px;
+  color: var(--tp-text-muted);
+  width: 100%;
+}
+
+.tallerpro-totals-row span:first-child {
+  color: var(--tp-text-muted);
+  font-weight: 400;
+}
+
+.tallerpro-totals-row span:last-child {
+  color: var(--tp-text-dark);
+  font-weight: 500;
+  text-align: right;
 }
 
 .tallerpro-totals-divider {
-    height: 1px;
-    background: #e2e8f0;
-    margin: 3px 0;
+  height: 1px;
+  background: var(--tp-border);
+  margin: 4px 0;
+  border: none;
+  width: 100%;
 }
 
 .tallerpro-totals-final {
-    font-weight: 800;
-    color: #0f172a;
-    font-size: 16px;
-    margin-top: 4px;
+  margin-top: 3px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  font-weight: 800;
+  color: var(--tp-text-dark);
+  font-size: 16px;
 }
 
-.tallerpro-btn-save-totals {
-    width: 100%;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    background: #1e2024;
-    color: #ffffff;
-    padding: 10px 16px;
-    border-radius: 8px;
-    font-weight: 600;
-    font-size: 13.5px;
-    border: none;
-    cursor: pointer;
-    margin-top: 14px;
-    transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+.tallerpro-totals-final span:first-child {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--tp-text-dark);
 }
 
-.tallerpro-btn-save-totals:hover {
-    background: #0f172a;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
-}
-
-.tallerpro-checkbox-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 12.5px;
-    color: #475569;
-    cursor: pointer;
-    white-space: nowrap;
-    user-select: none;
-    height: 38px;
-    margin: 0;
-}
-
-.tallerpro-btn-add-line {
-    background: #dc2626;
-    color: #ffffff;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 8px 16px;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    white-space: nowrap;
-    height: 38px;
-    box-sizing: border-box;
-    transition: background 0.15s ease, transform 0.1s ease;
-}
-
-.tallerpro-btn-add-line:hover:not(:disabled) {
-    background: #b91c1c;
-    transform: translateY(-1px);
-}
-
-.tallerpro-btn-add-line:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-}
-
-.tallerpro-btn-add-line-secondary {
-    background: #64748b;
-    color: #ffffff;
-    font-size: 12.5px;
-    font-weight: 600;
-    padding: 8px 14px;
-    border-radius: 7px;
-    border: none;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    white-space: nowrap;
-    transition: background 0.15s ease;
-}
-
-.tallerpro-btn-add-line-secondary:hover {
-    background: #475569;
-}
-
-
-
-@media (max-width: 768px) {
-
-    .tallerpro-grid-mat-row1,
-    .tallerpro-grid-mat-row2,
-    .tallerpro-grid-rep-row1,
-    .tallerpro-invoice-totals-grid,
-    .tallerpro-invoice-cards-grid {
-        grid-template-columns: 1fr;
-    }
-
-    .tallerpro-grid-rep-row2 {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .tallerpro-invoice-modal-footer-actions {
-        flex-direction: column;
-    }
-}
-
-/* ==========================================================================
-   Vista Detalle Documental de Factura
-   ========================================================================== */
-.tallerpro-invoice-view-wrapper {
-    max-width: 1080px;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    width: 100%;
-}
-
-.tallerpro-invoice-badge-status {
-    display: inline-flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    padding: 4px 14px !important;
-    border-radius: 9999px !important;
-    font-size: 12px !important;
-    font-weight: 500 !important;
-    line-height: 1.3 !important;
-}
-
-.tallerpro-invoice-view-topbar {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 6px;
-    flex-wrap: wrap;
-    gap: 12px;
-}
-
-.tallerpro-back-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 13.5px;
-    font-weight: 600;
-    color: #475569;
-    text-decoration: none;
-    transition: color 0.15s ease;
-}
-
-.tallerpro-back-link:hover {
-    color: #0f172a;
-}
-
-.tallerpro-invoice-view-top-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.tallerpro-btn-edit-lines {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 7px 14px;
-    font-size: 13px;
-    font-weight: 500;
-    color: #0f172a;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    transition: all 0.15s ease;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-}
-
-.tallerpro-btn-edit-lines:hover {
-    background: #f8fafc;
-    border-color: #cbd5e1;
-    color: #0f172a;
-}
-
-.tallerpro-invoice-doc-header {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    margin-bottom: 2px;
-}
-
-.tallerpro-invoice-doc-label {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    color: #64748b;
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    text-transform: uppercase;
-}
-
-.tallerpro-invoice-doc-num {
-    font-size: 26px;
-    font-weight: 700;
-    color: #0f172a;
-    line-height: 1.2;
-    margin: 3px 0 2px 0;
-    letter-spacing: -0.01em;
-}
-
-.tallerpro-invoice-doc-date {
-    font-size: 13.5px;
-    color: #64748b;
-    font-weight: 400;
-}
-
-.tallerpro-invoice-cards-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-}
-
-.tallerpro-invoice-info-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 20px 22px;
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-}
-
-.tallerpro-info-card-tag {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    color: #64748b;
-    text-transform: uppercase;
-    margin-bottom: 4px;
-}
-
-.tallerpro-info-card-title {
-    font-size: 16px;
-    font-weight: 700;
-    color: #0f172a;
-    margin-bottom: 4px;
-}
-
-.tallerpro-info-card-line {
-    font-size: 13px;
-    color: #64748b;
-    line-height: 1.5;
-}
-
-.tallerpro-info-card-sub {
-    font-size: 12.5px;
-    color: #64748b;
-    margin-top: 2px;
-}
-
-.tallerpro-invoice-section-block {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    width: 100%;
-}
-
-.tallerpro-invoice-section-heading {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 15px;
-    font-weight: 600;
-    color: #0f172a;
-    margin-top: 2px;
-}
-
-.tallerpro-invoice-table-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    overflow: hidden;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-}
-
-.tallerpro-invoice-view-section {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 18px 20px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.tallerpro-invoice-summary-card {
-    padding: 18px 24px;
-}
-
-.tallerpro-invoice-table {
-    width: 100%;
-    border-collapse: collapse;
-    text-align: left;
-    margin-top: 0;
-}
-
-.tallerpro-invoice-table th {
-    background-color: #ffffff;
-    padding: 12px 18px;
-    font-size: 12.5px;
-    font-weight: 500;
-    color: #64748b;
-    border-bottom: 1px solid #e2e8f0;
-    white-space: nowrap;
-}
-
-.tallerpro-invoice-table td {
-    padding: 14px 18px;
-    font-size: 13.5px;
-    color: #334155;
-    border-bottom: 1px solid #f1f5f9;
-    vertical-align: middle;
-}
-
-.tallerpro-invoice-table tr:last-child td {
-    border-bottom: none;
-}
-
-.tallerpro-invoice-table tr:hover td {
-    background-color: #fafbfd;
-}
-
-.tallerpro-invoice-totals-card-view {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 22px 28px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-    display: flex;
-    justify-content: flex-end;
-    width: 100%;
-    box-sizing: border-box;
-}
-
-.tallerpro-totals-summary-box {
-    width: 320px;
-    max-width: 100%;
-    margin-left: auto;
-    margin-right: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 9px;
-}
-
-.tallerpro-totals-row,
-.tallerpro-totals-summary-box .tallerpro-totals-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 13.5px;
-    color: #64748b;
-    width: 100%;
-}
-
-.tallerpro-totals-row span:first-child,
-.tallerpro-totals-summary-box .tallerpro-totals-row span:first-child {
-    color: #64748b;
-    font-weight: 400;
-}
-
-.tallerpro-totals-row span:last-child,
-.tallerpro-totals-summary-box .tallerpro-totals-row span:last-child {
-    color: #0f172a;
-    font-weight: 500;
-    text-align: right;
-}
-
-.tallerpro-totals-divider,
-.tallerpro-totals-summary-box .tallerpro-totals-divider {
-    height: 1px;
-    background-color: #f1f5f9;
-    margin: 4px 0;
-    border: none;
-    width: 100%;
-}
-
-.tallerpro-totals-final,
-.tallerpro-totals-summary-box .tallerpro-totals-final {
-    margin-top: 3px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-}
-
-.tallerpro-totals-final span:first-child,
-.tallerpro-totals-summary-box .tallerpro-totals-final span:first-child {
-    font-size: 15px;
-    font-weight: 700;
-    color: #0f172a;
-}
-
-.tallerpro-totals-final span:last-child,
-.tallerpro-totals-summary-box .tallerpro-totals-final span:last-child {
-    font-size: 16px;
-    font-weight: 700;
-    color: #0f172a;
-    text-align: right;
-}
-
-.tallerpro-badge-status-pagada {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px 14px;
-    background-color: #ecfdf5;
-    color: #047857;
-    border: 1px solid #a7f3d0;
-    border-radius: 9999px;
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 1.3;
-}
-
-.tallerpro-badge-status-pendiente {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px 14px;
-    background-color: #fffbeb;
-    color: #b45309;
-    border: 1px solid #fde68a;
-    border-radius: 9999px;
-    font-size: 12px;
-    font-weight: 500;
-    line-height: 1.3;
-}
-
-.tallerpro-btn-pdf {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    background-color: #dc2626;
-    color: #ffffff !important;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 8px 16px;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    text-decoration: none !important;
-    transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
-    box-shadow: 0 1px 2px rgba(220, 38, 38, 0.2);
-}
-
-.tallerpro-btn-pdf:hover {
-    background-color: #b91c1c;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 10px rgba(220, 38, 38, 0.3);
+.tallerpro-totals-final span:last-child {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--tp-text-dark);
+  text-align: right;
 }
 
 .tallerpro-invoice-modal-footer-actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 12px;
-    width: 100%;
-    margin-top: 10px;
-}
-
-.tallerpro-btn-modal-listo {
-    background: #0f3ba8;
-    color: #ffffff;
-    padding: 9px 24px;
-    border-radius: 8px;
-    font-weight: 700;
-    font-size: 13.5px;
-    border: none;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    white-space: nowrap;
-    transition: background 0.15s ease, transform 0.1s ease;
-    box-shadow: 0 1px 2px rgba(15, 59, 168, 0.2);
-}
-
-.tallerpro-btn-modal-listo:hover {
-    background: #0d318e;
-    transform: translateY(-1px);
-    box-shadow: 0 4px 10px rgba(15, 59, 168, 0.3);
-}
-
-.tallerpro-spin {
-    animation: tallerpro-spin 1s linear infinite;
-}
-
-@keyframes tallerpro-spin {
-    from {
-        transform: rotate(0deg);
-    }
-
-    to {
-        transform: rotate(360deg);
-    }
-}
-
-@media print {
-
-    .tallerpro-sidebar,
-    .tallerpro-topbar,
-    .tallerpro-invoice-view-topbar,
-    .tallerpro-modal-backdrop,
-    .tallerpro-collapse-btn {
-        display: none !important;
-    }
-
-    .tallerpro-layout,
-    .tallerpro-main,
-    .tallerpro-content-wrapper,
-    .tallerpro-content {
-        margin: 0 !important;
-        padding: 0 !important;
-        width: 100% !important;
-        background: #ffffff !important;
-    }
-
-    .tallerpro-invoice-view-wrapper {
-        gap: 20px !important;
-    }
-
-    .tallerpro-invoice-info-card,
-    .tallerpro-invoice-view-section {
-        border-color: #cbd5e1 !important;
-        box-shadow: none !important;
-    }
-}
-
-/* ==========================================================================
-   Reparaciones View & Orden de Reparación Modal
-   ========================================================================== */
-.tallerpro-topbar-breadcrumb {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13.5px;
-    font-weight: 600;
-}
-
-.tallerpro-topbar-breadcrumb-parent {
-    color: #64748b;
-    text-decoration: none;
-    transition: color 0.15s ease;
-}
-
-.tallerpro-topbar-breadcrumb-parent:hover {
-    color: #1e293b;
-}
-
-.tallerpro-topbar-breadcrumb-sep {
-    color: #cbd5e1;
-    font-size: 12px;
-}
-
-.tallerpro-topbar-breadcrumb-current {
-    color: #1e293b;
-}
-
-.tallerpro-topbar-status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    padding: 5px 12px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 9999px;
-    font-size: 12px;
-    font-weight: 500;
-    color: #475569;
-}
-
-.tallerpro-status-dot-green {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background-color: #22c55e;
-    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
-}
-
-/* Filter Card */
-.tallerpro-reparaciones-filter-card {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 12px 18px;
-    margin-bottom: 22px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
-}
-
-.tallerpro-filter-search-box {
-    position: relative;
-    width: 320px;
-    max-width: 100%;
-}
-
-.tallerpro-filter-search-box svg {
-    position: absolute;
-    left: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #94a3b8;
-    pointer-events: none;
-}
-
-.tallerpro-filter-search-input {
-    width: 100%;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 8px 12px 8px 36px;
-    font-size: 13.5px;
-    color: #1e293b;
-    outline: none;
-    box-sizing: border-box;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.tallerpro-filter-search-input:focus {
-    border-color: #dc2626;
-    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
-}
-
-.tallerpro-filter-search-input::placeholder {
-    color: #94a3b8;
-}
-
-.tallerpro-filter-state-group {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-
-.tallerpro-filter-state-label {
-    font-size: 13px;
-    color: #64748b;
-    font-weight: 500;
-    white-space: nowrap;
-}
-
-.tallerpro-filter-state-select {
-    appearance: none;
-    background-color: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 7px 32px 7px 12px;
-    font-size: 13px;
-    font-weight: 500;
-    color: #1e293b;
-    cursor: pointer;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right 10px center;
-    background-size: 14px;
-    outline: none;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.tallerpro-filter-state-select:focus {
-    border-color: #dc2626;
-    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
-}
-
-/* Status Badges */
-.tallerpro-status-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 4px 10px;
-    border-radius: 9999px;
-    font-size: 12px;
-    font-weight: 600;
-    line-height: 1.3;
-}
-
-.tallerpro-status-pill.status-finalizada {
-    background-color: #dcfce7;
-    color: #15803d;
-    border: 1px solid #bbf7d0;
-}
-
-.tallerpro-status-pill.status-en-curso {
-    background-color: #f8fafc;
-    color: #334155;
-    border: 1px solid #cbd5e1;
-}
-
-.tallerpro-status-pill svg {
-    color: currentColor;
-    opacity: 0.8;
-}
-
-/* Facturar Button */
-.tallerpro-btn-facturar-action {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background-color: #ecfdf5;
-    color: #059669;
-    border: 1px solid #a7f3d0;
-    border-radius: 6px;
-    padding: 4px 10px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    text-decoration: none;
-    transition: background-color 0.15s ease, border-color 0.15s ease;
-    user-select: none;
-}
-
-.tallerpro-btn-facturar-action:hover {
-    background-color: #d1fae5;
-    border-color: #6ee7b7;
-    color: #047857;
-    text-decoration: none;
-}
-
-/* Enlace a Factura Ya Emitida */
-.tallerpro-btn-facturada-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background-color: #f8fafc;
-    color: #475569;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
-    padding: 4px 10px;
-    font-size: 12px;
-    font-weight: 600;
-    cursor: pointer;
-    text-decoration: none;
-    transition: all 0.15s ease;
-    user-select: none;
-}
-
-.tallerpro-btn-facturada-link:hover {
-    background-color: #f1f5f9;
-    border-color: #94a3b8;
-    color: #0f172a;
-    text-decoration: none;
-}
-
-.tallerpro-btn-facturada-link svg {
-    color: #059669;
-    flex-shrink: 0;
-}
-
-/* Modal Orden de Reparacion */
-.tallerpro-modal-card.tallerpro-modal-order-card {
-    max-width: 820px !important;
-    padding: 24px 28px !important;
-    border-radius: 16px !important;
-}
-
-.tallerpro-modal-subtitle {
-    font-size: 13px;
-    color: #64748b;
-    margin-top: 3px;
-    font-weight: 400;
-}
-
-.tallerpro-order-top-row {
-    display: grid;
-    grid-template-columns: 2fr 1.1fr 1.1fr;
-    gap: 14px;
-}
-
-@media (max-width: 768px) {
-    .tallerpro-order-top-row {
-        grid-template-columns: 1fr;
-    }
-
-    .tallerpro-reparaciones-filter-card {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .tallerpro-filter-search-box {
-        width: 100%;
-    }
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  width: 100%;
+  margin-top: 10px;
 }
 
 .tallerpro-order-section-box {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    overflow: hidden;
-    margin-top: 2px;
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 2px;
 }
 
 .tallerpro-order-section-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 9px 14px;
-    background-color: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 9px 14px;
+  background-color: var(--tp-bg);
+  border-bottom: 1px solid var(--tp-border);
 }
 
 .tallerpro-order-section-title {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    font-weight: 600;
-    color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--tp-text-body);
 }
 
 .tallerpro-order-btn-add {
-    background: transparent;
-    border: none;
-    color: #dc2626;
-    font-size: 12.5px;
-    font-weight: 600;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    transition: background-color 0.15s ease;
+  background: transparent;
+  border: none;
+  color: var(--tp-red-dark);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease;
 }
 
 .tallerpro-order-btn-add:hover {
-    background-color: #fef2f2;
+  background-color: #fef2f2;
 }
 
-/* Inner Order Tables */
 .tallerpro-order-table {
-    width: 100%;
-    border-collapse: collapse;
+  width: 100%;
+  border-collapse: collapse;
 }
 
 .tallerpro-order-table th {
-    background-color: #ffffff;
-    padding: 8px 12px;
-    font-size: 11px;
-    font-weight: 600;
-    color: #64748b;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    border-bottom: 1px solid #f1f5f9;
-    text-align: left;
+  background-color: var(--tp-bg-card);
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tp-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid var(--tp-border-subtle);
+  text-align: left;
 }
 
 .tallerpro-order-table td {
-    padding: 8px 12px;
-    vertical-align: middle;
-    border-bottom: 1px solid #f8fafc;
+  padding: 8px 12px;
+  vertical-align: middle;
+  border-bottom: 1px solid var(--tp-bg);
 }
 
 .tallerpro-order-table tr:last-child td {
-    border-bottom: none;
+  border-bottom: none;
 }
 
 .tallerpro-order-input {
-    width: 100%;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    padding: 7px 10px;
-    font-size: 13px;
-    color: #0f172a;
-    box-sizing: border-box;
-    transition: border-color 0.15s ease;
+  width: 100%;
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-sm);
+  padding: 7px 10px;
+  font-size: 13px;
+  color: var(--tp-text-dark);
+  box-sizing: border-box;
+  transition: border-color 0.15s ease;
 }
 
 .tallerpro-order-input:focus {
-    outline: none;
-    border-color: #dc2626;
-    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1);
+  outline: none;
+  border-color: var(--tp-red-dark);
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1);
 }
 
 .tallerpro-order-select {
-    width: 100%;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 6px;
-    padding: 7px 28px 7px 10px;
-    font-size: 13px;
-    color: #0f172a;
-    box-sizing: border-box;
-    appearance: none;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-    background-repeat: no-repeat;
-    background-position: right 8px center;
-    background-size: 13px;
-    cursor: pointer;
+  width: 100%;
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-sm);
+  padding: 7px 28px 7px 10px;
+  font-size: 13px;
+  color: var(--tp-text-dark);
+  box-sizing: border-box;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 13px;
+  cursor: pointer;
 }
 
 .tallerpro-order-select:focus {
-    outline: none;
-    border-color: #dc2626;
-    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1);
+  outline: none;
+  border-color: var(--tp-red-dark);
+  box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.1);
 }
 
 .tallerpro-order-del-btn {
-    background: transparent;
-    border: none;
-    color: #cbd5e1;
-    cursor: pointer;
-    padding: 4px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 4px;
-    transition: color 0.15s ease;
+  background: transparent;
+  border: none;
+  color: var(--tp-border-strong);
+  cursor: pointer;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: color 0.15s ease;
 }
 
 .tallerpro-order-del-btn:hover {
-    color: #ef4444;
+  color: var(--tp-red);
 }
 
-/* Summary Box */
 .tallerpro-order-summary-box {
-    min-width: 260px;
-    background-color: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 12px 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 7px;
+  min-width: 260px;
+  background-color: var(--tp-bg);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius);
+  padding: 12px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
 }
 
 .tallerpro-order-summary-row {
-    display: flex;
-    justify-content: space-between;
-    font-size: 13px;
-    color: #64748b;
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--tp-text-muted);
 }
 
 .tallerpro-order-summary-row.total {
-    font-size: 14.5px;
-    font-weight: 700;
-    color: #0f172a;
-    border-top: 1px solid #e2e8f0;
-    padding-top: 8px;
-    margin-top: 2px;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--tp-text-dark);
+  border-top: 1px solid var(--tp-border);
+  padding-top: 8px;
+  margin-top: 2px;
 }
 
-/* Modal Bottom Actions */
 .tallerpro-order-footer-dual {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding-top: 14px;
-    margin-top: 6px;
-    border-top: 1px solid #f1f5f9;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 14px;
+  margin-top: 6px;
+  border-top: 1px solid var(--tp-border-subtle);
 }
 
-.tallerpro-btn-emitir-factura {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    background-color: #059669;
-    color: #ffffff;
-    font-size: 13.5px;
-    font-weight: 600;
-    padding: 10px 16px;
-    border-radius: 8px;
-    border: none;
-    cursor: pointer;
-    box-shadow: 0 1px 2px rgba(5, 150, 105, 0.2);
-    transition: background-color 0.15s ease, transform 0.1s ease;
-    width: 100%;
-    margin-top: 8px;
+/* Document Detail Views (Factura & Informes) */
+.tallerpro-invoice-view-wrapper {
+  max-width: 1080px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
 }
 
-.tallerpro-btn-emitir-factura:hover {
-    background-color: #047857;
+.tallerpro-invoice-badge-status {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 4px 14px !important;
+  border-radius: var(--tp-radius-pill) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 1.3 !important;
 }
 
-.tallerpro-btn-cancel-text {
-    background: transparent;
-    border: none;
-    color: #64748b;
-    font-size: 13.5px;
-    font-weight: 500;
-    cursor: pointer;
-    padding: 8px 16px;
-    border-radius: 6px;
-    transition: color 0.15s ease;
+.tallerpro-invoice-view-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
-.tallerpro-btn-cancel-text:hover {
-    color: #0f172a;
+.tallerpro-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #475569;
+  text-decoration: none;
+  transition: color 0.15s ease;
 }
 
-/* ==========================================================================
-   Toast / Modal de Aviso Superior Derecho
-   ========================================================================== */
+.tallerpro-back-link:hover {
+  color: var(--tp-text-dark);
+}
+
+.tallerpro-invoice-view-top-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tallerpro-btn-edit-lines {
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius);
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--tp-text-dark);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: var(--tp-transition);
+  box-shadow: var(--tp-shadow-sm);
+}
+
+.tallerpro-btn-edit-lines:hover {
+  background: var(--tp-bg);
+  border-color: var(--tp-border-strong);
+  color: var(--tp-text-dark);
+}
+
+.tallerpro-invoice-doc-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 2px;
+}
+
+.tallerpro-invoice-doc-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--tp-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  text-transform: uppercase;
+}
+
+.tallerpro-invoice-doc-num {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--tp-text-dark);
+  line-height: 1.2;
+  margin: 3px 0 2px 0;
+  letter-spacing: -0.01em;
+}
+
+.tallerpro-invoice-doc-date {
+  font-size: 13.5px;
+  color: var(--tp-text-muted);
+  font-weight: 400;
+}
+
+.tallerpro-invoice-cards-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.tallerpro-invoice-info-card {
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-lg);
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  box-shadow: var(--tp-shadow-sm);
+}
+
+.tallerpro-info-card-tag {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--tp-text-muted);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.tallerpro-info-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--tp-text-dark);
+  margin-bottom: 4px;
+}
+
+.tallerpro-info-card-line {
+  font-size: 13px;
+  color: var(--tp-text-muted);
+  line-height: 1.5;
+}
+
+.tallerpro-info-card-sub {
+  font-size: 12.5px;
+  color: var(--tp-text-muted);
+  margin-top: 2px;
+}
+
+.tallerpro-invoice-section-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.tallerpro-invoice-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--tp-text-dark);
+  margin-top: 2px;
+}
+
+.tallerpro-invoice-table-card {
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-lg);
+  overflow: hidden;
+  box-shadow: var(--tp-shadow-sm);
+}
+
+.tallerpro-invoice-view-section {
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tallerpro-invoice-summary-card {
+  padding: 18px 24px;
+}
+
+.tallerpro-invoice-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.tallerpro-invoice-table th,
+.tallerpro-invoice-table thead th {
+  background-color: var(--tp-bg-card);
+  padding: 12px 18px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--tp-text-muted);
+  border-bottom: 1px solid var(--tp-border);
+  white-space: nowrap;
+}
+
+.tallerpro-invoice-table td,
+.tallerpro-invoice-table tbody td {
+  padding: 14px 18px;
+  font-size: 13.5px;
+  color: #334155;
+  border-bottom: 1px solid var(--tp-border-subtle);
+  vertical-align: middle;
+}
+
+.tallerpro-invoice-table tr:last-child td,
+.tallerpro-invoice-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tallerpro-invoice-table tr:hover td,
+.tallerpro-invoice-table tbody tr:hover {
+  background-color: #fafbfd;
+}
+
+.tallerpro-invoice-totals-card-view {
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-lg);
+  padding: 22px 28px;
+  box-shadow: var(--tp-shadow-sm);
+  display: flex;
+  justify-content: flex-end;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tallerpro-totals-summary-box {
+  width: 320px;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+/* Detail Views (Clientes & Vehículos) */
+.tallerpro-detail-container {
+  max-width: 1040px;
+  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 4px 0 32px 0;
+}
+
+.tallerpro-back-to-list {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--tp-text-muted);
+  text-decoration: none !important;
+  margin-bottom: 22px;
+  transition: color 0.15s ease;
+}
+
+.tallerpro-back-to-list:hover {
+  color: var(--tp-text-dark);
+}
+
+.tallerpro-back-to-list svg {
+  color: inherit;
+  transition: transform 0.15s ease;
+}
+
+.tallerpro-back-to-list:hover svg {
+  transform: translateX(-3px);
+}
+
+.tallerpro-client-card {
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-lg);
+  padding: 24px 28px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 22px;
+  box-sizing: border-box;
+  gap: 32px;
+}
+
+.tallerpro-client-main-info {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tallerpro-client-name {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--tp-text-dark);
+  margin: 0;
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+}
+
+.tallerpro-client-contact {
+  font-size: 13.5px;
+  color: var(--tp-text-muted);
+  margin: 0;
+  font-weight: 400;
+}
+
+.tallerpro-client-meta-group {
+  display: flex;
+  gap: 48px;
+  flex-shrink: 0;
+}
+
+.tallerpro-client-meta-item,
+.tallerpro-vehicle-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tallerpro-client-meta-label,
+.tallerpro-vehicle-meta-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tp-text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tallerpro-client-meta-value {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--tp-text-dark);
+  max-width: 280px;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.tallerpro-detail-section-card {
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-lg);
+  padding: 20px 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  margin-bottom: 20px;
+  box-sizing: border-box;
+}
+
+.tallerpro-detail-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.tallerpro-detail-section-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--tp-text-dark);
+}
+
+.tallerpro-detail-section-title svg {
+  color: var(--tp-text-body);
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.tallerpro-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tallerpro-detail-item {
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius);
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tallerpro-detail-item:hover {
+  border-color: var(--tp-border-strong);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.tallerpro-detail-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tallerpro-detail-item-title {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--tp-text-dark);
+  letter-spacing: 0.01em;
+}
+
+.tallerpro-detail-item-sub {
+  font-size: 13px;
+  color: var(--tp-text-muted);
+}
+
+.tallerpro-detail-item-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--tp-text-muted);
+  text-decoration: none !important;
+  padding: 6px 10px;
+  border-radius: var(--tp-radius-sm);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.tallerpro-detail-item-link:hover {
+  color: var(--tp-red-dark);
+  background-color: var(--tp-bg);
+}
+
+.tallerpro-detail-item-link svg {
+  color: inherit;
+}
+
+.tallerpro-btn-ver-factura {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background-color: var(--tp-blue);
+  color: #ffffff !important;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 16px;
+  border-radius: var(--tp-radius-sm);
+  text-decoration: none !important;
+  transition: var(--tp-transition);
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(37, 99, 235, 0.2);
+}
+
+.tallerpro-btn-ver-factura:hover {
+  background-color: var(--tp-blue-dark);
+  color: #ffffff !important;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.3);
+}
+
+.tallerpro-btn-ver-factura svg {
+  color: #ffffff;
+}
+
+.tallerpro-detail-item-end {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.tallerpro-detail-item-price {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--tp-text-dark);
+}
+
+.tallerpro-empty-message {
+  color: var(--tp-text-subtle);
+  font-size: 13px;
+  padding: 24px 0;
+  text-align: center;
+}
+
+.tallerpro-vehicle-card {
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-lg);
+  padding: 24px 28px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 22px;
+  box-sizing: border-box;
+  gap: 32px;
+}
+
+.tallerpro-vehicle-main-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.tallerpro-vehicle-plate {
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--tp-text-dark);
+  margin: 0;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.tallerpro-vehicle-model {
+  font-size: 14px;
+  color: var(--tp-text-muted);
+  margin: 0;
+  font-weight: 500;
+}
+
+.tallerpro-vehicle-meta-group {
+  display: flex;
+  gap: 48px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.tallerpro-vehicle-meta-value {
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--tp-text-dark);
+  max-width: 260px;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.tallerpro-tabs-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.tallerpro-tab-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 16px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--tp-text-muted);
+  background-color: var(--tp-border-subtle);
+  border: 1.5px solid transparent;
+  border-radius: var(--tp-radius);
+  text-decoration: none !important;
+  cursor: pointer;
+  transition: var(--tp-transition);
+  white-space: nowrap;
+  user-select: none;
+  font-family: inherit;
+}
+
+.tallerpro-tab-btn svg {
+  width: 15px;
+  height: 15px;
+  color: var(--tp-text-muted);
+  transition: color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.tallerpro-tab-btn:hover {
+  background-color: var(--tp-border);
+  color: var(--tp-text-dark);
+}
+
+.tallerpro-tab-btn:hover svg {
+  color: var(--tp-text-dark);
+}
+
+.tallerpro-tab-btn.active {
+  background-color: var(--tp-bg-card);
+  border-color: var(--tp-red-dark);
+  color: var(--tp-red-dark);
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.tallerpro-tab-btn.active svg {
+  color: var(--tp-red-dark);
+}
+
+.tallerpro-tab-pane { display: none; }
+.tallerpro-tab-pane.active { display: block; }
+
+.tallerpro-vehicle-detail-card {
+  background: var(--tp-bg-card);
+  border: 1px solid var(--tp-border);
+  border-radius: var(--tp-radius-lg);
+  padding: 24px 28px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+  box-sizing: border-box;
+  margin-bottom: 24px;
+}
+
+.tallerpro-vehicle-detail-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--tp-text-dark);
+  margin: 0 0 24px 0;
+}
+
+.tallerpro-vehicle-owner-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 48px;
+  row-gap: 22px;
+}
+
+.tallerpro-vehicle-owner-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.tallerpro-vehicle-owner-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--tp-text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tallerpro-vehicle-owner-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--tp-text-dark);
+  line-height: 1.4;
+}
+
+.tallerpro-seguro-item {
+  background: var(--tp-bg);
+  border: 1px solid var(--tp-border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 12px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.tallerpro-seguro-item:last-child { margin-bottom: 0; }
+
+.tallerpro-seguro-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.tallerpro-seguro-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tallerpro-seguro-company {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--tp-text-dark);
+}
+
+.tallerpro-seguro-details {
+  font-size: 13px;
+  color: var(--tp-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.tallerpro-seguro-notes {
+  font-size: 12.5px;
+  color: #475569;
+  margin-top: 4px;
+  background: var(--tp-bg-card);
+  padding: 6px 10px;
+  border-radius: var(--tp-radius-sm);
+  border: 1px solid var(--tp-border);
+}
+
+/* Toasts, Switches & Alerts */
 .tallerpro-toast-container {
-    position: fixed;
-    top: 24px;
-    right: 28px;
-    z-index: 99999999;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    pointer-events: none;
+  position: fixed;
+  top: 24px;
+  right: 28px;
+  z-index: 99999999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
 }
 
 .tallerpro-toast {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-    background-color: #0b1324;
-    color: #ffffff;
-    padding: 12px 20px;
-    border-radius: 8px;
-    font-size: 13.5px;
-    font-weight: 500;
-    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.45), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    pointer-events: auto;
-    opacity: 0;
-    transform: translateY(-12px) scale(0.96);
-    transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-    max-width: 460px;
-    word-break: break-word;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background-color: #0b1324;
+  color: #ffffff;
+  padding: 12px 20px;
+  border-radius: var(--tp-radius);
+  font-size: 13.5px;
+  font-weight: 500;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.45), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(-12px) scale(0.96);
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  max-width: 460px;
+  word-break: break-word;
 }
 
 .tallerpro-toast.active {
-    opacity: 1;
-    transform: translateY(0) scale(1);
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 .tallerpro-toast-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    color: #10b981;
-    flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #10b981;
+  flex-shrink: 0;
 }
 
-.tallerpro-toast-icon.error {
-    color: #ef4444;
+.tallerpro-toast-icon.error { color: var(--tp-red); }
+.tallerpro-toast-text { color: var(--tp-bg); line-height: 1.4; }
+
+.tallerpro-content .error,
+.tallerpro-content div.error {
+  background-color: #fee2e2 !important;
+  border: 1px solid #f87171 !important;
+  color: #991b1b !important;
+  padding: 12px 16px !important;
+  border-radius: var(--tp-radius) !important;
+  margin-bottom: 16px !important;
+  font-size: 13.5px !important;
 }
 
-.tallerpro-toast-text {
-    color: #f8fafc;
-    line-height: 1.4;
+.tallerpro-content .ok,
+.tallerpro-content div.ok {
+  background-color: #dcfce7 !important;
+  border: 1px solid #4ade80 !important;
+  color: #166534 !important;
+  padding: 12px 16px !important;
+  border-radius: var(--tp-radius) !important;
+  margin-bottom: 16px !important;
+  font-size: 13.5px !important;
 }
 
-/* Interactive Status Pill */
-.tallerpro-status-pill.clickable {
-    cursor: pointer;
-    user-select: none;
-    transition: transform 0.1s ease, box-shadow 0.15s ease;
+.tallerpro-spin { animation: tallerpro-spin 1s linear infinite; }
+@keyframes tallerpro-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
-.tallerpro-status-pill.clickable:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+.tallerpro-switch-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  user-select: none;
 }
 
-/* Status Select Dropdown in Table */
-.tallerpro-status-select {
-    appearance: none;
-    -webkit-appearance: none;
-    display: inline-flex;
-    align-items: center;
-    border-radius: 9999px;
-    font-size: 12px;
-    font-weight: 600;
-    padding: 4px 26px 4px 12px;
-    cursor: pointer;
-    outline: none;
-    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-    background-repeat: no-repeat;
-    background-position: right 8px center;
-    background-size: 11px;
-    border: 1px solid transparent;
-    line-height: 1.3;
-    font-family: inherit;
+.tallerpro-switch {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 26px;
+  margin: 0;
+  cursor: pointer;
+  flex-shrink: 0;
 }
 
-
-.tallerpro-status-select.status-finalizada {
-    background-color: #dcfce7;
-    color: #15803d;
-    border-color: #bbf7d0;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2315803d' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+.tallerpro-switch input[type="checkbox"] {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+  margin: 0;
+  pointer-events: none;
 }
 
-.tallerpro-status-select.status-en_curso {
-    background-color: #f8fafc;
-    color: #334155;
-    border-color: #cbd5e1;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23334155' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+.tallerpro-switch-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--tp-border-strong);
+  transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+  border-radius: 26px;
 }
 
-.tallerpro-status-select.status-pagada {
-    background-color: #ecfdf5;
-    color: #047857;
-    border-color: #a7f3d0;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23047857' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+.tallerpro-switch-slider:before {
+  position: absolute;
+  content: "";
+  height: 20px;
+  width: 20px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #ffffff;
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25), 0 1px 2px rgba(15, 23, 42, 0.15);
 }
 
-.tallerpro-status-select.status-pendiente {
-    background-color: #fffbeb;
-    color: #b45309;
-    border-color: #fde68a;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23b45309' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+.tallerpro-switch:hover .tallerpro-switch-slider {
+  background-color: var(--tp-text-subtle);
 }
 
-.tallerpro-status-select.status-borrador {
-    background-color: #f1f5f9;
-    color: #475569;
-    border-color: #cbd5e1;
-    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+.tallerpro-switch input[type="checkbox"]:checked + .tallerpro-switch-slider {
+  background-color: var(--tp-red-dark);
 }
 
-.tallerpro-status-select:focus {
-    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.2);
+.tallerpro-switch:hover input[type="checkbox"]:checked + .tallerpro-switch-slider {
+  background-color: #b91c1c;
 }
 
-/* Stock Badges in TallerPro */
-.tallerpro-stock-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 3px 10px;
-    border-radius: 9999px;
-    font-size: 11.5px;
-    font-weight: 600;
-    line-height: 1.2;
+.tallerpro-switch input[type="checkbox"]:focus-visible + .tallerpro-switch-slider {
+  outline: 2px solid var(--tp-red-dark);
+  outline-offset: 2px;
 }
 
-.tallerpro-stock-badge.in-stock {
-    background-color: #ecfdf5;
-    color: #047857;
-    border: 1px solid #a7f3d0;
+.tallerpro-switch input[type="checkbox"]:checked + .tallerpro-switch-slider:before {
+  transform: translateX(22px);
 }
 
-.tallerpro-stock-badge.low-stock {
-    background-color: #fffbeb;
-    color: #b45309;
-    border: 1px solid #fde68a;
+.tallerpro-switch-label {
+  font-size: 13.5px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s ease;
 }
 
-.tallerpro-stock-badge.out-stock {
-    background-color: #fef2f2;
-    color: #b91c1c;
-    border: 1px solid #fecaca;
+.tallerpro-switch-label.is-active {
+  color: #16a34a;
+  font-weight: 600;
 }
 
-.tallerpro-stock-badge svg {
-    flex-shrink: 0;
+.tallerpro-switch-label.is-inactive {
+  color: var(--tp-text-muted);
+  font-weight: 500;
 }
 
-.tallerpro-warehouse-pill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 3px 10px;
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 9999px;
-    font-size: 11.5px;
-    font-weight: 600;
-    color: #1e293b;
-}
-
-.tallerpro-warehouse-pill svg {
-    flex-shrink: 0;
-    color: #dc2626;
-}
-
-.tallerpro-btn-stock-mvt {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    color: #334155;
-    font-size: 13px;
-    font-weight: 500;
-    padding: 7px 14px;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-}
-
-.tallerpro-btn-stock-mvt:hover {
-    background: #f8fafc;
-    border-color: #cbd5e1;
-    color: #0f172a;
-}
-
-/* ========================================================
-   Action Buttons Global Consistency (TallerPro)
-   Aplica solo en modo tabla de escritorio (> 820px)
-   ======================================================== */
-@media (min-width: 821px) {
-
-    .tallerpro-action-btn,
-    .btn-edit-reparacion,
-    .btn-delete-reparacion,
-    .btn-edit-material,
-    .btn-edit-seguro,
-    .btn-edit-factura {
-        width: 28px;
-        height: 28px;
-        padding: 5px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 6px;
-        background-color: transparent;
-        border: none;
-        cursor: pointer;
-        box-sizing: border-box;
-        transition: background-color 0.15s ease, transform 0.15s ease;
-        text-decoration: none !important;
-    }
-
-    .tallerpro-action-btn svg,
-    .btn-edit-reparacion svg,
-    .btn-delete-reparacion svg,
-    .btn-edit-material svg,
-    .btn-edit-seguro svg,
-    .btn-edit-factura svg {
-        display: block;
-        stroke: #94a3b8 !important;
-        transition: stroke 0.15s ease;
-    }
-
-    /* Espacio uniforme entre botones de acción */
-    .tallerpro-actions {
-        gap: 6px !important;
-    }
-
-    /* 1. Botones de EDITAR: Fondo antracita e icono blanco en hover */
-    .btn-edit-reparacion:hover,
-    .btn-edit-material:hover,
-    .btn-edit-seguro:hover,
-    .btn-edit-factura:hover,
-    .tallerpro-action-btn[title*="Editar"]:hover,
-    .tallerpro-action-btn[title*="editar"]:hover {
-        background-color: #1e2024 !important;
-    }
-
-    .btn-edit-reparacion:hover svg,
-    .btn-edit-material:hover svg,
-    .btn-edit-seguro:hover svg,
-    .btn-edit-factura:hover svg,
-    .tallerpro-action-btn[title*="Editar"]:hover svg,
-    .tallerpro-action-btn[title*="editar"]:hover svg {
-        stroke: #ffffff !important;
-    }
-
-    /* 2. Botones de ELIMINAR / BORRAR: Fondo rojo e icono blanco en hover */
-    .btn-delete-reparacion:hover,
-    .tallerpro-action-btn[title*="Eliminar"]:hover,
-    .tallerpro-action-btn[title*="eliminar"]:hover,
-    .tallerpro-action-btn[title*="Borrar"]:hover,
-    .tallerpro-action-btn[title*="borrar"]:hover,
-    .tallerpro-action-btn[href*="delete"]:hover {
-        background-color: #ef4444 !important;
-    }
-
-    .btn-delete-reparacion:hover svg,
-    .tallerpro-action-btn[title*="Eliminar"]:hover svg,
-    .tallerpro-action-btn[title*="eliminar"]:hover svg,
-    .tallerpro-action-btn[title*="Borrar"]:hover svg,
-    .tallerpro-action-btn[title*="borrar"]:hover svg,
-    .tallerpro-action-btn[href*="delete"]:hover svg {
-        stroke: #ffffff !important;
-    }
-
-    /* 3. Botones de VER DETALLES: Fondo gris suave e icono oscuro */
-    .tallerpro-action-btn[title*="Ver"]:hover,
-    .tallerpro-action-btn[title*="ver"]:hover {
-        background-color: #e2e8f0 !important;
-    }
-
-    .tallerpro-action-btn[title*="Ver"]:hover svg,
-    .tallerpro-action-btn[title*="ver"]:hover svg {
-        stroke: #0f172a !important;
-    }
-
-    /* 4. Botones deshabilitados (facturas no borrador) */
-    .tallerpro-action-btn:disabled,
-    .tallerpro-action-btn.is-disabled,
-    .tallerpro-action-btn:disabled:hover,
-    .tallerpro-action-btn.is-disabled:hover {
-        opacity: 0.3 !important;
-        cursor: not-allowed !important;
-        background-color: transparent !important;
-        box-shadow: none !important;
-        transform: none !important;
-    }
-
-    .tallerpro-action-btn:disabled svg,
-    .tallerpro-action-btn.is-disabled svg,
-    .tallerpro-action-btn:disabled:hover svg,
-    .tallerpro-action-btn.is-disabled:hover svg {
-        stroke: #94a3b8 !important;
-    }
-}
-
-/* Modales de Confirmación (Eliminar, Facturar, Estado Factura) */
+/* Modales de Confirmación */
 #deleteConfirmModal,
 #facturarConfirmModal,
 #pendienteConfirmModal,
 #pagadaConfirmModal {
-    z-index: 1000006 !important;
+  z-index: 1000006 !important;
 }
 
 #btnCancelDelete,
 #btnCancelFacturar,
 #btnCancelPendiente,
 #btnCancelPagada {
-    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease !important;
+  transition: var(--tp-transition) !important;
 }
 
 #btnCancelDelete:hover,
 #btnCancelFacturar:hover,
 #btnCancelPendiente:hover,
 #btnCancelPagada:hover {
-    background-color: #f8fafc !important;
-    border-color: #94a3b8 !important;
-    color: #1e293b !important;
+  background-color: var(--tp-bg) !important;
+  border-color: var(--tp-border-strong) !important;
+  color: var(--tp-text-body) !important;
 }
 
 #btnConfirmDelete {
-    transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease !important;
+  transition: var(--tp-transition) !important;
 }
 
 #btnConfirmDelete:hover {
-    background-color: #dc2626 !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3) !important;
+  background-color: var(--tp-red-dark) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.3) !important;
 }
 
-#btnConfirmFacturar {
-    transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease !important;
+#btnConfirmFacturar,
+#btnConfirmPagada {
+  transition: var(--tp-transition) !important;
 }
 
-#btnConfirmFacturar:hover {
-    background-color: #047857 !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 4px 6px -1px rgba(5, 150, 105, 0.35) !important;
+#btnConfirmFacturar:hover,
+#btnConfirmPagada:hover {
+  background-color: var(--tp-green-dark) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 6px -1px rgba(5, 150, 105, 0.35) !important;
 }
 
 #btnConfirmPendiente {
-    transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease !important;
+  transition: var(--tp-transition) !important;
 }
 
 #btnConfirmPendiente:hover {
-    background-color: #b45309 !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 4px 6px -1px rgba(217, 119, 6, 0.35) !important;
+  background-color: #b45309 !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 0 4px 6px -1px rgba(217, 119, 6, 0.35) !important;
 }
 
-#btnConfirmPagada {
-    transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease !important;
-}
-
-#btnConfirmPagada:hover {
-    background-color: #047857 !important;
-    transform: translateY(-1px) !important;
-    box-shadow: 0 4px 6px -1px rgba(5, 150, 105, 0.35) !important;
-}
-
-/* ==========================================================================
-   TallerPro Modern Toggle Switch Input
-   ========================================================================== */
-.tallerpro-switch-wrapper {
+/* Breakpoint: Desktop Actions (>820px) */
+@media (min-width: 821px) {
+  .tallerpro-action-btn,
+  .btn-edit-reparacion,
+  .btn-delete-reparacion,
+  .btn-edit-material,
+  .btn-edit-seguro,
+  .btn-edit-factura {
+    width: 28px;
+    height: 28px;
+    padding: 5px;
     display: inline-flex;
     align-items: center;
-    gap: 12px;
-    user-select: none;
-}
-
-.tallerpro-switch {
-    position: relative;
-    display: inline-block;
-    width: 48px;
-    height: 26px;
-    margin: 0;
+    justify-content: center;
+    border-radius: var(--tp-radius-sm);
+    background-color: transparent;
+    border: none;
     cursor: pointer;
-    flex-shrink: 0;
+    box-sizing: border-box;
+    transition: background-color 0.15s ease, transform 0.15s ease;
+    text-decoration: none !important;
+  }
+
+  .tallerpro-action-btn svg,
+  .btn-edit-reparacion svg,
+  .btn-delete-reparacion svg,
+  .btn-edit-material svg,
+  .btn-edit-seguro svg,
+  .btn-edit-factura svg {
+    display: block;
+    stroke: var(--tp-text-subtle) !important;
+    transition: stroke 0.15s ease;
+  }
+
+  .tallerpro-actions {
+    gap: 6px !important;
+  }
+
+  .btn-edit-reparacion:hover,
+  .btn-edit-material:hover,
+  .btn-edit-seguro:hover,
+  .btn-edit-factura:hover,
+  .tallerpro-action-btn[title*="Editar"]:hover,
+  .tallerpro-action-btn[title*="editar"]:hover {
+    background-color: var(--tp-sidebar-border) !important;
+  }
+
+  .btn-edit-reparacion:hover svg,
+  .btn-edit-material:hover svg,
+  .btn-edit-seguro:hover svg,
+  .btn-edit-factura:hover svg,
+  .tallerpro-action-btn[title*="Editar"]:hover svg,
+  .tallerpro-action-btn[title*="editar"]:hover svg {
+    stroke: #ffffff !important;
+  }
+
+  .btn-delete-reparacion:hover,
+  .tallerpro-action-btn[title*="Eliminar"]:hover,
+  .tallerpro-action-btn[title*="eliminar"]:hover,
+  .tallerpro-action-btn[title*="Borrar"]:hover,
+  .tallerpro-action-btn[title*="borrar"]:hover,
+  .tallerpro-action-btn[href*="delete"]:hover {
+    background-color: var(--tp-red) !important;
+  }
+
+  .btn-delete-reparacion:hover svg,
+  .tallerpro-action-btn[title*="Eliminar"]:hover svg,
+  .tallerpro-action-btn[title*="eliminar"]:hover svg,
+  .tallerpro-action-btn[title*="Borrar"]:hover svg,
+  .tallerpro-action-btn[title*="borrar"]:hover svg,
+  .tallerpro-action-btn[href*="delete"]:hover svg {
+    stroke: #ffffff !important;
+  }
+
+  .tallerpro-action-btn[title*="Ver"]:hover,
+  .tallerpro-action-btn[title*="ver"]:hover {
+    background-color: var(--tp-border) !important;
+  }
+
+  .tallerpro-action-btn[title*="Ver"]:hover svg,
+  .tallerpro-action-btn[title*="ver"]:hover svg {
+    stroke: var(--tp-text-dark) !important;
+  }
+
+  .tallerpro-action-btn:disabled,
+  .tallerpro-action-btn.is-disabled,
+  .tallerpro-action-btn:disabled:hover,
+  .tallerpro-action-btn.is-disabled:hover {
+    opacity: 0.3 !important;
+    cursor: not-allowed !important;
+    background-color: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+
+  .tallerpro-action-btn:disabled svg,
+  .tallerpro-action-btn.is-disabled svg,
+  .tallerpro-action-btn:disabled:hover svg,
+  .tallerpro-action-btn.is-disabled:hover svg {
+    stroke: var(--tp-text-subtle) !important;
+  }
 }
 
-.tallerpro-switch input[type="checkbox"] {
-    opacity: 0;
-    width: 0;
-    height: 0;
-    position: absolute;
-    margin: 0;
-    pointer-events: none;
+@media (min-width: 1025px) {
+  .tallerpro-sidebar-close {
+    display: none !important;
+  }
 }
 
-.tallerpro-switch-slider {
-    position: absolute;
-    cursor: pointer;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background-color: #cbd5e1;
-    transition: background-color 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
-    border-radius: 26px;
+/* Breakpoint: Tablet & Mobile Drawer (<= 1024px) */
+@media (max-width: 1024px) {
+  .tallerpro-sidebar {
+    position: fixed !important;
+    top: 0 !important;
+    left: -320px !important;
+    width: 280px !important;
+    min-width: 280px !important;
+    max-width: 85vw !important;
+    height: 100vh !important;
+    z-index: 999999 !important;
+    transition: left 0.28s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 8px 0 30px rgba(0, 0, 0, 0.35) !important;
+  }
+
+  .tallerpro-sidebar.mobile-open {
+    left: 0 !important;
+  }
+
+  .tallerpro-sidebar.collapsed {
+    width: 280px !important;
+    min-width: 280px !important;
+  }
+
+  .tallerpro-sidebar .tallerpro-brand-info,
+  .tallerpro-sidebar.collapsed .tallerpro-brand-info {
+    display: flex !important;
+  }
+
+  .tallerpro-sidebar .tallerpro-section-title,
+  .tallerpro-sidebar.collapsed .tallerpro-section-title {
+    display: block !important;
+  }
+
+  .tallerpro-sidebar .tallerpro-nav-text,
+  .tallerpro-sidebar.collapsed .tallerpro-nav-text {
+    display: block !important;
+    flex: 1 !important;
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  .tallerpro-sidebar .tallerpro-nav-item,
+  .tallerpro-sidebar.collapsed .tallerpro-nav-item {
+    justify-content: flex-start !important;
+    padding: 9px 12px !important;
+    gap: 12px !important;
+  }
+
+  .tallerpro-sidebar .tallerpro-brand,
+  .tallerpro-sidebar.collapsed .tallerpro-brand {
+    justify-content: space-between !important;
+    padding: 18px 16px !important;
+  }
+
+  .tallerpro-sidebar-bottom,
+  .tallerpro-collapse-btn {
+    display: none !important;
+  }
+
+  .tallerpro-brand {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding: 18px 16px !important;
+  }
+
+  .tallerpro-sidebar-close {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: var(--tp-radius) !important;
+    background: rgba(255, 255, 255, 0.08) !important;
+    border: none !important;
+    color: #ffffff !important;
+    cursor: pointer !important;
+    transition: var(--tp-transition) !important;
+    flex-shrink: 0 !important;
+  }
+
+  .tallerpro-sidebar-close:hover {
+    background: rgba(239, 68, 68, 0.25) !important;
+    color: var(--tp-red) !important;
+  }
+
+  .tallerpro-sidebar-overlay {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background-color: rgba(18, 19, 22, 0.65) !important;
+    backdrop-filter: blur(3px) !important;
+    -webkit-backdrop-filter: blur(3px) !important;
+    z-index: 99990 !important;
+    opacity: 0 !important;
+    visibility: hidden !important;
+    transition: opacity 0.25s ease, visibility 0.25s ease !important;
+  }
+
+  .tallerpro-sidebar-overlay.active {
+    opacity: 1 !important;
+    visibility: visible !important;
+  }
+
+  .tallerpro-main {
+    width: 100vw !important;
+    max-width: 100vw !important;
+    margin-left: 0 !important;
+  }
+
+  .tallerpro-topbar {
+    padding: 0 16px !important;
+    height: 60px !important;
+  }
+
+  .tallerpro-toggle-icon-desktop {
+    display: none !important;
+  }
+
+  .tallerpro-toggle-icon-mobile {
+    display: block !important;
+  }
+
+  .tallerpro-topbar-sidebar-toggle {
+    order: 3 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 38px !important;
+    height: 38px !important;
+    border-radius: 9px !important;
+    background: var(--tp-bg-card) !important;
+    border: 1px solid var(--tp-border) !important;
+    color: var(--tp-text-body) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+    cursor: pointer !important;
+    transition: var(--tp-transition) !important;
+    margin: 0 !important;
+    flex-shrink: 0 !important;
+  }
+
+  .tallerpro-topbar-sidebar-toggle:hover,
+  .tallerpro-topbar-sidebar-toggle:active {
+    background: var(--tp-bg) !important;
+    border-color: var(--tp-border-strong) !important;
+    color: var(--tp-red-dark) !important;
+    transform: translateY(-1px) !important;
+  }
+
+  .tallerpro-topbar-right {
+    order: 1 !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    flex-shrink: 0 !important;
+  }
+
+  .tallerpro-topbar-right:empty {
+    display: none !important;
+  }
+
+  .tallerpro-back-dolibarr {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    color: var(--tp-text-muted) !important;
+    text-decoration: none !important;
+    padding: 6px 12px !important;
+    border-radius: var(--tp-radius) !important;
+    border: 1px solid var(--tp-border) !important;
+    background: var(--tp-bg-card) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04) !important;
+    flex-shrink: 0 !important;
+  }
+
+  .tallerpro-back-dolibarr:hover,
+  .tallerpro-back-dolibarr:active {
+    color: var(--tp-red-dark) !important;
+    border-color: var(--tp-border-strong) !important;
+    background: var(--tp-bg) !important;
+  }
+
+  .tallerpro-topbar-brand {
+    order: 2 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    flex: 1 1 auto !important;
+    padding: 0 8px !important;
+    overflow: hidden !important;
+  }
+
+  .tallerpro-topbar:has(.tallerpro-back-dolibarr) .tallerpro-topbar-brand {
+    justify-content: center !important;
+    text-align: center !important;
+  }
+
+  .tallerpro-topbar-title {
+    font-size: 14.5px !important;
+    font-weight: 600 !important;
+    color: var(--tp-text-dark) !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .tallerpro-topbar-breadcrumb {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 6px !important;
+    font-size: 13px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .tallerpro-topbar-dot {
+    display: none !important;
+  }
+
+  .tallerpro-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .tallerpro-content-wrapper {
+    padding: 20px 16px 40px !important;
+  }
+
+  .tallerpro-table th,
+  .tallerpro-table td {
+    padding: 12px 14px;
+    font-size: 13px;
+  }
 }
 
-.tallerpro-switch-slider:before {
-    position: absolute;
-    content: "";
-    height: 20px;
-    width: 20px;
-    left: 3px;
-    bottom: 3px;
-    background-color: #ffffff;
-    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    border-radius: 50%;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.25), 0 1px 2px rgba(15, 23, 42, 0.15);
+/* Breakpoint: Mobile Cards Transformation (<= 820px) */
+@media (max-width: 820px) {
+  .tallerpro-kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .tallerpro-kpi-card {
+    padding: 0 14px !important;
+    height: 76px !important;
+    min-height: 76px !important;
+  }
+
+  .tallerpro-kpi-value {
+    font-size: 22px !important;
+  }
+
+  .tallerpro-kpi-label {
+    font-size: 11.5px !important;
+  }
+
+  .tallerpro-kpi-icon svg {
+    width: 22px !important;
+    height: 22px !important;
+  }
+
+  .tallerpro-activity-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tallerpro-content-wrapper {
+    padding: 16px 12px 40px !important;
+  }
+
+  .tallerpro-content > div:first-child[style*="display: flex"] {
+    flex-wrap: wrap !important;
+    gap: 12px !important;
+    align-items: center !important;
+    margin-bottom: 16px !important;
+  }
+
+  .tallerpro-table-card {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  .tallerpro-table {
+    display: block !important;
+    width: 100% !important;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  .tallerpro-table thead {
+    display: none !important;
+  }
+
+  .tallerpro-table tbody {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 14px !important;
+    width: 100% !important;
+  }
+
+  .tallerpro-table tbody tr {
+    display: flex !important;
+    flex-direction: column !important;
+    background: var(--tp-bg-card) !important;
+    border: 1px solid var(--tp-border) !important;
+    border-radius: var(--tp-radius-xl) !important;
+    box-shadow: 0 4px 6px -1px rgba(15, 23, 42, 0.05), 0 2px 4px -2px rgba(15, 23, 42, 0.03) !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+    box-sizing: border-box !important;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease !important;
+    width: 100% !important;
+  }
+
+  .tallerpro-table tbody tr:hover {
+    background-color: var(--tp-bg-card) !important;
+    border-color: var(--tp-border-strong) !important;
+    box-shadow: 0 10px 15px -3px rgba(15, 23, 42, 0.08), 0 4px 6px -4px rgba(15, 23, 42, 0.04) !important;
+  }
+
+  .tallerpro-table tbody tr.tallerpro-empty-row,
+  .tallerpro-table tbody tr:has(td[colspan]) {
+    background: var(--tp-bg) !important;
+    border: 1px dashed var(--tp-border-strong) !important;
+    box-shadow: none !important;
+    padding: 28px 16px !important;
+  }
+
+  .tallerpro-table tbody td[colspan] {
+    display: block !important;
+    text-align: center !important;
+    border: none !important;
+    padding: 0 !important;
+    color: var(--tp-text-subtle) !important;
+    font-size: 13.5px !important;
+  }
+
+  .tallerpro-table tbody td[colspan]::before {
+    display: none !important;
+  }
+
+  .tallerpro-table tbody td.tallerpro-card-header-cell,
+  .tallerpro-table tbody td:first-child:not([colspan]) {
+    background-color: var(--tp-bg) !important;
+    border-bottom: 1px solid var(--tp-border) !important;
+    padding: 13px 18px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .tallerpro-table tbody td.tallerpro-card-header-cell::before,
+  .tallerpro-table tbody td:first-child:not([colspan])::before {
+    content: attr(data-label);
+    display: inline-flex !important;
+    align-items: center !important;
+    background: var(--tp-border) !important;
+    color: #334155 !important;
+    font-size: 10.5px !important;
+    font-weight: 700 !important;
+    padding: 3px 8px !important;
+    border-radius: var(--tp-radius-sm) !important;
+    letter-spacing: 0.05em !important;
+    text-transform: uppercase !important;
+    margin-right: 12px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .tallerpro-table tbody td.tallerpro-card-header-cell a,
+  .tallerpro-table tbody td.tallerpro-card-header-cell,
+  .tallerpro-table tbody td:first-child:not([colspan]) a,
+  .tallerpro-table tbody td:first-child:not([colspan]) {
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    color: var(--tp-text-dark) !important;
+    letter-spacing: -0.01em !important;
+    text-align: right !important;
+  }
+
+  .tallerpro-table tbody td.tallerpro-card-header-cell a:hover,
+  .tallerpro-table tbody td:first-child:not([colspan]) a:hover {
+    color: var(--tp-red-dark) !important;
+  }
+
+  .tallerpro-table tbody td.tallerpro-card-field-cell,
+  .tallerpro-table tbody td:not(:first-child):not(.tallerpro-actions-cell):not([colspan]) {
+    background: var(--tp-bg-card) !important;
+    padding: 10px 18px !important;
+    border-bottom: 1px solid var(--tp-border-subtle) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 12px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+    font-size: 13.5px !important;
+    color: var(--tp-text-body) !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+  }
+
+  .tallerpro-table tbody td.tallerpro-card-field-cell::before,
+  .tallerpro-table tbody td:not(:first-child):not(.tallerpro-actions-cell):not([colspan])::before {
+    content: attr(data-label);
+    display: inline-block !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    color: var(--tp-text-muted) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em !important;
+    margin-right: 8px !important;
+    flex-shrink: 0 !important;
+    text-align: left !important;
+  }
+
+  .tallerpro-table tbody td.tallerpro-card-field-cell a {
+    color: var(--tp-red-dark) !important;
+    font-weight: 600 !important;
+    text-decoration: none !important;
+  }
+
+  .tallerpro-table tbody td.tallerpro-card-field-cell a:hover {
+    text-decoration: underline !important;
+  }
+
+  .tallerpro-table tbody td .tallerpro-truncate {
+    max-width: 100% !important;
+    white-space: normal !important;
+    word-break: break-word !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+
+  .tallerpro-table tbody td.tallerpro-actions-cell,
+  .tallerpro-table tbody td:has(.tallerpro-actions) {
+    background-color: var(--tp-bg) !important;
+    border-top: 1px solid var(--tp-border) !important;
+    border-bottom: none !important;
+    padding: 10px 16px !important;
+    margin: 0 !important;
+    display: flex !important;
+    justify-content: flex-end !important;
+    align-items: center !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .tallerpro-table tbody td.tallerpro-actions-cell::before,
+  .tallerpro-table tbody td:has(.tallerpro-actions)::before {
+    display: none !important;
+  }
+
+  .tallerpro-table tbody td .tallerpro-actions {
+    width: 100% !important;
+    justify-content: flex-end !important;
+    gap: 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+  }
+
+  .tallerpro-table tbody td .tallerpro-action-btn,
+  .tallerpro-table tbody td .tallerpro-btn-facturar-action,
+  .tallerpro-table tbody td .tallerpro-btn-facturada-link {
+    width: auto !important;
+    min-width: 76px !important;
+    height: 36px !important;
+    padding: 0 14px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 7px !important;
+    border-radius: 9px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+    cursor: pointer !important;
+    text-decoration: none !important;
+    box-sizing: border-box !important;
+    transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+  }
+
+  .tallerpro-table tbody td .tallerpro-action-btn svg,
+  .tallerpro-table tbody td .tallerpro-btn-facturar-action svg,
+  .tallerpro-table tbody td .tallerpro-btn-facturada-link svg {
+    width: 15px !important;
+    height: 15px !important;
+    min-width: 15px !important;
+    min-height: 15px !important;
+    stroke-width: 2.2 !important;
+    display: block !important;
+    flex-shrink: 0 !important;
+  }
+
+  .tallerpro-table tbody td .tallerpro-action-btn svg *,
+  .tallerpro-table tbody td .tallerpro-btn-facturar-action svg *,
+  .tallerpro-table tbody td .tallerpro-btn-facturada-link svg * {
+    stroke: currentColor !important;
+  }
+
+  .tallerpro-table tbody td .tallerpro-action-btn .tallerpro-action-text,
+  .tallerpro-table tbody td .tallerpro-btn-facturar-action span,
+  .tallerpro-table tbody td .tallerpro-btn-facturada-link span {
+    display: inline !important;
+    font-size: 12.5px !important;
+    font-weight: 600 !important;
+    line-height: 1 !important;
+    white-space: nowrap !important;
+  }
+
+  .tallerpro-table tbody td .tallerpro-action-btn.tallerpro-btn-view,
+  .tallerpro-table tbody td .tallerpro-action-btn:not(.tallerpro-btn-delete):not(.tallerpro-btn-edit):not(.tallerpro-btn-facturar-action) {
+    background: var(--tp-bg-card) !important;
+    border: 1px solid var(--tp-border-strong) !important;
+    color: #334155 !important;
+  }
+
+  .tallerpro-table tbody td .tallerpro-action-btn.tallerpro-btn-view:hover,
+  .tallerpro-table tbody td .tallerpro-action-btn:not(.tallerpro-btn-delete):not(.tallerpro-btn-edit):not(.tallerpro-btn-facturar-action):hover {
+    background: var(--tp-border-subtle) !important;
+    border-color: var(--tp-text-subtle) !important;
+    color: var(--tp-text-dark) !important;
+    transform: translateY(-1px) !important;
+  }
+
+  .tallerpro-table tbody td .tallerpro-action-btn.tallerpro-btn-edit {
+    background: var(--tp-border-subtle) !important;
+    border: 1px solid var(--tp-border-strong) !important;
+    color: var(--tp-text-body) !important;
+  }
+
+  .tallerpro-table tbody td .tallerpro-action-btn.tallerpro-btn-edit:hover {
+    background: var(--tp-sidebar-border) !important;
+    border-color: var(--tp-sidebar-border) !important;
+    color: #ffffff !important;
+    transform: translateY(-1px) !important;
+  }
+
+  .tallerpro-table tbody td .tallerpro-action-btn.tallerpro-btn-delete,
+  .tallerpro-table tbody td .tallerpro-action-btn[onclick*="confirm"] {
+    background: #fff1f2 !important;
+    border: 1px solid #fecdd3 !important;
+    color: #e11d48 !important;
+  }
+
+  .tallerpro-table tbody td .tallerpro-action-btn.tallerpro-btn-delete:hover,
+  .tallerpro-table tbody td .tallerpro-action-btn[onclick*="confirm"]:hover {
+    background: #ffe4e6 !important;
+    border-color: #fda4af !important;
+    color: #be123c !important;
+    transform: translateY(-1px) !important;
+  }
+
+  .tallerpro-table tbody td .tallerpro-btn-facturar-action,
+  .tallerpro-table tbody td .tallerpro-action-btn.tallerpro-btn-facturar-action {
+    background: #f0fdf4 !important;
+    border: 1px solid #bbf7d0 !important;
+    color: #16a34a !important;
+  }
+
+  .tallerpro-table tbody td .tallerpro-btn-facturar-action:hover,
+  .tallerpro-table tbody td .tallerpro-action-btn.tallerpro-btn-facturar-action:hover {
+    background: #dcfce7 !important;
+    border-color: #86efac !important;
+    color: #15803d !important;
+    transform: translateY(-1px) !important;
+  }
+
+  .tallerpro-table tbody td .tallerpro-btn-facturada-link {
+    background: var(--tp-bg) !important;
+    border: 1px solid var(--tp-border-strong) !important;
+    color: #475569 !important;
+    text-decoration: none !important;
+  }
+
+  .tallerpro-table tbody td .tallerpro-btn-facturada-link:hover {
+    background: var(--tp-border-subtle) !important;
+    border-color: var(--tp-text-subtle) !important;
+    color: var(--tp-text-dark) !important;
+    transform: translateY(-1px) !important;
+    text-decoration: none !important;
+  }
 }
 
-.tallerpro-switch:hover .tallerpro-switch-slider {
-    background-color: #94a3b8;
+/* Breakpoint: Mobile & Tablet Stacks (<= 768px) */
+@media (max-width: 768px) {
+  .tallerpro-client-card,
+  .tallerpro-vehicle-card {
+    flex-direction: column !important;
+    gap: 16px !important;
+    align-items: flex-start !important;
+  }
+
+  .tallerpro-client-meta-group,
+  .tallerpro-vehicle-meta-group {
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  .tallerpro-vehicle-owner-grid {
+    grid-template-columns: 1fr !important;
+    row-gap: 16px !important;
+  }
+
+  .tallerpro-detail-item {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+
+  .tallerpro-detail-item-end {
+    align-items: flex-start !important;
+  }
+
+  .tallerpro-grid-mat-row1,
+  .tallerpro-grid-mat-row2,
+  .tallerpro-grid-rep-row1,
+  .tallerpro-grid-rep-row2,
+  .tallerpro-invoice-totals-grid,
+  .tallerpro-invoice-cards-grid,
+  .tallerpro-order-top-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .tallerpro-reparaciones-filter-card {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .tallerpro-filter-search-box {
+    width: 100% !important;
+  }
+
+  .tallerpro-invoice-modal-footer-actions {
+    flex-direction: column !important;
+  }
 }
 
-.tallerpro-switch input[type="checkbox"]:checked + .tallerpro-switch-slider {
-    background-color: #dc2626;
-}
+/* Print Styles */
+@media print {
+  .tallerpro-sidebar,
+  .tallerpro-topbar,
+  .tallerpro-invoice-view-topbar,
+  .tallerpro-modal-backdrop,
+  .tallerpro-collapse-btn {
+    display: none !important;
+  }
 
-.tallerpro-switch:hover input[type="checkbox"]:checked + .tallerpro-switch-slider {
-    background-color: #b91c1c;
-}
+  .tallerpro-layout,
+  .tallerpro-main,
+  .tallerpro-content-wrapper,
+  .tallerpro-content {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    background: #ffffff !important;
+  }
 
-.tallerpro-switch input[type="checkbox"]:focus-visible + .tallerpro-switch-slider {
-    outline: 2px solid #dc2626;
-    outline-offset: 2px;
-}
+  .tallerpro-invoice-view-wrapper {
+    gap: 20px !important;
+  }
 
-.tallerpro-switch input[type="checkbox"]:checked + .tallerpro-switch-slider:before {
-    transform: translateX(22px);
-}
-
-.tallerpro-switch-label {
-    font-size: 13.5px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: color 0.15s ease;
-}
-
-.tallerpro-switch-label.is-active {
-    color: #16a34a;
-    font-weight: 600;
-}
-
-.tallerpro-switch-label.is-inactive {
-    color: #64748b;
-    font-weight: 500;
+  .tallerpro-invoice-info-card,
+  .tallerpro-invoice-view-section {
+    border-color: var(--tp-border-strong) !important;
+    box-shadow: none !important;
+  }
 }
