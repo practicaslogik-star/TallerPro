@@ -427,8 +427,8 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 		</header>
 
 		<!-- Dashboard Content -->
-		<div class="tallerpro-content-wrapper">
-			<main class="tallerpro-content">
+		<div class="tallerpro-content-wrapper tallerpro-dashboard-wrapper">
+			<main class="tallerpro-content tallerpro-dashboard-content">
 				<!-- Page Header -->
 			<div class="tallerpro-content-header">
 				<h1 class="tallerpro-page-title"><?php echo $langs->trans("Inicio"); ?></h1>

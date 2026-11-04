@@ -89,6 +89,188 @@ if (empty($action) && !empty($_POST['action'])) {
 	$action = $_POST['action'];
 }
 
+// Acción: Ver o Descargar Documento de Vehículo
+if ($action == 'view_doc' || $action == 'download_doc') {
+	$veh_id = GETPOSTINT('id');
+	if (empty($veh_id) && isset($_GET['id'])) {
+		$veh_id = (int) $_GET['id'];
+	}
+	$raw_file = isset($_GET['file']) ? $_GET['file'] : (isset($_POST['file']) ? $_POST['file'] : '');
+	$filename = basename(trim($raw_file));
+	$filename = preg_replace('/[^a-zA-Z0-9_\-\.]/', '', $filename);
+
+	if ($veh_id > 0 && !empty($filename) && $filename !== 'metadata.json') {
+		$dir_veh_docs = DOL_DATA_ROOT . '/taller/vehiculos/' . ((int) $veh_id);
+		$filepath = $dir_veh_docs . '/' . $filename;
+		if (file_exists($filepath) && is_file($filepath)) {
+			$ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
+			$mimes = array(
+				'pdf'  => 'application/pdf',
+				'jpg'  => 'image/jpeg',
+				'jpeg' => 'image/jpeg',
+				'png'  => 'image/png',
+				'webp' => 'image/webp',
+				'gif'  => 'image/gif',
+				'doc'  => 'application/msword',
+				'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+				'odt'  => 'application/vnd.oasis.opendocument.text',
+				'txt'  => 'text/plain',
+			);
+			$mime = isset($mimes[$ext]) ? $mimes[$ext] : 'application/octet-stream';
+
+			$download_name = $filename;
+			$meta_file = $dir_veh_docs . '/metadata.json';
+			if (file_exists($meta_file)) {
+				$metadata = json_decode(file_get_contents($meta_file), true);
+				if (!empty($metadata[$filename]['original_name'])) {
+					$download_name = $metadata[$filename]['original_name'];
+				}
+			}
+
+			if (ob_get_level()) {
+				ob_end_clean();
+			}
+			header('Content-Description: File Transfer');
+			header('Content-Type: ' . $mime);
+			header('Content-Disposition: ' . ($action == 'view_doc' ? 'inline' : 'attachment') . '; filename="' . $download_name . '"');
+			header('Content-Transfer-Encoding: binary');
+			header('Expires: 0');
+			header('Cache-Control: private, must-revalidate, post-check=0, pre-check=0');
+			header('Pragma: public');
+			header('Content-Length: ' . filesize($filepath));
+			readfile($filepath);
+			exit;
+		}
+	}
+	accessforbidden('Documento no encontrado o no disponible');
+}
+
+// Acción: Subir Documento de Vehículo
+if ($action == 'upload_doc') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
+	$veh_id = GETPOSTINT('id');
+	if ($veh_id <= 0) {
+		setEventMessages("ID de vehículo no válido", null, 'errors');
+		header("Location: " . $_SERVER['PHP_SELF']);
+		exit;
+	}
+
+	if (empty($_FILES['doc_file']) || $_FILES['doc_file']['error'] !== UPLOAD_ERR_OK) {
+		setEventMessages("Error al subir el archivo o no se seleccionó ninguno.", null, 'errors');
+		header("Location: " . $_SERVER['PHP_SELF'] . "?id=" . $veh_id . "&tab=documentos");
+		exit;
+	}
+
+	$orig_name = basename($_FILES['doc_file']['name']);
+	$ext = strtolower(pathinfo($orig_name, PATHINFO_EXTENSION));
+	$allowed_exts = array('pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx', 'odt', 'txt');
+	if (!in_array($ext, $allowed_exts)) {
+		setEventMessages("Formato no permitido (.{$ext}). Se aceptan PDF, imágenes (JPG, PNG) y documentos comunes.", null, 'errors');
+		header("Location: " . $_SERVER['PHP_SELF'] . "?id=" . $veh_id . "&tab=documentos");
+		exit;
+	}
+
+	if ($_FILES['doc_file']['size'] > 15 * 1024 * 1024) {
+		setEventMessages("El archivo supera el límite de 15 MB.", null, 'errors');
+		header("Location: " . $_SERVER['PHP_SELF'] . "?id=" . $veh_id . "&tab=documentos");
+		exit;
+	}
+
+	$dir_veh_docs = DOL_DATA_ROOT . '/taller/vehiculos/' . ((int) $veh_id);
+	if (!is_dir($dir_veh_docs)) {
+		dol_mkdir($dir_veh_docs);
+	}
+
+	$safe_base = preg_replace('/[^a-zA-Z0-9_\-]/', '_', pathinfo($orig_name, PATHINFO_FILENAME));
+	$safe_filename = time() . '_' . substr($safe_base, 0, 40) . '.' . $ext;
+	$dest_path = $dir_veh_docs . '/' . $safe_filename;
+
+	if (move_uploaded_file($_FILES['doc_file']['tmp_name'], $dest_path)) {
+		$meta_file = $dir_veh_docs . '/metadata.json';
+		$metadata = array();
+		if (file_exists($meta_file)) {
+			$meta_raw = file_get_contents($meta_file);
+			$metadata = json_decode($meta_raw, true) ?: array();
+		}
+
+		$category = trim(GETPOST('doc_category', 'alphanohtml'));
+		if (empty($category)) {
+			$category = 'Documento general';
+		}
+		$title = trim(GETPOST('doc_title', 'alphanohtml'));
+		if (empty($title)) {
+			$title = pathinfo($orig_name, PATHINFO_FILENAME);
+		}
+		$notes = trim(GETPOST('doc_notes', 'restricthtml'));
+
+		$metadata[$safe_filename] = array(
+			'original_name' => $orig_name,
+			'title'         => $title,
+			'category'      => $category,
+			'notes'         => $notes,
+			'date'          => dol_now(),
+			'size'          => filesize($dest_path),
+			'user'          => $user->login
+		);
+		file_put_contents($meta_file, json_encode($metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+		setEventMessages("Documento adjuntado correctamente.", null, 'mesgs');
+	} else {
+		setEventMessages("No se pudo guardar el archivo en el servidor.", null, 'errors');
+	}
+
+	header("Location: " . $_SERVER['PHP_SELF'] . "?id=" . $veh_id . "&tab=documentos");
+	exit;
+}
+
+// Acción: Eliminar Documento de Vehículo
+if ($action == 'delete_doc') {
+	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+		accessforbidden('Method not allowed');
+	}
+	$token = GETPOST('token', 'alpha');
+	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
+	if (!$valid_token) {
+		accessforbidden('Invalid security token');
+	}
+
+	$veh_id = GETPOSTINT('id');
+	if (empty($veh_id) && isset($_POST['id'])) {
+		$veh_id = (int) $_POST['id'];
+	}
+	$raw_file = isset($_POST['file']) ? $_POST['file'] : (isset($_GET['file']) ? $_GET['file'] : '');
+	$filename = basename(trim($raw_file));
+	$filename = preg_replace('/[^a-zA-Z0-9_\-\.]/', '', $filename);
+
+	if ($veh_id > 0 && !empty($filename) && $filename !== 'metadata.json') {
+		$dir_veh_docs = DOL_DATA_ROOT . '/taller/vehiculos/' . ((int) $veh_id);
+		$filepath = $dir_veh_docs . '/' . $filename;
+		if (file_exists($filepath) && is_file($filepath)) {
+			unlink($filepath);
+			$meta_file = $dir_veh_docs . '/metadata.json';
+			if (file_exists($meta_file)) {
+				$metadata = json_decode(file_get_contents($meta_file), true) ?: array();
+				if (isset($metadata[$filename])) {
+					unset($metadata[$filename]);
+					file_put_contents($meta_file, json_encode($metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
+				}
+			}
+			setEventMessages("Documento eliminado correctamente.", null, 'mesgs');
+		} else {
+			setEventMessages("El documento no existe.", null, 'errors');
+		}
+	}
+	header("Location: " . $_SERVER['PHP_SELF'] . "?id=" . $veh_id . "&tab=documentos");
+	exit;
+}
+
 // Acción: Crear Vehículo
 if ($action == 'create_vehiculo' || $action == 'add_vehiculo') {
 	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -352,6 +534,45 @@ if ($veh_id > 0 || !empty($veh_matricula)) {
 		if ($res_vs) {
 			while ($vs_obj = $db->fetch_object($res_vs)) {
 				$veh_seguros[] = $vs_obj;
+			}
+		}
+
+		// Documentos adjuntos de este vehículo
+		$veh_documentos = array();
+		$dir_veh_docs = DOL_DATA_ROOT . '/taller/vehiculos/' . ((int) $veh_detail->rowid);
+		if (is_dir($dir_veh_docs)) {
+			$meta_file = $dir_veh_docs . '/metadata.json';
+			$metadata = array();
+			if (file_exists($meta_file)) {
+				$meta_raw = file_get_contents($meta_file);
+				$metadata = json_decode($meta_raw, true) ?: array();
+			}
+			$scanned_files = scandir($dir_veh_docs);
+			if ($scanned_files) {
+				foreach ($scanned_files as $f) {
+					if ($f === '.' || $f === '..' || $f === 'metadata.json' || is_dir($dir_veh_docs . '/' . $f)) {
+						continue;
+					}
+					$f_path = $dir_veh_docs . '/' . $f;
+					$meta = isset($metadata[$f]) ? $metadata[$f] : array();
+					$ext = strtolower(pathinfo($f, PATHINFO_EXTENSION));
+					$veh_documentos[] = (object) array(
+						'filename'      => $f,
+						'original_name' => !empty($meta['original_name']) ? $meta['original_name'] : $f,
+						'title'         => !empty($meta['title']) ? $meta['title'] : (!empty($meta['original_name']) ? $meta['original_name'] : $f),
+						'category'      => !empty($meta['category']) ? $meta['category'] : 'Documento general',
+						'notes'         => !empty($meta['notes']) ? $meta['notes'] : '',
+						'size'          => filesize($f_path),
+						'date'          => !empty($meta['date']) ? $meta['date'] : filemtime($f_path),
+						'ext'           => $ext,
+						'is_pdf'        => ($ext === 'pdf'),
+						'is_img'        => in_array($ext, array('jpg', 'jpeg', 'png', 'webp', 'gif')),
+						'user'          => !empty($meta['user']) ? $meta['user'] : ''
+					);
+				}
+				usort($veh_documentos, function($a, $b) {
+					return $b->date - $a->date;
+				});
 			}
 		}
 	}
@@ -689,7 +910,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									<line x1="16" y1="13" x2="8" y2="13"></line>
 									<line x1="16" y1="17" x2="8" y2="17"></line>
 								</svg>
-								<span>Documentos</span>
+								<span>Documentos<?php echo !empty($veh_documentos) ? ' (' . count($veh_documentos) . ')' : ''; ?></span>
 							</button>
 							<button type="button" class="tallerpro-tab-btn" data-tab="tab-facturas">
 								<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -857,8 +1078,161 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<!-- Contenido Pestaña 5: Documentos -->
 						<div class="tallerpro-tab-pane" id="tab-documentos">
 							<div class="tallerpro-vehicle-detail-card">
-								<h2 class="tallerpro-vehicle-detail-card-title">Documentos</h2>
-								<div class="tallerpro-empty-message">No hay documentos adjuntos para este vehículo.</div>
+								<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
+									<div>
+										<h2 class="tallerpro-vehicle-detail-card-title" style="margin-bottom: 4px;">Documentos del vehículo</h2>
+										<div style="font-size: 13px; color: var(--tp-text-muted);">
+											Fichas técnicas, permisos de circulación, informes de ITV, pólizas y fotografías adjuntas.
+										</div>
+									</div>
+									<button type="button" id="btnToggleUploadDoc" class="tallerpro-btn-secondary" style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: var(--tp-radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--tp-border); background: var(--tp-bg-card); color: var(--tp-text-dark);">
+										<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+											<line x1="12" y1="5" x2="12" y2="19"></line>
+											<line x1="5" y1="12" x2="19" y2="12"></line>
+										</svg>
+										<span>Subir documento</span>
+									</button>
+								</div>
+
+								<!-- Formulario desplegable para subir documento -->
+								<div id="tallerproUploadDocBox" class="tallerpro-upload-doc-box" style="display: none; background: var(--tp-bg); border: 1px dashed var(--tp-border-strong); border-radius: var(--tp-radius); padding: 20px; margin-bottom: 24px;">
+									<form method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" enctype="multipart/form-data">
+										<input type="hidden" name="action" value="upload_doc">
+										<input type="hidden" name="id" value="<?php echo (int) $veh_detail->rowid; ?>">
+										<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
+										
+										<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 16px;">
+											<div>
+												<label class="tallerpro-form-label" style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--tp-text-dark);">
+													Seleccionar archivo <span class="tallerpro-required">*</span>
+												</label>
+												<input type="file" name="doc_file" required accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.odt,.txt" class="tallerpro-form-input" style="padding: 6px; width: 100%; box-sizing: border-box; background: var(--tp-bg-card); cursor: pointer;" />
+												<div style="font-size: 11.5px; color: var(--tp-text-muted); margin-top: 4px;">
+													Formatos aceptados: <strong>PDF, JPG, PNG, WEBP, DOC, DOCX, ODT, TXT</strong> (Máx. 15 MB)
+												</div>
+											</div>
+
+											<div>
+												<label class="tallerpro-form-label" style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--tp-text-dark);">
+													Tipo / Categoría de documento <span class="tallerpro-required">*</span>
+												</label>
+												<select name="doc_category" class="tallerpro-form-select" style="width: 100%; box-sizing: border-box; padding: 9px 12px; border-radius: var(--tp-radius-sm); border: 1px solid var(--tp-border); background: var(--tp-bg-card); color: var(--tp-text-dark);">
+													<option value="Ficha técnica / Homologación">Ficha técnica / Homologación</option>
+													<option value="Permiso de circulación">Permiso de circulación</option>
+													<option value="Informe / Tarjeta ITV">Informe / Tarjeta ITV</option>
+													<option value="Póliza / Seguro">Póliza / Seguro</option>
+													<option value="Fotos de recepción / Daños">Fotos de recepción / Daños</option>
+													<option value="Factura / Albarán de recambio">Factura / Albarán de recambio</option>
+													<option value="Documento general" selected>Otro documento / General</option>
+												</select>
+											</div>
+										</div>
+
+										<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 16px;">
+											<div>
+												<label class="tallerpro-form-label" style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--tp-text-dark);">
+													Título o nombre identificativo (opcional)
+												</label>
+												<input type="text" name="doc_title" placeholder="Ej: Ficha técnica 2026, Daño aleta derecha..." class="tallerpro-form-input" style="width: 100%; box-sizing: border-box; padding: 9px 12px; border-radius: var(--tp-radius-sm); border: 1px solid var(--tp-border); background: var(--tp-bg-card); color: var(--tp-text-dark);" />
+											</div>
+											<div>
+												<label class="tallerpro-form-label" style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--tp-text-dark);">
+													Notas u observaciones adicionales (opcional)
+												</label>
+												<input type="text" name="doc_notes" placeholder="Ej: Vigente hasta 11/2027, entregado por cliente..." class="tallerpro-form-input" style="width: 100%; box-sizing: border-box; padding: 9px 12px; border-radius: var(--tp-radius-sm); border: 1px solid var(--tp-border); background: var(--tp-bg-card); color: var(--tp-text-dark);" />
+											</div>
+										</div>
+
+										<div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px;">
+											<button type="button" id="btnCancelUploadDoc" style="padding: 8px 16px; border-radius: var(--tp-radius-sm); border: 1px solid var(--tp-border); background: transparent; color: var(--tp-text-muted); cursor: pointer; font-size: 13px;">
+												Cancelar
+											</button>
+											<button type="submit" class="tallerpro-btn-submit" style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: var(--tp-radius-sm); background: #0f172a; color: #ffffff; border: none; font-size: 13px; font-weight: 600; cursor: pointer;">
+												<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+													<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+													<polyline points="17 8 12 3 7 8"></polyline>
+													<line x1="12" y1="3" x2="12" y2="15"></line>
+												</svg>
+												<span>Subir y adjuntar archivo</span>
+											</button>
+										</div>
+									</form>
+								</div>
+
+								<!-- Listado de documentos -->
+								<?php if (!empty($veh_documentos)): ?>
+									<div class="tallerpro-doc-list" style="display: flex; flex-direction: column; gap: 10px;">
+										<?php foreach ($veh_documentos as $doc): ?>
+											<div class="tallerpro-doc-item" style="display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: var(--tp-bg); border: 1px solid var(--tp-border); border-radius: 10px; flex-wrap: wrap; gap: 14px;">
+												<div style="display: flex; align-items: center; gap: 14px; min-width: 260px; flex: 1;">
+													<div style="width: 42px; height: 42px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; flex-shrink: 0; <?php echo $doc->is_pdf ? 'background: #fee2e2; color: #dc2626;' : ($doc->is_img ? 'background: #e0f2fe; color: #0284c7;' : 'background: #f1f5f9; color: #475569;'); ?>">
+														<?php if ($doc->is_pdf): ?>
+															PDF
+														<?php elseif ($doc->is_img): ?>
+															IMG
+														<?php else: ?>
+															DOC
+														<?php endif; ?>
+													</div>
+													<div style="display: flex; flex-direction: column; gap: 4px;">
+														<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+															<span style="font-weight: 600; font-size: 14px; color: var(--tp-text-dark);">
+																<?php echo dol_escape_htmltag($doc->title); ?>
+															</span>
+															<span style="font-size: 11px; padding: 2px 8px; border-radius: 12px; background: #f1f5f9; color: #475569; font-weight: 500; border: 1px solid #e2e8f0;">
+																<?php echo dol_escape_htmltag($doc->category); ?>
+															</span>
+														</div>
+														<div style="font-size: 12px; color: var(--tp-text-muted); display: flex; gap: 12px; flex-wrap: wrap;">
+															<span>Archivo: <?php echo dol_escape_htmltag($doc->original_name); ?></span>
+															<span>·</span>
+															<span><?php echo round($doc->size / 1024, 1); ?> KB</span>
+															<span>·</span>
+															<span><?php echo date('d/m/Y H:i', $doc->date); ?></span>
+														</div>
+														<?php if (!empty($doc->notes)): ?>
+															<div style="font-size: 12px; color: #475569; background: var(--tp-bg-card); padding: 4px 8px; border-radius: 4px; border: 1px solid var(--tp-border); margin-top: 2px;">
+																<?php echo dol_escape_htmltag($doc->notes); ?>
+															</div>
+														<?php endif; ?>
+													</div>
+												</div>
+
+												<div style="display: flex; align-items: center; gap: 8px;">
+													<a href="<?php echo $_SERVER['PHP_SELF']; ?>?action=view_doc&id=<?php echo (int) $veh_detail->rowid; ?>&file=<?php echo urlencode($doc->filename); ?>" target="_blank" class="tallerpro-btn-action" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12.5px; font-weight: 500; color: #0284c7; background: #e0f2fe; border-radius: 6px; text-decoration: none;" title="Abrir / Ver en pestaña nueva">
+														<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+															<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+															<circle cx="12" cy="12" r="3"></circle>
+														</svg>
+														<span>Ver</span>
+													</a>
+													<a href="<?php echo $_SERVER['PHP_SELF']; ?>?action=download_doc&id=<?php echo (int) $veh_detail->rowid; ?>&file=<?php echo urlencode($doc->filename); ?>" class="tallerpro-btn-action" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12.5px; font-weight: 500; color: #334155; background: #f1f5f9; border-radius: 6px; text-decoration: none;" title="Descargar archivo">
+														<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+															<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+															<polyline points="7 10 12 15 17 10"></polyline>
+															<line x1="12" y1="15" x2="12" y2="3"></line>
+														</svg>
+														<span>Descargar</span>
+													</a>
+													<form method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: inline;" onsubmit="return confirm('¿Seguro que deseas eliminar este documento? Esta acción no se puede deshacer.');">
+														<input type="hidden" name="action" value="delete_doc">
+														<input type="hidden" name="id" value="<?php echo (int) $veh_detail->rowid; ?>">
+														<input type="hidden" name="file" value="<?php echo dol_escape_htmltag($doc->filename); ?>">
+														<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
+														<button type="submit" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; background: transparent; color: #ef4444; border-radius: 6px; cursor: pointer;" title="Eliminar documento">
+															<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+																<polyline points="3 6 5 6 21 6"></polyline>
+																<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+															</svg>
+														</button>
+													</form>
+												</div>
+											</div>
+										<?php endforeach; ?>
+									</div>
+								<?php else: ?>
+									<div class="tallerpro-empty-message">No hay documentos adjuntos para este vehículo. Pulsa en <strong>Subir documento</strong> para adjuntar fichas técnicas, permisos, fotos o informes de ITV.</div>
+								<?php endif; ?>
 							</div>
 						</div>
 

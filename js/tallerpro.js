@@ -293,6 +293,25 @@ if (window.__tallerProLoaded) {
             }
         } catch (err) {}
 
+        // Toggle de subida de documentos en ficha de vehículo
+        const btnToggleUploadDoc = document.getElementById('btnToggleUploadDoc');
+        const uploadDocBox = document.getElementById('tallerproUploadDocBox');
+        const btnCancelUploadDoc = document.getElementById('btnCancelUploadDoc');
+        if (btnToggleUploadDoc && uploadDocBox) {
+            btnToggleUploadDoc.addEventListener('click', function () {
+                if (uploadDocBox.style.display === 'none' || !uploadDocBox.style.display) {
+                    uploadDocBox.style.display = 'block';
+                } else {
+                    uploadDocBox.style.display = 'none';
+                }
+            });
+        }
+        if (btnCancelUploadDoc && uploadDocBox) {
+            btnCancelUploadDoc.addEventListener('click', function () {
+                uploadDocBox.style.display = 'none';
+            });
+        }
+
         // Clientes Modal handling (Create & Edit)
         const clientModal = document.getElementById('tallerClientModal');
         const clientForm = document.getElementById('tallerClientForm');
