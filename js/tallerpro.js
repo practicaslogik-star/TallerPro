@@ -1003,17 +1003,24 @@ if (window.__tallerProLoaded) {
         // Modal Confirmación de Facturación
         let pendingFacturarUrl = null;
 
+        window.openFacturarModal = function (btn) {
+            if (!btn) return;
+            const url = btn.getAttribute('data-facturar-url') || btn.getAttribute('href');
+            window.__tallerPendingFacturarUrl = url;
+            pendingFacturarUrl = url;
+            const modal = document.getElementById('facturarConfirmModal');
+            if (modal) {
+                modal.classList.add('active');
+            } else if (url && confirm('¿Deseas facturar esta reparación? Se generará la factura en estado borrador en Dolibarr.')) {
+                window.location.href = url;
+            }
+        };
+
         document.addEventListener('click', function (e) {
             const facturarBtn = e.target.closest('.tallerpro-btn-facturar-action');
             if (facturarBtn) {
                 e.preventDefault();
-                pendingFacturarUrl = facturarBtn.getAttribute('data-facturar-url') || facturarBtn.getAttribute('href');
-                const modal = document.getElementById('facturarConfirmModal');
-                if (modal) {
-                    modal.classList.add('active');
-                } else if (pendingFacturarUrl) {
-                    window.location.href = pendingFacturarUrl;
-                }
+                window.openFacturarModal(facturarBtn);
             }
         });
 
@@ -1022,9 +1029,11 @@ if (window.__tallerProLoaded) {
             const modal = document.getElementById('facturarConfirmModal');
             if (cancelBtn && modal) {
                 modal.classList.remove('active');
+                window.__tallerPendingFacturarUrl = null;
                 pendingFacturarUrl = null;
             } else if (modal && e.target === modal) {
                 modal.classList.remove('active');
+                window.__tallerPendingFacturarUrl = null;
                 pendingFacturarUrl = null;
             }
         });
@@ -1037,8 +1046,9 @@ if (window.__tallerProLoaded) {
 
             modal.classList.remove('active');
 
-            if (pendingFacturarUrl) {
-                const targetUrl = pendingFacturarUrl;
+            const targetUrl = window.__tallerPendingFacturarUrl || pendingFacturarUrl;
+            if (targetUrl) {
+                window.__tallerPendingFacturarUrl = null;
                 pendingFacturarUrl = null;
                 window.location.href = targetUrl;
             }
@@ -1112,12 +1122,13 @@ if (window.__tallerProLoaded) {
 
             if (newEstado === 'finalizada' && !hasFactura) {
                 if (!existingFacturarBtn && actionsDiv) {
-                    const facturarBtn = document.createElement('a');
+                    const facturarBtn = document.createElement('button');
+                    facturarBtn.type = 'button';
                     const targetUrl = tr.getAttribute('data-facturar-url') || (window.location.pathname + '?action=facturar_reparacion&rowid=' + rowid);
-                    facturarBtn.href = targetUrl;
                     facturarBtn.setAttribute('data-facturar-url', targetUrl);
                     facturarBtn.className = 'tallerpro-btn-facturar-action';
                     facturarBtn.title = 'Emitir Factura oficial de esta reparación';
+                    facturarBtn.onclick = function () { window.openFacturarModal(this); };
                     facturarBtn.innerHTML = `
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
