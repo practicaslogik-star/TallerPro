@@ -14,8 +14,8 @@ CREATE TABLE IF NOT EXISTS llx_taller_reparacion (
     tms             TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     fk_user_creat   INT NOT NULL,
     entity          INT DEFAULT 1,
-    estado          VARCHAR(20),
     status          SMALLINT DEFAULT 1,
+    estado          VARCHAR(32) DEFAULT 'en_curso',
     INDEX idx_taller_rep_fk_vehiculo (fk_vehiculo),
     INDEX idx_taller_rep_fecha (fecha)
 ) ENGINE=innodb;

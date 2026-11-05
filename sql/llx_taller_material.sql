@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS llx_taller_material (
     rowid           INT AUTO_INCREMENT PRIMARY KEY,
     nombre          VARCHAR(255) NOT NULL,
     ref             VARCHAR(128) DEFAULT NULL,
+    fk_product      INT DEFAULT NULL,
     proveedor       VARCHAR(255) DEFAULT NULL,
     stock           DOUBLE DEFAULT 0,
     precio          DOUBLE(24,8) DEFAULT 0,
@@ -16,5 +17,6 @@ CREATE TABLE IF NOT EXISTS llx_taller_material (
     entity          INT DEFAULT 1,
     status          SMALLINT DEFAULT 1,
     INDEX idx_taller_material_ref (ref),
-    INDEX idx_taller_material_nombre (nombre)
+    INDEX idx_taller_material_nombre (nombre),
+    INDEX idx_taller_material_fk_product (fk_product)
 ) ENGINE=innodb;

@@ -1090,10 +1090,11 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 														<span><?php echo dol_escape_htmltag($rep->ref_factura); ?></span>
 													</a>
 												<?php elseif ($is_finalizada): ?>
-													<a href="<?php echo $facturar_url; ?>"
+													<button type="button"
 														class="tallerpro-btn-facturar-action"
 														data-id="<?php echo (int) $rep->rowid; ?>"
 														data-facturar-url="<?php echo $facturar_url; ?>"
+														onclick="if(typeof window.openFacturarModal === 'function') { window.openFacturarModal(this); } else { const m = document.getElementById('facturarConfirmModal'); if (m) m.classList.add('active'); }"
 														title="Emitir Factura oficial de esta reparación">
 														<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 															<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -1103,7 +1104,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															<polyline points="10 9 9 9 8 9"></polyline>
 														</svg>
 														<span>Facturar</span>
-													</a>
+													</button>
 												<?php endif; ?>
 												<button type="button" class="tallerpro-action-btn btn-edit-reparacion" title="Editar reparación"
 													data-id="<?php echo (int) $rep->rowid; ?>"
@@ -1577,17 +1578,6 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									</svg>
 									<span>Guardar reparación</span>
 								</button>
-
-								<button type="button" class="tallerpro-btn-emitir-factura" id="btnModalEmitirFactura" style="display: none;" title="Guardar y emitir factura oficial de Dolibarr">
-									<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-										<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-										<polyline points="14 2 14 8 20 8"></polyline>
-										<line x1="16" y1="13" x2="8" y2="13"></line>
-										<line x1="16" y1="17" x2="8" y2="17"></line>
-										<polyline points="10 9 9 9 8 9"></polyline>
-									</svg>
-									<span>Guardar y Emitir Factura</span>
-								</button>
 							</div>
 						</div>
 					</div>
@@ -1623,7 +1613,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 	</div>
 
 	<!-- Modal Confirmación de Facturación -->
-	<div class="tallerpro-modal-backdrop" id="facturarConfirmModal" style="z-index: 1000005;">
+	<div class="tallerpro-modal-backdrop" id="facturarConfirmModal" style="z-index: 1000005;" onclick="if(event.target===this){this.classList.remove('active'); window.__tallerPendingFacturarUrl=null;}">
 		<div class="tallerpro-modal-card" style="max-width: 440px; padding: 28px 24px; text-align: center;">
 			<div style="width: 52px; height: 52px; border-radius: 50%; background-color: #ecfdf5; color: #059669; display: inline-flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
 				<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1638,10 +1628,10 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;">Se generará la factura en estado borrador en Dolibarr con los materiales y la mano de obra registrados.</p>
 
 			<div style="display: flex; gap: 12px; justify-content: center;">
-				<button type="button" id="btnCancelFacturar" style="flex: 1; padding: 10px 16px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px;">
+				<button type="button" id="btnCancelFacturar" onclick="const m=document.getElementById('facturarConfirmModal');if(m)m.classList.remove('active');window.__tallerPendingFacturarUrl=null;" style="flex: 1; padding: 10px 16px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px;">
 					Rechazar
 				</button>
-				<button type="button" id="btnConfirmFacturar" style="flex: 1; padding: 10px 16px; border: none; background: #059669; color: #ffffff; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(5, 150, 105, 0.25);">
+				<button type="button" id="btnConfirmFacturar" onclick="const m=document.getElementById('facturarConfirmModal');if(m)m.classList.remove('active');if(window.__tallerPendingFacturarUrl){const u=window.__tallerPendingFacturarUrl;window.__tallerPendingFacturarUrl=null;window.location.href=u;}" style="flex: 1; padding: 10px 16px; border: none; background: #059669; color: #ffffff; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(5, 150, 105, 0.25);">
 					Confirmar
 				</button>
 			</div>

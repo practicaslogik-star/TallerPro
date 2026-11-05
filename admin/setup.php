@@ -57,7 +57,7 @@ if (!$res) {
 
 // Libraries
 require_once DOL_DOCUMENT_ROOT."/core/lib/admin.lib.php";
-require_once '../lib/taller.lib.php';
+require_once dirname(__DIR__).'/lib/taller.lib.php';
 //require_once "../class/myclass.class.php";
 
 /**
