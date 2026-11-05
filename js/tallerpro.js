@@ -1002,14 +1002,12 @@ if (window.__tallerProLoaded) {
 
         // Modal Confirmación de Facturación
         let pendingFacturarUrl = null;
-        let pendingFacturarFromModal = false;
 
         document.addEventListener('click', function (e) {
             const facturarBtn = e.target.closest('.tallerpro-btn-facturar-action');
             if (facturarBtn) {
                 e.preventDefault();
                 pendingFacturarUrl = facturarBtn.getAttribute('data-facturar-url') || facturarBtn.getAttribute('href');
-                pendingFacturarFromModal = false;
                 const modal = document.getElementById('facturarConfirmModal');
                 if (modal) {
                     modal.classList.add('active');
@@ -1025,11 +1023,9 @@ if (window.__tallerProLoaded) {
             if (cancelBtn && modal) {
                 modal.classList.remove('active');
                 pendingFacturarUrl = null;
-                pendingFacturarFromModal = false;
             } else if (modal && e.target === modal) {
                 modal.classList.remove('active');
                 pendingFacturarUrl = null;
-                pendingFacturarFromModal = false;
             }
         });
 
@@ -1041,20 +1037,7 @@ if (window.__tallerProLoaded) {
 
             modal.classList.remove('active');
 
-            if (pendingFacturarFromModal) {
-                pendingFacturarFromModal = false;
-                const actionInput = document.getElementById('reparacionFormAction');
-                if (actionInput) actionInput.value = 'save_and_facturar';
-
-                const estadoSelect = document.getElementById('orderEstadoSelect');
-                if (estadoSelect) estadoSelect.value = 'finalizada';
-
-                if (typeof renderRepTotalsSummary === 'function') {
-                    renderRepTotalsSummary();
-                }
-                const formToSubmit = document.getElementById('reparacionForm');
-                if (formToSubmit) formToSubmit.submit();
-            } else if (pendingFacturarUrl) {
+            if (pendingFacturarUrl) {
                 const targetUrl = pendingFacturarUrl;
                 pendingFacturarUrl = null;
                 window.location.href = targetUrl;
@@ -1414,7 +1397,6 @@ if (window.__tallerProLoaded) {
         const orderLineasJsonHidden = document.getElementById('orderLineasJsonHidden');
         const repForm = document.getElementById('tallerReparacionForm');
         const repFacturaBadgeContainer = document.getElementById('repFacturaBadgeContainer');
-        const btnModalEmitirFactura = document.getElementById('btnModalEmitirFactura');
 
         function escapeRepHtml(text) {
             if (!text) return '';
@@ -1844,9 +1826,6 @@ if (window.__tallerProLoaded) {
                 repFacturaBadgeContainer.style.display = 'none';
                 repFacturaBadgeContainer.innerHTML = '';
             }
-            if (btnModalEmitirFactura) {
-                btnModalEmitirFactura.style.display = 'none';
-            }
 
             currentRepMaterials = [];
             currentRepLabor = [];
@@ -1900,19 +1879,17 @@ if (window.__tallerProLoaded) {
             const averiaInput = document.getElementById('orderAveria');
             if (averiaInput) averiaInput.value = descripcion;
 
-            // Mostrar u ocultar badge de factura / botón de emitir factura
+            // Mostrar u ocultar badge de factura
             if (factura && factura.trim()) {
                 if (repFacturaBadgeContainer) {
                     repFacturaBadgeContainer.style.display = 'block';
                     repFacturaBadgeContainer.innerHTML = '<span style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; border-radius: 9999px; font-size: 12px; font-weight: 600;">Facturada: ' + escapeRepHtml(factura) + '</span>';
                 }
-                if (btnModalEmitirFactura) btnModalEmitirFactura.style.display = 'none';
             } else {
                 if (repFacturaBadgeContainer) {
                     repFacturaBadgeContainer.style.display = 'none';
                     repFacturaBadgeContainer.innerHTML = '';
                 }
-                if (btnModalEmitirFactura) btnModalEmitirFactura.style.display = 'inline-flex';
             }
 
             // Parsear notas (JSON o texto plano)
@@ -1987,41 +1964,6 @@ if (window.__tallerProLoaded) {
                 }
 
                 renderRepTotalsSummary();
-            });
-        }
-
-        // Botón "Guardar y Emitir Factura"
-        if (btnModalEmitirFactura && repForm) {
-            btnModalEmitirFactura.addEventListener('click', function (e) {
-                e.preventDefault();
-                const vehSelect = document.getElementById('orderVehiculoSelect');
-                if (!vehSelect || !vehSelect.value || parseInt(vehSelect.value) <= 0) {
-                    alert('Por favor, selecciona un vehículo válido para poder emitir la factura.');
-                    if (vehSelect) vehSelect.focus();
-                    return;
-                }
-                const averiaInput = document.getElementById('orderAveria');
-                if (!averiaInput || !averiaInput.value.trim()) {
-                    alert('Por favor, indica la avería o trabajo solicitado.');
-                    if (averiaInput) averiaInput.focus();
-                    return;
-                }
-                // Abrir modal propio de confirmación de facturación
-                pendingFacturarFromModal = true;
-                pendingFacturarUrl = null;
-                const modal = document.getElementById('facturarConfirmModal');
-                if (modal) {
-                    modal.classList.add('active');
-                } else {
-                    const actionInput = document.getElementById('reparacionFormAction');
-                    if (actionInput) actionInput.value = 'save_and_facturar';
-
-                    const estadoSelect = document.getElementById('orderEstadoSelect');
-                    if (estadoSelect) estadoSelect.value = 'finalizada';
-
-                    renderRepTotalsSummary();
-                    repForm.submit();
-                }
             });
         }
 
