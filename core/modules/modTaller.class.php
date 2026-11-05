@@ -137,7 +137,7 @@ class modTaller extends DolibarrModules
 
 		// Data directories to create when module is enabled.
 		// Example: this->dirs = array("/taller/temp","/taller/subdir");
-		$this->dirs = array("/taller/temp");
+		$this->dirs = array("/taller/temp", "/taller/vehiculos");
 
 		// Config pages. Put here list of php page, stored into taller/admin directory, to use to setup module.
 		$this->config_page_url = array("setup.php@taller");
@@ -146,7 +146,7 @@ class modTaller extends DolibarrModules
 		// A condition to hide module
 		$this->hidden = getDolGlobalInt('MODULE_TALLER_DISABLED'); // A condition to disable module;
 		// List of module class names that must be enabled if this module is enabled. Example: array('always'=>array('modModuleToEnable1','modModuleToEnable2'), 'FR'=>array('modModuleToEnableFR')...)
-		$this->depends = array('modFacture', 'modSociete');
+		$this->depends = array('modFacture', 'modSociete', 'modProduct', 'modStock');
 		// List of module class names to disable if this one is disabled. Example: array('modModuleToDisable1', ...)
 		$this->requiredby = array();
 		// List of module class names this module is in conflict with. Example: array('modModuleToDisable1', ...)
