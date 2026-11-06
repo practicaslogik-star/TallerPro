@@ -33,6 +33,7 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 
 	// 1. Obtener datos de la factura (Dolibarr nativa llx_facture con extrafield vehiculo)
 	$sql = "SELECT f.rowid, f.ref as numero_factura, f.datef as fecha, f.total_ht, f.total_tva, f.total_ttc as total, COALESCE(f.remise_percent, 0) as descuento_global, 21.0 as iva_porcentaje, f.note_public as notas, ";
+	$sql .= "COALESCE(fe.tipo_doc, 'factura') as tipo_doc, ";
 	$sql .= "s.nom as cliente_nombre, COALESCE(NULLIF(s.siren, ''), NULLIF(s.siret, ''), s.tva_intra) as cliente_cif, ";
 	$sql .= "s.address as cliente_direccion, s.zip as cliente_cp, s.town as cliente_ciudad, s.phone as cliente_telefono, s.email as cliente_email, ";
 	$sql .= "v.matricula as vehiculo_matricula, v.marca as vehiculo_marca, v.modelo as vehiculo_modelo, v.anio as vehiculo_anio, v.vin as vehiculo_vin, v.km as vehiculo_km ";
@@ -49,8 +50,10 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 
 	// 2. Obtener líneas de la factura desde llx_facturedet
 	$lineas = array();
-	$tot_mat = 0.0;
-	$tot_rep = 0.0;
+	$tot_bruto = 0.0;
+	$tot_neto_lineas = 0.0;
+	$tot_descuento_lineas = 0.0;
+
 	$sql_lines = "SELECT fd.rowid, (CASE WHEN fd.product_type = 1 THEN 'reparacion' ELSE 'material' END) as tipo, ";
 	$sql_lines .= "COALESCE(NULLIF(fd.ref_ext, ''), p.ref) as codigo, ";
 	$sql_lines .= "(CASE WHEN fd.description IS NOT NULL AND fd.description != '' THEN fd.description ELSE fd.label END) as descripcion, ";
@@ -62,23 +65,28 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	if ($res_lines && $db->num_rows($res_lines) > 0) {
 		while ($l = $db->fetch_object($res_lines)) {
 			$lineas[] = $l;
-			if ($l->tipo == 'material') {
-				$tot_mat += (float) $l->total_neto;
-			} else {
-				$tot_rep += (float) $l->total_neto;
-			}
+			$qty = (float) $l->cantidad;
+			if ($qty <= 0) $qty = 1.0;
+			$p_unit = (float) $l->precio;
+			$l_bruto = $qty * $p_unit;
+			$l_neto = (float) $l->total_neto;
+			$l_dto = max(0, $l_bruto - $l_neto);
+
+			$tot_bruto += $l_bruto;
+			$tot_neto_lineas += $l_neto;
+			$tot_descuento_lineas += $l_dto;
 		}
 	}
 
-	$subtotal = $tot_mat + $tot_rep;
-	$descuento = (float) $factura->descuento_global;
+	$global_desc_percent = (float) $factura->descuento_global;
+	$global_desc_amt = ($global_desc_percent > 0) ? ($tot_neto_lineas * ($global_desc_percent / 100)) : 0.0;
+
+	$subtotal = $tot_bruto;
+	$descuento = $tot_descuento_lineas + $global_desc_amt;
 	$base = max(0, $subtotal - $descuento);
 	$iva_pct = (float) ($factura->iva_porcentaje !== null ? $factura->iva_porcentaje : 21);
-	$iva_amt = $base * ($iva_pct / 100);
-	$total_final = (float) $factura->total;
-	if ($total_final <= 0 && ($base > 0 || $descuento > 0)) {
-		$total_final = $base + $iva_amt;
-	}
+	$iva_amt = (float) $factura->total_tva > 0 ? (float) $factura->total_tva : round($base * ($iva_pct / 100), 2);
+	$total_final = (float) $factura->total > 0 ? (float) $factura->total : ($base + $iva_amt);
 
 	// 3. Fechas
 	$fecha_ts = !empty($factura->fecha) ? strtotime($factura->fecha) : time();
@@ -215,6 +223,10 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	$estado_txt = !empty($factura->estado) ? $factura->estado : 'Pendiente';
 	$estado_bold = (strtolower(trim($estado_txt)) == 'pagada') ? '<b>Pagada</b>' : '<b>' . htmlspecialchars($estado_txt) . '</b>';
 
+	$is_presupuesto = (!empty($factura->tipo_doc) && $factura->tipo_doc === 'presupuesto');
+	$doc_to_label = $is_presupuesto ? 'PRESUPUESTO PARA' : 'FACTURADO A';
+	$doc_title_label = $is_presupuesto ? ('Presupuesto Nº ' . htmlspecialchars($factura->numero_factura)) : ('Factura Nº ' . htmlspecialchars($factura->numero_factura));
+
 	// Contenido principal HTML con espaciado amplio y equilibrado
 	$pdf->SetXY(14, 36);
 	$pdf->SetFont('helvetica', '', 8.5);
@@ -223,7 +235,7 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	<table width="100%" cellpadding="0" cellspacing="0" border="0">
 		<tr>
 			<td width="35%" valign="top">
-				<span style="font-size: 7.5pt; font-weight: bold; color: #94a3b8; letter-spacing: 0.05em;">FACTURADO A</span><br><br>
+				<span style="font-size: 7.5pt; font-weight: bold; color: #94a3b8; letter-spacing: 0.05em;">' . $doc_to_label . '</span><br><br>
 				<span style="font-size: 10.5pt; font-weight: bold; color: #0f172a;">' . htmlspecialchars($cli_nom) . '</span><br><br>
 				<span style="color: #334155; font-size: 8.5pt; line-height: 1.5;">'
 					. (!empty($cli_cif) ? 'NIF/CIF: ' . htmlspecialchars($cli_cif) . '<br>' : '')
@@ -243,7 +255,7 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 			</td>
 			<td width="28%" valign="top" align="right">
 				<span style="font-size: 7.5pt; font-weight: bold; color: #94a3b8; letter-spacing: 0.05em;">DOCUMENTO</span><br><br>
-				<span style="font-size: 13pt; font-weight: bold; color: #0f172a;">Factura Nº ' . htmlspecialchars($factura->numero_factura) . '</span><br><br>
+				<span style="font-size: 13pt; font-weight: bold; color: #0f172a;">' . $doc_title_label . '</span><br><br>
 				<span style="color: #334155; font-size: 8.5pt; line-height: 1.5;">
 					Fecha emisión: ' . $fecha_formateada . '
 				</span>
@@ -256,11 +268,10 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	<table width="100%" cellpadding="8" cellspacing="0" border="0">
 		<thead>
 			<tr>
-				<th width="46%" align="left" style="font-size: 8pt; font-weight: bold; color: #475569; border-bottom: 1.5px solid #0f172a;">DESCRIPCIÓN</th>
+				<th width="52%" align="left" style="font-size: 8pt; font-weight: bold; color: #475569; border-bottom: 1.5px solid #0f172a;">DESCRIPCIÓN</th>
 				<th width="16%" align="center" style="font-size: 8pt; font-weight: bold; color: #475569; border-bottom: 1.5px solid #0f172a;">CANTIDAD</th>
-				<th width="15%" align="right" style="font-size: 8pt; font-weight: bold; color: #475569; border-bottom: 1.5px solid #0f172a;">PRECIO UNIT.</th>
-				<th width="8%" align="center" style="font-size: 8pt; font-weight: bold; color: #475569; border-bottom: 1.5px solid #0f172a;">IVA</th>
-				<th width="15%" align="right" style="font-size: 8pt; font-weight: bold; color: #475569; border-bottom: 1.5px solid #0f172a;">IMPORTE</th>
+				<th width="16%" align="right" style="font-size: 8pt; font-weight: bold; color: #475569; border-bottom: 1.5px solid #0f172a;">PRECIO UNIT.</th>
+				<th width="16%" align="right" style="font-size: 8pt; font-weight: bold; color: #475569; border-bottom: 1.5px solid #0f172a;">IMPORTE</th>
 			</tr>
 		</thead>
 		<tbody>';
@@ -268,7 +279,7 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	if (empty($lineas)) {
 		$html .= '
 			<tr>
-				<td colspan="5" align="center" style="color: #94a3b8; font-size: 9pt; padding: 22px 0;">
+				<td colspan="4" align="center" style="color: #94a3b8; font-size: 9pt; padding: 22px 0;">
 					(Sin líneas de detalle registradas)
 				</td>
 			</tr>';
@@ -297,14 +308,13 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 
 			$html .= '
 			<tr>
-				<td width="46%" align="left" style="padding: 12px 6px; border-bottom: 0.5px solid #f1f5f9;">
+				<td width="52%" align="left" style="padding: 12px 6px; border-bottom: 0.5px solid #f1f5f9;">
 					<span style="font-size: 7pt; font-weight: bold; color: #64748b;">' . $tipo_label . '</span><br>
 					<span style="font-size: 9.5pt; font-weight: bold; color: #0f172a;">' . $desc_label . '</span>
 				</td>
 				<td width="16%" align="center" style="font-size: 9pt; color: #1e293b; border-bottom: 0.5px solid #f1f5f9;"><br>' . $cant_str . '</td>
-				<td width="15%" align="right" style="font-size: 9pt; color: #1e293b; border-bottom: 0.5px solid #f1f5f9;"><br>' . $precio_str . '</td>
-				<td width="8%" align="center" style="font-size: 9pt; color: #1e293b; border-bottom: 0.5px solid #f1f5f9;"><br>' . (int) $iva_pct . '%</td>
-				<td width="15%" align="right" style="font-size: 9.5pt; color: #0f172a; font-weight: bold; border-bottom: 0.5px solid #f1f5f9;"><br>' . $importe_str . '</td>
+				<td width="16%" align="right" style="font-size: 9pt; color: #1e293b; border-bottom: 0.5px solid #f1f5f9;"><br>' . $precio_str . '</td>
+				<td width="16%" align="right" style="font-size: 9.5pt; color: #0f172a; font-weight: bold; border-bottom: 0.5px solid #f1f5f9;"><br>' . $importe_str . '</td>
 			</tr>';
 		}
 	}
@@ -346,44 +356,57 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 
 	$iban_block = '';
 	if (!empty($taller_iban)) {
-		$iban_block = '<div style="margin-bottom: 6px;">
-			<span style="font-size: 8.3pt; font-weight: bold; color: #0f172a;">Transferencia bancaria:</span><br>
-			<span style="font-size: 8.2pt; color: #1e293b; font-family: monospace; font-weight: bold;">IBAN: ' . htmlspecialchars($taller_iban) . '</span>
-		</div><div style="height: 4px;"></div>';
+		$iban_block = '<div>
+			<span style="font-size: 8.5pt; font-weight: bold; color: #0f172a;">Transferencia bancaria:</span><br>
+			<span style="font-size: 8.5pt; color: #1e293b; font-family: monospace; font-weight: bold;">IBAN: ' . htmlspecialchars($taller_iban) . '</span>
+		</div>';
 	}
 
-	// Caja única de notas y datos bancarios
+	// Caja de notas e IBAN fuera de la caja, debajo de ella
 	$html .= '
 			<td width="53%" valign="top">
 				<table width="100%" cellpadding="8" cellspacing="0" border="1" style="border-color: #cbd5e1; background-color: #fafbfc;">
 					<tr>
-						<td height="72" valign="top" style="border: 0.8px solid #cbd5e1;">
-							' . $iban_block . '
+						<td height="52" valign="top" style="border: 0.8px solid #cbd5e1;">
 							<span style="font-size: 8.3pt; font-weight: bold; color: #0f172a;">Notas:</span><br>
 							' . $notas_html . '
 						</td>
 					</tr>
-				</table>
+				</table>';
+
+	if (!empty($iban_block)) {
+		$html .= '<br><br>' . $iban_block;
+	}
+
+	$html .= '
 			</td>
 			<td width="5%"></td>';
 
 	$html .= '
 			<td width="42%" valign="top">
-				<table width="100%" cellpadding="6" cellspacing="0" border="0">
+				<table width="100%" cellpadding="4" cellspacing="0" border="0">
 					<tr>
-						<td width="60%" align="left" style="font-size: 9pt; color: #475569;">Subtotal (Base Imponible)</td>
-						<td width="40%" align="right" style="font-size: 9pt; font-weight: bold; color: #0f172a;">' . number_format($base, 2, ',', '.') . ' €</td>
+						<td width="58%" align="left" style="font-size: 8.5pt; color: #475569; font-weight: bold;">SUBTOTAL</td>
+						<td width="42%" align="right" style="font-size: 8.5pt; font-weight: bold; color: #0f172a;">' . number_format($subtotal, 2, ',', '.') . ' €</td>
 					</tr>
 					<tr>
-						<td width="60%" align="left" style="font-size: 9pt; color: #475569;">IVA (' . (int) $iva_pct . '%)</td>
-						<td width="40%" align="right" style="font-size: 9pt; font-weight: bold; color: #0f172a;">' . number_format($iva_amt, 2, ',', '.') . ' €</td>
+						<td width="58%" align="left" style="font-size: 8.5pt; color: #475569; font-weight: bold;">DESCUENTO</td>
+						<td width="42%" align="right" style="font-size: 8.5pt; font-weight: bold; color: #0f172a;">' . number_format($descuento, 2, ',', '.') . ' €</td>
 					</tr>
 					<tr>
-						<td colspan="2" style="border-bottom: 1.5px solid #0f172a; height: 8px;"></td>
+						<td width="58%" align="left" style="font-size: 8.5pt; color: #475569; font-weight: bold;">SUBTOTAL - DTO</td>
+						<td width="42%" align="right" style="font-size: 8.5pt; font-weight: bold; color: #0f172a;">' . number_format($base, 2, ',', '.') . ' €</td>
 					</tr>
 					<tr>
-						<td width="60%" align="left" style="font-size: 11.5pt; font-weight: bold; color: #0f172a; padding-top: 6px;">TOTAL</td>
-						<td width="40%" align="right" style="font-size: 12.5pt; font-weight: bold; color: #0f172a; padding-top: 6px;">' . number_format($total_final, 2, ',', '.') . ' €</td>
+						<td width="58%" align="left" style="font-size: 8.5pt; color: #475569; font-weight: bold;">IVA (' . (int) $iva_pct . '%)</td>
+						<td width="42%" align="right" style="font-size: 8.5pt; font-weight: bold; color: #0f172a;">' . number_format($iva_amt, 2, ',', '.') . ' €</td>
+					</tr>
+					<tr>
+						<td colspan="2" style="border-bottom: 1.5px solid #0f172a; height: 6px;"></td>
+					</tr>
+					<tr>
+						<td width="58%" align="left" style="font-size: 11pt; font-weight: bold; color: #0f172a; padding-top: 5px;">Total</td>
+						<td width="42%" align="right" style="font-size: 12pt; font-weight: bold; color: #0f172a; padding-top: 5px;">' . number_format($total_final, 2, ',', '.') . ' €</td>
 					</tr>
 				</table>
 			</td>

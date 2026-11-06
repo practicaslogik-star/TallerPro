@@ -673,7 +673,9 @@ if (window.__tallerProLoaded) {
                 e.preventDefault();
                 if (!facModal || !facForm) return;
 
-                if (facModalTitle) facModalTitle.textContent = 'Editar factura';
+                const isPresupuesto = (btn.dataset.tipoDoc === 'presupuesto');
+
+                if (facModalTitle) facModalTitle.textContent = isPresupuesto ? 'Editar presupuesto' : 'Editar factura';
                 if (facFormAction) facFormAction.value = 'update_factura';
                 if (facFormRowid) facFormRowid.value = btn.dataset.id || '0';
 
@@ -735,19 +737,45 @@ if (window.__tallerProLoaded) {
                     facNotas.style.color = '#0f172a';
                 }
 
-                // Estado: editable
+                // Estado: editable para facturas normales, oculto/sin estado para presupuestos
                 if (facEstado) {
-                    facEstado.value = btn.dataset.estado || 'Borrador';
-                    facEstado.disabled = false;
-                    facEstado.style.pointerEvents = '';
-                    facEstado.style.backgroundColor = '#ffffff';
-                    facEstado.style.color = '#0f172a';
-                    facEstado.style.borderColor = '#059669';
-                    facEstado.style.boxShadow = '0 0 0 2px rgba(5, 150, 105, 0.15)';
+                    const estadoGroup = facEstado.closest('.tallerpro-form-group');
+                    if (isPresupuesto) {
+                        if (estadoGroup) estadoGroup.style.display = 'none';
+                        facEstado.value = 'Borrador';
+                    } else {
+                        if (estadoGroup) estadoGroup.style.display = '';
+                        facEstado.value = btn.dataset.estado || 'Borrador';
+                        facEstado.disabled = false;
+                        facEstado.style.pointerEvents = '';
+                        facEstado.style.backgroundColor = '#ffffff';
+                        facEstado.style.color = '#0f172a';
+                        facEstado.style.borderColor = '#059669';
+                        facEstado.style.boxShadow = '0 0 0 2px rgba(5, 150, 105, 0.15)';
+                    }
                 }
 
                 if (facEditNotice) {
                     facEditNotice.style.display = 'block';
+                    if (isPresupuesto) {
+                        facEditNotice.innerHTML = `
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#0284c7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 5px;">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="16" x2="12" y2="12"></line>
+                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                            </svg>
+                            <strong>Edición de presupuesto:</strong> Documento enlazado a la reparación, editable en todo momento sin estado rígido.
+                        `;
+                    } else {
+                        facEditNotice.innerHTML = `
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align: -2px; margin-right: 5px;">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="16" x2="12" y2="12"></line>
+                                <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                            </svg>
+                            <strong>Edición de factura:</strong> Es posible modificar la fecha, las notas y el estado.
+                        `;
+                    }
                 }
 
                 facModal.classList.add('active');
@@ -1838,6 +1866,14 @@ if (window.__tallerProLoaded) {
                 repFacturaBadgeContainer.innerHTML = '';
             }
 
+            const btnCrearAlbaran = document.getElementById('btnModalCrearAlbaran');
+            const btnCrearAlbaranText = document.getElementById('btnModalCrearAlbaranText');
+            if (btnCrearAlbaran) {
+                btnCrearAlbaran.style.display = 'none';
+                btnCrearAlbaran.removeAttribute('data-target-albaran-url');
+                if (btnCrearAlbaranText) btnCrearAlbaranText.textContent = 'Crear albarán';
+            }
+
             currentRepMaterials = [];
             currentRepLabor = [];
 
@@ -1868,6 +1904,8 @@ if (window.__tallerProLoaded) {
             const coste = editBtn.getAttribute('data-coste') || '0.00';
             const ref = editBtn.getAttribute('data-ref') || '';
             const factura = editBtn.getAttribute('data-factura') || '';
+            const albaranId = editBtn.getAttribute('data-albaran-id') || '';
+            const albaranRef = editBtn.getAttribute('data-albaran-ref') || '';
             const notas = editBtn.getAttribute('data-notas') || '';
 
             const actionInput = document.getElementById('reparacionFormAction');
@@ -1877,6 +1915,26 @@ if (window.__tallerProLoaded) {
             if (actionInput) actionInput.value = 'update_reparacion';
             if (rowidInput) rowidInput.value = id;
             if (titleEl) titleEl.textContent = ref ? ('Editar ' + ref) : 'Editar Orden de Reparación';
+
+            // Configurar botón Crear albarán / Ver albarán en modal
+            const btnCrearAlbaran = document.getElementById('btnModalCrearAlbaran');
+            const btnCrearAlbaranText = document.getElementById('btnModalCrearAlbaranText');
+            if (btnCrearAlbaran) {
+                btnCrearAlbaran.style.display = 'inline-flex';
+                if (albaranId && parseInt(albaranId) > 0) {
+                    btnCrearAlbaran.setAttribute('data-target-albaran-url', 'facturas.php?id=' + albaranId);
+                    if (btnCrearAlbaranText) {
+                        btnCrearAlbaranText.textContent = 'Ver albarán' + (albaranRef ? ' (' + albaranRef + ')' : '');
+                    }
+                    btnCrearAlbaran.title = 'Ver el albarán / presupuesto enlazado';
+                } else {
+                    btnCrearAlbaran.removeAttribute('data-target-albaran-url');
+                    if (btnCrearAlbaranText) {
+                        btnCrearAlbaranText.textContent = 'Crear albarán';
+                    }
+                    btnCrearAlbaran.title = 'Crear un nuevo albarán / presupuesto enlazado a esta reparación';
+                }
+            }
 
             const vehSelect = document.getElementById('orderVehiculoSelect');
             if (vehSelect && vehiculo) vehSelect.value = vehiculo;
@@ -1975,6 +2033,54 @@ if (window.__tallerProLoaded) {
                 }
 
                 renderRepTotalsSummary();
+            });
+        }
+
+        const tallerSaveOrderBtn = document.getElementById('tallerSaveOrderBtn');
+        if (tallerSaveOrderBtn) {
+            tallerSaveOrderBtn.addEventListener('click', function () {
+                const actionInput = document.getElementById('reparacionFormAction');
+                const rowidInput = document.getElementById('reparacionFormRowid');
+                if (actionInput) {
+                    const rowid = rowidInput ? parseInt(rowidInput.value) : 0;
+                    actionInput.value = (rowid > 0) ? 'update_reparacion' : 'create_reparacion';
+                }
+            });
+        }
+
+        const btnModalCrearAlbaran = document.getElementById('btnModalCrearAlbaran');
+        if (btnModalCrearAlbaran) {
+            btnModalCrearAlbaran.addEventListener('click', function (e) {
+                e.preventDefault();
+                const targetUrl = btnModalCrearAlbaran.getAttribute('data-target-albaran-url');
+                if (targetUrl) {
+                    window.location.href = targetUrl;
+                    return;
+                }
+
+                const vehSelect = document.getElementById('orderVehiculoSelect');
+                if (!vehSelect || !vehSelect.value || parseInt(vehSelect.value) <= 0) {
+                    alert('Por favor, selecciona el vehículo al que se le realiza la reparación.');
+                    if (vehSelect) vehSelect.focus();
+                    return false;
+                }
+                const averiaInput = document.getElementById('orderAveria');
+                if (!averiaInput || !averiaInput.value.trim()) {
+                    alert('Por favor, indica la avería o trabajo solicitado.');
+                    if (averiaInput) averiaInput.focus();
+                    return false;
+                }
+
+                const actionInput = document.getElementById('reparacionFormAction');
+                if (actionInput) {
+                    actionInput.value = 'save_and_albaran';
+                }
+
+                renderRepTotalsSummary();
+
+                if (repForm) {
+                    repForm.submit();
+                }
             });
         }
 
