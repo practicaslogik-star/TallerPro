@@ -1667,6 +1667,66 @@ a.tallerpro-nav-item.active {
   box-shadow: 0 4px 10px rgba(5, 150, 105, 0.3);
 }
 
+.tallerpro-btn-crear-albaran {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background-color: #0284c7;
+  color: #ffffff;
+  padding: 10px 16px;
+  border-radius: var(--tp-radius);
+  font-weight: 600;
+  font-size: 13.5px;
+  border: none;
+  cursor: pointer;
+  margin-top: 8px;
+  transition: var(--tp-transition);
+  box-shadow: 0 1px 2px rgba(2, 132, 199, 0.2);
+}
+
+.tallerpro-btn-crear-albaran:hover {
+  background-color: #0369a1;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(2, 132, 199, 0.3);
+}
+
+.tallerpro-badge-presupuesto {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  background-color: #f0f9ff;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+}
+
+.tallerpro-btn-presupuesto-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  background-color: #f0f9ff;
+  color: #0284c7;
+  border: 1px solid #bae6fd;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: var(--tp-transition);
+}
+
+.tallerpro-btn-presupuesto-link:hover {
+  background-color: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #0369a1;
+}
+
 .tallerpro-btn-emitir-factura {
   display: inline-flex;
   align-items: center;
@@ -3272,15 +3332,15 @@ form.tallerpro-modal-card-lg .tallerpro-modal-body,
 }
 
 .tallerpro-switch input[type="checkbox"]:checked + .tallerpro-switch-slider {
-  background-color: var(--tp-red-dark);
+  background-color: var(--tp-green);
 }
 
 .tallerpro-switch:hover input[type="checkbox"]:checked + .tallerpro-switch-slider {
-  background-color: #b91c1c;
+  background-color: var(--tp-green-dark);
 }
 
 .tallerpro-switch input[type="checkbox"]:focus-visible + .tallerpro-switch-slider {
-  outline: 2px solid var(--tp-red-dark);
+  outline: 2px solid var(--tp-green);
   outline-offset: 2px;
 }
 

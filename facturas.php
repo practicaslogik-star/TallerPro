@@ -86,6 +86,18 @@ if ($res_ef_check && $db->num_rows($res_ef_check) == 0) {
 	$db->query("ALTER TABLE " . MAIN_DB_PREFIX . "facture_extrafields ADD COLUMN fk_vehiculo INT DEFAULT NULL");
 }
 
+$sql_ef_rep = "SHOW COLUMNS FROM " . MAIN_DB_PREFIX . "facture_extrafields LIKE 'fk_reparacion'";
+$res_ef_rep = $db->query($sql_ef_rep);
+if ($res_ef_rep && $db->num_rows($res_ef_rep) == 0) {
+	$db->query("ALTER TABLE " . MAIN_DB_PREFIX . "facture_extrafields ADD COLUMN fk_reparacion INT DEFAULT NULL");
+}
+
+$sql_ef_tipo = "SHOW COLUMNS FROM " . MAIN_DB_PREFIX . "facture_extrafields LIKE 'tipo_doc'";
+$res_ef_tipo = $db->query($sql_ef_tipo);
+if ($res_ef_tipo && $db->num_rows($res_ef_tipo) == 0) {
+	$db->query("ALTER TABLE " . MAIN_DB_PREFIX . "facture_extrafields ADD COLUMN tipo_doc VARCHAR(32) DEFAULT 'factura'");
+}
+
 // Función para obtener la siguiente referencia prevista de factura en Dolibarr
 if (!function_exists('getNextFacturaNumero')) {
 	function getNextFacturaNumero($db, $year_or_date = '', $entity = 1) {
@@ -269,15 +281,17 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 
 			$old_ref = $fac->ref;
 
-			// Actualizar Fecha y Notas (públicas) en la factura borrador
+			// Actualizar Fecha y Notas (públicas) en la factura borrador o presupuesto
 			if (!empty($fecha)) {
 				$fac->date = dol_stringtotime($fecha);
 			}
 			$fac->note_public = $notas;
 			$fac->update($user);
 
-			// Actualizar el estado si se cambia a Pendiente o Pagada
-			if ($estado == 'Pendiente' || $estado == 'Pagada') {
+			// Actualizar el estado si se cambia a Pendiente o Pagada (solo facturas normales, presupuestos siempre en borrador)
+			$fac->fetch_optionals();
+			$is_presupuesto = (!empty($fac->array_options['options_tipo_doc']) && $fac->array_options['options_tipo_doc'] === 'presupuesto');
+			if (!$is_presupuesto && ($estado == 'Pendiente' || $estado == 'Pagada')) {
 				$res_val = $fac->validate($user);
 				if ($res_val >= 0) {
 					if ($estado == 'Pagada') {
@@ -337,36 +351,41 @@ if ($action == 'update_factura_estado' || $action == 'update_estado') {
 	if ($rowid > 0 && in_array($new_estado, array('Pendiente', 'Pagada'))) {
 		$fac = new Facture($db);
 		if ($fac->fetch($rowid) > 0) {
-			$old_ref = $fac->ref;
-			$is_draft = ($fac->statut == Facture::STATUS_DRAFT);
-			$was_paid = ($fac->statut == Facture::STATUS_CLOSED || $fac->paye == 1);
-
-			if ($is_draft) {
-				// Validar borrador para asignar número oficial definitivo
-				$res_val = $fac->validate($user);
-				if ($res_val >= 0) {
-					if ($new_estado === 'Pagada') {
-						$fac->setPaid($user);
-					}
-					// Sincronizar referencia si cambió en órdenes de reparación
-					if (!empty($old_ref) && $old_ref !== $fac->ref) {
-						$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_reparacion SET ref_factura = '" . $db->escape($fac->ref) . "' WHERE ref_factura = '" . $db->escape($old_ref) . "'");
-					}
-					$res_success = true;
-				} else {
-					dol_syslog("TallerPro - Error al validar factura borrador ID " . $rowid . ": " . $fac->error . " " . implode(' ', $fac->errors), LOG_ERR);
-					$error_msg = "Error al validar la factura borrador";
-				}
+			$fac->fetch_optionals();
+			if (!empty($fac->array_options['options_tipo_doc']) && $fac->array_options['options_tipo_doc'] === 'presupuesto') {
+				$error_msg = "Los presupuestos no tienen estado y siempre permanecen en borrador";
 			} else {
-				// Factura ya validada: cambiar entre Pendiente y Pagada
-				if ($new_estado === 'Pagada' && !$was_paid) {
-					$fac->setPaid($user);
-					$res_success = true;
-				} elseif ($new_estado === 'Pendiente' && $was_paid) {
-					$fac->setUnpaid($user);
-					$res_success = true;
+				$old_ref = $fac->ref;
+				$is_draft = ($fac->statut == Facture::STATUS_DRAFT);
+				$was_paid = ($fac->statut == Facture::STATUS_CLOSED || $fac->paye == 1);
+
+				if ($is_draft) {
+					// Validar borrador para asignar número oficial definitivo
+					$res_val = $fac->validate($user);
+					if ($res_val >= 0) {
+						if ($new_estado === 'Pagada') {
+							$fac->setPaid($user);
+						}
+						// Sincronizar referencia si cambió en órdenes de reparación
+						if (!empty($old_ref) && $old_ref !== $fac->ref) {
+							$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_reparacion SET ref_factura = '" . $db->escape($fac->ref) . "' WHERE ref_factura = '" . $db->escape($old_ref) . "'");
+						}
+						$res_success = true;
+					} else {
+						dol_syslog("TallerPro - Error al validar factura borrador ID " . $rowid . ": " . $fac->error . " " . implode(' ', $fac->errors), LOG_ERR);
+						$error_msg = "Error al validar la factura borrador";
+					}
 				} else {
-					$res_success = true;
+					// Factura ya validada: cambiar entre Pendiente y Pagada
+					if ($new_estado === 'Pagada' && !$was_paid) {
+						$fac->setPaid($user);
+						$res_success = true;
+					} elseif ($new_estado === 'Pendiente' && $was_paid) {
+						$fac->setUnpaid($user);
+						$res_success = true;
+					} else {
+						$res_success = true;
+					}
 				}
 			}
 
@@ -794,8 +813,8 @@ if ($res_mc) {
 $facturas_list = array();
 $sql_f = "SELECT f.rowid, f.ref as numero_factura, f.datef as fecha, f.fk_soc, f.total_ttc as total, f.total_ht, f.total_tva, ";
 $sql_f .= "f.fk_statut, f.paye, COALESCE(f.remise_percent, 0) as descuento_global, 21.0 as iva_porcentaje, f.note_public as notas, ";
-$sql_f .= "(CASE WHEN f.fk_statut = 0 THEN 'Borrador' WHEN (f.paye = 1 OR f.fk_statut = 2) THEN 'Pagada' ELSE 'Pendiente' END) as estado, ";
-$sql_f .= "fe.fk_vehiculo, ";
+$sql_f .= "(CASE WHEN COALESCE(fe.tipo_doc, '') = 'presupuesto' THEN 'Presupuesto' WHEN f.fk_statut = 0 THEN 'Borrador' WHEN (f.paye = 1 OR f.fk_statut = 2) THEN 'Pagada' ELSE 'Pendiente' END) as estado, ";
+$sql_f .= "fe.fk_vehiculo, fe.fk_reparacion, COALESCE(fe.tipo_doc, 'factura') as tipo_doc, ";
 $sql_f .= "s.nom as cliente_nombre, ";
 $sql_f .= "v.matricula as vehiculo_matricula, v.marca as vehiculo_marca, v.modelo as vehiculo_modelo ";
 $sql_f .= "FROM " . MAIN_DB_PREFIX . "facture as f ";
@@ -833,8 +852,8 @@ $single_total = 0.0;
 if ($view_id > 0) {
 	$sql_single = "SELECT f.rowid, f.ref as numero_factura, f.datef as fecha, f.fk_soc, f.total_ttc as total, f.total_ht, f.total_tva, ";
 	$sql_single .= "f.fk_statut, f.paye, COALESCE(f.remise_percent, 0) as descuento_global, 21.0 as iva_porcentaje, f.note_public as notas, ";
-	$sql_single .= "(CASE WHEN f.fk_statut = 0 THEN 'Borrador' WHEN (f.paye = 1 OR f.fk_statut = 2) THEN 'Pagada' ELSE 'Pendiente' END) as estado, ";
-	$sql_single .= "fe.fk_vehiculo, ";
+	$sql_single .= "(CASE WHEN COALESCE(fe.tipo_doc, '') = 'presupuesto' THEN 'Presupuesto' WHEN f.fk_statut = 0 THEN 'Borrador' WHEN (f.paye = 1 OR f.fk_statut = 2) THEN 'Pagada' ELSE 'Pendiente' END) as estado, ";
+	$sql_single .= "fe.fk_vehiculo, fe.fk_reparacion, COALESCE(fe.tipo_doc, 'factura') as tipo_doc, ";
 	$sql_single .= "s.nom as cliente_nombre, COALESCE(NULLIF(s.siren, ''), NULLIF(s.siret, ''), s.tva_intra) as cliente_cif, COALESCE(NULLIF(s.town, ''), s.address) as cliente_ciudad, s.phone as cliente_telefono, s.email as cliente_email, ";
 	$sql_single .= "v.matricula as vehiculo_matricula, v.marca as vehiculo_marca, v.modelo as vehiculo_modelo, v.anio as vehiculo_anio ";
 	$sql_single .= "FROM " . MAIN_DB_PREFIX . "facture as f ";
@@ -845,6 +864,9 @@ if ($view_id > 0) {
 	$res_single = $db->query($sql_single);
 	if ($res_single && ($fs = $db->fetch_object($res_single))) {
 		$factura_single = $fs;
+		$single_tot_bruto = 0.0;
+		$single_tot_neto = 0.0;
+		$single_tot_dto_lineas = 0.0;
 		$tot_mat = 0.0;
 		$tot_rep = 0.0;
 		$sql_single_lines = "SELECT fd.rowid, (CASE WHEN fd.product_type = 1 THEN 'reparacion' ELSE 'material' END) as tipo, ";
@@ -857,24 +879,36 @@ if ($view_id > 0) {
 		$res_lin = $db->query($sql_single_lines);
 		if ($res_lin) {
 			while ($l = $db->fetch_object($res_lin)) {
+				$qty = (float) $l->cantidad;
+				if ($qty <= 0) $qty = 1.0;
+				$p_unit = (float) $l->precio;
+				$l_bruto = $qty * $p_unit;
+				$l_neto = (float) $l->total_neto;
+				$l_dto = max(0, $l_bruto - $l_neto);
+
+				$single_tot_bruto += $l_bruto;
+				$single_tot_neto += $l_neto;
+				$single_tot_dto_lineas += $l_dto;
+
 				if ($l->tipo == 'material') {
 					$single_materiales[] = $l;
-					$tot_mat += (float) $l->total_neto;
+					$tot_mat += $l_neto;
 				} else {
 					$single_reparaciones[] = $l;
-					$tot_rep += (float) $l->total_neto;
+					$tot_rep += $l_neto;
 				}
 			}
 		}
-		$single_subtotal = $tot_mat + $tot_rep;
-		$single_desc = (float) $factura_single->descuento_global;
+
+		$single_global_desc_percent = (float) $factura_single->descuento_global;
+		$single_global_desc_amt = ($single_global_desc_percent > 0) ? ($single_tot_neto * ($single_global_desc_percent / 100)) : 0.0;
+
+		$single_subtotal = $single_tot_bruto;
+		$single_desc = $single_tot_dto_lineas + $single_global_desc_amt;
 		$single_base = max(0, $single_subtotal - $single_desc);
 		$single_iva_pct = 21.0;
-		$single_iva_amt = (float) $factura_single->total_tva;
-		$single_total = (float) $factura_single->total;
-		if ($single_total <= 0 && ($single_base > 0 || $single_desc > 0)) {
-			$single_total = $single_base + $single_iva_amt;
-		}
+		$single_iva_amt = (float) $factura_single->total_tva > 0 ? (float) $factura_single->total_tva : round($single_base * ($single_iva_pct / 100), 2);
+		$single_total = (float) $factura_single->total > 0 ? (float) $factura_single->total : ($single_base + $single_iva_amt);
 	}
 }
 
@@ -1131,7 +1165,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									<line x1="16" y1="17" x2="8" y2="17"></line>
 									<polyline points="10 9 9 9 8 9"></polyline>
 								</svg>
-								<span>FACTURA</span>
+								<span><?php echo (!empty($factura_single->tipo_doc) && $factura_single->tipo_doc === 'presupuesto') ? 'PRESUPUESTO' : 'FACTURA'; ?></span>
 							</div>
 							<h1 class="tallerpro-invoice-doc-num"><?php echo dol_escape_htmltag($factura_single->numero_factura); ?></h1>
 							<div class="tallerpro-invoice-doc-date"><?php echo !empty($factura_single->fecha) ? dol_escape_htmltag($factura_single->fecha) : date('Y-m-d'); ?></div>
@@ -1249,21 +1283,21 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<div class="tallerpro-invoice-totals-card-view" style="background: #ffffff !important; border: 1px solid #e2e8f0 !important; border-radius: 12px !important; padding: 22px 28px !important; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02) !important; display: flex !important; justify-content: flex-end !important; width: 100% !important; box-sizing: border-box !important; margin-top: 16px !important; margin-bottom: 16px !important;">
 							<div class="tallerpro-totals-summary-box" style="width: 320px !important; max-width: 100% !important; margin-left: auto !important; margin-right: 0 !important; display: flex !important; flex-direction: column !important; gap: 8px !important;">
 								<div class="tallerpro-totals-row" style="display: flex !important; justify-content: space-between !important; align-items: center !important; font-size: 13.5px !important; color: #64748b !important; width: 100% !important;">
-									<span style="color: #64748b !important; font-weight: 400 !important; font-size: 13.5px !important;">Subtotal</span>
-									<span style="color: #0f172a !important; font-weight: 500 !important; font-size: 13.5px !important; text-align: right !important;"><?php echo number_format((float) $single_subtotal, 2, '.', '') . ' €'; ?></span>
+									<span style="color: #64748b !important; font-weight: 600 !important; font-size: 13px !important; letter-spacing: 0.03em !important;">SUBTOTAL</span>
+									<span style="color: #0f172a !important; font-weight: 600 !important; font-size: 13.5px !important; text-align: right !important;"><?php echo number_format((float) $single_subtotal, 2, '.', '') . ' €'; ?></span>
 								</div>
 								<div class="tallerpro-totals-row" style="display: flex !important; justify-content: space-between !important; align-items: center !important; font-size: 13.5px !important; color: #64748b !important; width: 100% !important;">
-									<span style="color: #64748b !important; font-weight: 400 !important; font-size: 13.5px !important;">Descuento</span>
-									<span style="color: #0f172a !important; font-weight: 500 !important; font-size: 13.5px !important; text-align: right !important;">- <?php echo number_format((float) $single_desc, 2, '.', '') . ' €'; ?></span>
+									<span style="color: #64748b !important; font-weight: 600 !important; font-size: 13px !important; letter-spacing: 0.03em !important;">DESCUENTO</span>
+									<span style="color: #0f172a !important; font-weight: 600 !important; font-size: 13.5px !important; text-align: right !important;"><?php echo number_format((float) $single_desc, 2, '.', '') . ' €'; ?></span>
 								</div>
 								<div class="tallerpro-totals-divider" style="height: 1px !important; background-color: #f1f5f9 !important; margin: 4px 0 !important; border: none !important; width: 100% !important;"></div>
 								<div class="tallerpro-totals-row" style="display: flex !important; justify-content: space-between !important; align-items: center !important; font-size: 13.5px !important; color: #64748b !important; width: 100% !important;">
-									<span style="color: #64748b !important; font-weight: 400 !important; font-size: 13.5px !important;">Base imponible</span>
-									<span style="color: #0f172a !important; font-weight: 500 !important; font-size: 13.5px !important; text-align: right !important;"><?php echo number_format((float) $single_base, 2, '.', '') . ' €'; ?></span>
+									<span style="color: #64748b !important; font-weight: 600 !important; font-size: 13px !important; letter-spacing: 0.03em !important;">SUBTOTAL - DTO</span>
+									<span style="color: #0f172a !important; font-weight: 600 !important; font-size: 13.5px !important; text-align: right !important;"><?php echo number_format((float) $single_base, 2, '.', '') . ' €'; ?></span>
 								</div>
 								<div class="tallerpro-totals-row" style="display: flex !important; justify-content: space-between !important; align-items: center !important; font-size: 13.5px !important; color: #64748b !important; width: 100% !important;">
-									<span style="color: #64748b !important; font-weight: 400 !important; font-size: 13.5px !important;">IVA (<?php echo (int) $single_iva_pct; ?>%)</span>
-									<span style="color: #0f172a !important; font-weight: 500 !important; font-size: 13.5px !important; text-align: right !important;"><?php echo number_format((float) $single_iva_amt, 2, '.', '') . ' €'; ?></span>
+									<span style="color: #64748b !important; font-weight: 600 !important; font-size: 13px !important; letter-spacing: 0.03em !important;">IVA (<?php echo (int) $single_iva_pct; ?>%)</span>
+									<span style="color: #0f172a !important; font-weight: 600 !important; font-size: 13.5px !important; text-align: right !important;"><?php echo number_format((float) $single_iva_amt, 2, '.', '') . ' €'; ?></span>
 								</div>
 								<div class="tallerpro-totals-divider" style="height: 1px !important; background-color: #f1f5f9 !important; margin: 4px 0 !important; border: none !important; width: 100% !important;"></div>
 								<div class="tallerpro-totals-row tallerpro-totals-final" style="display: flex !important; justify-content: space-between !important; align-items: center !important; width: 100% !important; margin-top: 3px !important;">
@@ -1364,8 +1398,12 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<tbody>
 									<?php foreach ($facturas_list as $f): ?>
 										<?php
+										$is_presupuesto = (!empty($f->tipo_doc) && $f->tipo_doc === 'presupuesto');
 										$f_estado_lower = strtolower(trim($f->estado));
-										if ($f_estado_lower == 'pagada') {
+										if ($is_presupuesto) {
+											$status_class = 'status-presupuesto';
+											$cur_estado = 'Presupuesto';
+										} elseif ($f_estado_lower == 'pagada') {
 											$status_class = 'status-pagada';
 											$cur_estado = 'Pagada';
 										} elseif ($f_estado_lower == 'borrador' || (isset($f->fk_statut) && (int)$f->fk_statut == 0)) {
@@ -1375,13 +1413,18 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 											$status_class = 'status-pendiente';
 											$cur_estado = 'Pendiente';
 										}
-										$is_borrador = ($cur_estado === 'Borrador');
+										$is_borrador = (isset($f->fk_statut) && (int)$f->fk_statut == 0);
+										$can_edit = $is_borrador;
+										$can_delete = $is_borrador;
 										?>
-										<tr data-invoice-id="<?php echo (int) $f->rowid; ?>" data-estado="<?php echo $cur_estado; ?>">
+										<tr data-invoice-id="<?php echo (int) $f->rowid; ?>" data-estado="<?php echo $cur_estado; ?>" data-tipo-doc="<?php echo $is_presupuesto ? 'presupuesto' : 'factura'; ?>">
 											<td style="color: #1e293b; font-weight: 700;">
-												<a href="<?php echo $facturas_url . '?id=' . ((int) $f->rowid); ?>" class="factura-ref-link" style="color: #0f172a; text-decoration: none;" title="Ver factura">
+												<a href="<?php echo $facturas_url . '?id=' . ((int) $f->rowid); ?>" class="factura-ref-link" style="color: #0f172a; text-decoration: none;" title="<?php echo $is_presupuesto ? 'Ver presupuesto' : 'Ver factura'; ?>">
 													<?php echo dol_escape_htmltag($f->numero_factura); ?>
 												</a>
+												<?php if ($is_presupuesto): ?>
+													<span style="display: block; font-size: 11px; font-weight: 600; color: #0284c7; margin-top: 2px;">Presupuesto</span>
+												<?php endif; ?>
 											</td>
 											<td style="color: #1e293b;">
 												<?php echo !empty($f->fecha) ? dol_escape_htmltag($f->fecha) : '—'; ?>
@@ -1408,27 +1451,31 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 												<?php echo number_format((float) $f->total, 2, '.', '') . ' €'; ?>
 											</td>
 											<td>
-												<select class="tallerpro-status-select <?php echo $status_class; ?> tallerpro-invoice-status-select"
-													data-id="<?php echo (int) $f->rowid; ?>"
-													data-current-estado="<?php echo $cur_estado; ?>"
-													data-ref="<?php echo dol_escape_htmltag($f->numero_factura); ?>"
-													title="Cambiar estado de factura">
-													<?php if ($is_borrador): ?>
-														<option value="Borrador" selected>Borrador</option>
-														<option value="Pendiente">Pendiente</option>
-														<option value="Pagada">Pagada</option>
-													<?php elseif ($cur_estado === 'Pendiente'): ?>
-														<option value="Pendiente" selected>Pendiente</option>
-														<option value="Pagada">Pagada</option>
-													<?php else: ?>
-														<option value="Pagada" selected>Pagada</option>
-														<option value="Pendiente">Pendiente</option>
-													<?php endif; ?>
-												</select>
+												<?php if ($is_presupuesto): ?>
+													<span class="tallerpro-badge-presupuesto" title="Presupuesto sin estado - editable en todo momento">Presupuesto</span>
+												<?php else: ?>
+													<select class="tallerpro-status-select <?php echo $status_class; ?> tallerpro-invoice-status-select"
+														data-id="<?php echo (int) $f->rowid; ?>"
+														data-current-estado="<?php echo $cur_estado; ?>"
+														data-ref="<?php echo dol_escape_htmltag($f->numero_factura); ?>"
+														title="Cambiar estado de factura">
+														<?php if ($is_borrador): ?>
+															<option value="Borrador" selected>Borrador</option>
+															<option value="Pendiente">Pendiente</option>
+															<option value="Pagada">Pagada</option>
+														<?php elseif ($cur_estado === 'Pendiente'): ?>
+															<option value="Pendiente" selected>Pendiente</option>
+															<option value="Pagada">Pagada</option>
+														<?php else: ?>
+															<option value="Pagada" selected>Pagada</option>
+															<option value="Pendiente">Pendiente</option>
+														<?php endif; ?>
+													</select>
+												<?php endif; ?>
 											</td>
 											<td>
 												<div class="tallerpro-actions">
-													<a href="<?php echo $facturas_url . '?id=' . ((int) $f->rowid); ?>" class="tallerpro-btn-table-primary btn-ver-factura" title="Ver factura">
+													<a href="<?php echo $facturas_url . '?id=' . ((int) $f->rowid); ?>" class="tallerpro-btn-table-primary btn-ver-factura" title="<?php echo $is_presupuesto ? 'Ver presupuesto' : 'Ver factura'; ?>">
 														<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 															<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
 															<polyline points="15 3 21 3 21 9"></polyline>
@@ -1444,9 +1491,9 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 														</svg>
 														<span>PDF</span>
 													</a>
-													<button type="button" class="tallerpro-action-btn btn-edit-factura <?php echo (!$is_borrador ? 'is-disabled' : ''); ?>"
-														title="<?php echo ($is_borrador ? 'Editar' : 'Solo se pueden editar facturas en estado Borrador'); ?>"
-														<?php if (!$is_borrador) echo 'disabled'; ?>
+													<button type="button" class="tallerpro-action-btn btn-edit-factura <?php echo (!$can_edit ? 'is-disabled' : ''); ?>"
+														title="<?php echo ($can_edit ? ($is_presupuesto ? 'Editar presupuesto' : 'Editar') : 'Solo se pueden editar facturas en estado Borrador'); ?>"
+														<?php if (!$can_edit) echo 'disabled'; ?>
 														data-id="<?php echo (int) $f->rowid; ?>"
 														data-numero="<?php echo dol_escape_htmltag($f->numero_factura); ?>"
 														data-fecha="<?php echo dol_escape_htmltag($f->fecha); ?>"
@@ -1454,18 +1501,19 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 														data-vehiculo="<?php echo (int) $f->fk_vehiculo; ?>"
 														data-total="<?php echo number_format((float) $f->total, 2, '.', ''); ?>"
 														data-estado="<?php echo dol_escape_htmltag($f->estado); ?>"
+														data-tipo-doc="<?php echo $is_presupuesto ? 'presupuesto' : 'factura'; ?>"
 														data-notas="<?php echo dol_escape_htmltag(tallerpro_clean_notas($f->notas)); ?>">
-														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="<?php echo ($is_borrador ? '#64748b' : '#cbd5e1'); ?>" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="<?php echo ($can_edit ? '#64748b' : '#cbd5e1'); ?>" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 															<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
 														</svg>
 													</button>
 													<button type="button"
-														class="tallerpro-action-btn btn-delete-action <?php echo (!$is_borrador ? 'is-disabled' : ''); ?>"
-														title="<?php echo ($is_borrador ? 'Eliminar' : 'Solo se pueden eliminar facturas en estado Borrador'); ?>"
-														<?php if (!$is_borrador) echo 'disabled'; ?>
+														class="tallerpro-action-btn btn-delete-action <?php echo (!$can_delete ? 'is-disabled' : ''); ?>"
+														title="<?php echo ($can_delete ? ($is_presupuesto ? 'Eliminar presupuesto' : 'Eliminar') : 'Solo se pueden eliminar facturas en estado Borrador'); ?>"
+														<?php if (!$can_delete) echo 'disabled'; ?>
 														data-id="<?php echo (int) $f->rowid; ?>"
 														data-action="delete_factura">
-														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="<?php echo ($is_borrador ? '#ef4444' : '#cbd5e1'); ?>" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="<?php echo ($can_delete ? '#ef4444' : '#cbd5e1'); ?>" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 															<polyline points="3 6 5 6 21 6"></polyline>
 															<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
 														</svg>
