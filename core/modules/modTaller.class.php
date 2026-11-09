@@ -2,7 +2,7 @@
 /* Copyright (C) 2004-2018	Laurent Destailleur			<eldy@users.sourceforge.net>
  * Copyright (C) 2018-2019	Nicolas ZABOURI				<info@inovea-conseil.com>
  * Copyright (C) 2019-2024	Frédéric France				<frederic.france@free.fr>
- * Copyright (C) 2026		SuperAdmin
+ * Copyright (C) 2026		Logi-K Soluciones Digitales	<https://logi-k.es/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -66,17 +66,17 @@ class modTaller extends DolibarrModules
 
 		// DESCRIPTION_FLAG
 		// Module description, used if translation string 'ModuleTallerDesc' not found (Taller is name of module).
-		$this->description = "TallerDescription";
+		$this->description = "Gestión integral de talleres mecánicos y automoción para Dolibarr ERP/CRM";
 		// Used only if file README.md and README-LL.md not found.
-		$this->descriptionlong = "TallerDescription";
+		$this->descriptionlong = "Módulo completo de gestión de taller: recepción de vehículos, clientes, órdenes de trabajo, control de recambios, aseguradoras y facturación oficial.";
 
 		// Author
-		$this->editor_name = '';
-		$this->editor_url = '';		// Must be an external online web site
+		$this->editor_name = 'Logi-K Soluciones Digitales';
+		$this->editor_url = 'https://logi-k.es/';		// Must be an external online web site
 		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@taller'
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '1.0';
+		$this->version = '1.0.0';
 		// Url to the file with your last numberversion of this module
 		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
 
@@ -156,9 +156,9 @@ class modTaller extends DolibarrModules
 		$this->langfiles = array("taller@taller");
 
 		// Prerequisites
-		$this->phpmin = array(7, 1); // Minimum version of PHP required by module
+		$this->phpmin = array(7, 4); // Minimum version of PHP required by module
 		// $this->phpmax = array(8, 0); // Maximum version of PHP required by module
-		$this->need_dolibarr_version = array(19, -3); // Minimum version of Dolibarr required by module
+		$this->need_dolibarr_version = array(16, 0); // Minimum version of Dolibarr required by module
 		// $this->max_dolibarr_version = array(19, -3); // Maximum version of Dolibarr required by module
 		$this->need_javascript_ajax = 0;
 

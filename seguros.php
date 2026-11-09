@@ -84,10 +84,7 @@ $sql_create = "CREATE TABLE IF NOT EXISTS " . $table_seguro . " (
 ) ENGINE=innodb;";
 $db->query($sql_create);
 
-$action = GETPOST('action', 'alpha');
-if (empty($action) && !empty($_POST['action'])) {
-	$action = $_POST['action'];
-}
+$action = GETPOST('action', 'aZ09');
 
 // Acción: Crear Seguro
 if ($action == 'create_seguro' || $action == 'add_seguro') {
@@ -100,45 +97,14 @@ if ($action == 'create_seguro' || $action == 'add_seguro') {
 		accessforbidden('Invalid security token');
 	}
 
-	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
-	if (empty($fk_vehiculo) && !empty($_POST['fk_vehiculo'])) {
-		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
-	}
-
-	$compania = trim(GETPOST('compania', 'alphanohtml'));
-	if (empty($compania) && !empty($_POST['compania'])) {
-		$compania = trim($_POST['compania']);
-	}
-
-	$poliza = trim(GETPOST('poliza', 'alphanohtml'));
-	if (empty($poliza) && !empty($_POST['poliza'])) {
-		$poliza = trim($_POST['poliza']);
-	}
-
-	$tipo = trim(GETPOST('tipo', 'alphanohtml'));
-	if (empty($tipo) && !empty($_POST['tipo'])) {
-		$tipo = trim($_POST['tipo']);
-	}
-
+	$fk_vehiculo  = GETPOSTINT('fk_vehiculo');
+	$compania     = trim(GETPOST('compania', 'alphanohtml'));
+	$poliza       = trim(GETPOST('poliza', 'alphanohtml'));
+	$tipo         = trim(GETPOST('tipo', 'alphanohtml'));
 	$fecha_inicio = trim(GETPOST('fecha_inicio', 'alpha'));
-	if (empty($fecha_inicio) && !empty($_POST['fecha_inicio'])) {
-		$fecha_inicio = trim($_POST['fecha_inicio']);
-	}
-
-	$fecha_fin = trim(GETPOST('fecha_fin', 'alpha'));
-	if (empty($fecha_fin) && !empty($_POST['fecha_fin'])) {
-		$fecha_fin = trim($_POST['fecha_fin']);
-	}
-
-	$telefono = trim(GETPOST('telefono', 'alphanohtml'));
-	if (empty($telefono) && !empty($_POST['telefono'])) {
-		$telefono = trim($_POST['telefono']);
-	}
-
-	$notas = trim(GETPOST('notas', 'restricthtml'));
-	if (empty($notas) && !empty($_POST['notas'])) {
-		$notas = trim($_POST['notas']);
-	}
+	$fecha_fin    = trim(GETPOST('fecha_fin', 'alpha'));
+	$telefono     = trim(GETPOST('telefono', 'alphanohtml'));
+	$notas        = trim(GETPOST('notas', 'restricthtml'));
 
 	if (empty($compania)) {
 		setEventMessages($langs->trans("ErrorFieldRequired", "Compañía"), null, 'errors');
@@ -183,50 +149,15 @@ if ($action == 'update_seguro' || $action == 'edit_seguro') {
 		accessforbidden('Invalid security token');
 	}
 
-	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
-
-	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
-	if (empty($fk_vehiculo) && !empty($_POST['fk_vehiculo'])) {
-		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
-	}
-
-	$compania = trim(GETPOST('compania', 'alphanohtml'));
-	if (empty($compania) && !empty($_POST['compania'])) {
-		$compania = trim($_POST['compania']);
-	}
-
-	$poliza = trim(GETPOST('poliza', 'alphanohtml'));
-	if (empty($poliza) && !empty($_POST['poliza'])) {
-		$poliza = trim($_POST['poliza']);
-	}
-
-	$tipo = trim(GETPOST('tipo', 'alphanohtml'));
-	if (empty($tipo) && !empty($_POST['tipo'])) {
-		$tipo = trim($_POST['tipo']);
-	}
-
+	$rowid        = GETPOSTINT('rowid');
+	$fk_vehiculo  = GETPOSTINT('fk_vehiculo');
+	$compania     = trim(GETPOST('compania', 'alphanohtml'));
+	$poliza       = trim(GETPOST('poliza', 'alphanohtml'));
+	$tipo         = trim(GETPOST('tipo', 'alphanohtml'));
 	$fecha_inicio = trim(GETPOST('fecha_inicio', 'alpha'));
-	if (empty($fecha_inicio) && !empty($_POST['fecha_inicio'])) {
-		$fecha_inicio = trim($_POST['fecha_inicio']);
-	}
-
-	$fecha_fin = trim(GETPOST('fecha_fin', 'alpha'));
-	if (empty($fecha_fin) && !empty($_POST['fecha_fin'])) {
-		$fecha_fin = trim($_POST['fecha_fin']);
-	}
-
-	$telefono = trim(GETPOST('telefono', 'alphanohtml'));
-	if (empty($telefono) && !empty($_POST['telefono'])) {
-		$telefono = trim($_POST['telefono']);
-	}
-
-	$notas = trim(GETPOST('notas', 'restricthtml'));
-	if (empty($notas) && !empty($_POST['notas'])) {
-		$notas = trim($_POST['notas']);
-	}
+	$fecha_fin    = trim(GETPOST('fecha_fin', 'alpha'));
+	$telefono     = trim(GETPOST('telefono', 'alphanohtml'));
+	$notas        = trim(GETPOST('notas', 'restricthtml'));
 
 	if (empty($compania)) {
 		setEventMessages($langs->trans("ErrorFieldRequired", "Compañía"), null, 'errors');
@@ -268,9 +199,6 @@ if ($action == 'delete_seguro' || $action == 'delete') {
 	}
 
 	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
 	if ($rowid > 0) {
 		$sql_del = "UPDATE " . $table_seguro . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_seguro') . ")";
 		$resql = $db->query($sql_del);
@@ -287,9 +215,6 @@ if ($action == 'delete_seguro' || $action == 'delete') {
 
 // Consultar vehículos para el desplegable
 $preselected_veh = GETPOSTINT('new_vehiculo');
-if ($preselected_veh <= 0 && !empty($_GET['new_vehiculo'])) {
-	$preselected_veh = (int) $_GET['new_vehiculo'];
-}
 
 $vehicles_list = array();
 $sql_v = "SELECT rowid, matricula, marca, modelo FROM " . $table_vehiculo;

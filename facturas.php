@@ -131,10 +131,7 @@ if (!function_exists('tallerpro_clean_notas')) {
 	}
 }
 
-$action = GETPOST('action', 'alpha');
-if (empty($action) && !empty($_POST['action'])) {
-	$action = $_POST['action'];
-}
+$action = GETPOST('action', 'aZ09');
 
 // AJAX: Obtener siguiente número de factura automático
 if ($action == 'get_next_factura_numero') {
@@ -156,41 +153,20 @@ if ($action == 'create_factura' || $action == 'add_factura') {
 	}
 
 	$fecha = trim(GETPOST('fecha', 'alpha'));
-	if (empty($fecha) && !empty($_POST['fecha'])) {
-		$fecha = trim($_POST['fecha']);
-	}
 	if (empty($fecha)) {
 		$fecha = date('Y-m-d');
 	}
 
-	$total_raw = GETPOST('total', 'alpha');
-	if ($total_raw === '' && isset($_POST['total'])) {
-		$total_raw = $_POST['total'];
-	}
-	$total = (float) str_replace(',', '.', $total_raw);
-
+	$total = (float) price2num(GETPOST('total', 'alphanohtml'));
 	$fk_soc = GETPOSTINT('fk_soc');
-	if (empty($fk_soc) && !empty($_POST['fk_soc'])) {
-		$fk_soc = (int) $_POST['fk_soc'];
-	}
-
 	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
-	if (empty($fk_vehiculo) && !empty($_POST['fk_vehiculo'])) {
-		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
-	}
 
 	$estado = trim(GETPOST('estado', 'alphanohtml'));
-	if (empty($estado) && !empty($_POST['estado'])) {
-		$estado = trim($_POST['estado']);
-	}
 	if (empty($estado) || ($estado != 'Pagada' && $estado != 'Pendiente' && $estado != 'Borrador')) {
 		$estado = 'Borrador';
 	}
 
 	$notas = trim(GETPOST('notas', 'restricthtml'));
-	if (empty($notas) && !empty($_POST['notas'])) {
-		$notas = trim($_POST['notas']);
-	}
 
 	if ($fk_soc <= 0) {
 		setEventMessages("Debe seleccionar un cliente para emitir la factura", null, 'errors');
@@ -239,34 +215,11 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 	}
 
 	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
-
 	$fecha = trim(GETPOST('fecha', 'alpha'));
-	if (empty($fecha) && !empty($_POST['fecha'])) {
-		$fecha = trim($_POST['fecha']);
-	}
-
 	$fk_soc = GETPOSTINT('fk_soc');
-	if (empty($fk_soc) && !empty($_POST['fk_soc'])) {
-		$fk_soc = (int) $_POST['fk_soc'];
-	}
-
 	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
-	if (empty($fk_vehiculo) && !empty($_POST['fk_vehiculo'])) {
-		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
-	}
-
 	$estado = trim(GETPOST('estado', 'alphanohtml'));
-	if (empty($estado) && !empty($_POST['estado'])) {
-		$estado = trim($_POST['estado']);
-	}
-
 	$notas = trim(GETPOST('notas', 'restricthtml'));
-	if (empty($notas) && !empty($_POST['notas'])) {
-		$notas = trim($_POST['notas']);
-	}
 
 	if ($rowid <= 0) {
 		setEventMessages("Identificador de factura no válido", null, 'errors');
@@ -325,7 +278,7 @@ if ($action == 'update_factura_estado' || $action == 'update_estado') {
 	$token = GETPOST('token', 'alpha');
 	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
 	if (!$valid_token) {
-		if (GETPOST('ajax', 'int') || !empty($_POST['ajax']) || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+		if (GETPOSTINT('ajax') || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
 			header('Content-Type: application/json');
 			echo json_encode(array('success' => false, 'error' => 'Token de seguridad inválido'));
 			exit;
@@ -334,13 +287,7 @@ if ($action == 'update_factura_estado' || $action == 'update_estado') {
 	}
 
 	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
 	$new_estado = trim(GETPOST('new_estado', 'alphanohtml'));
-	if (empty($new_estado) && !empty($_POST['new_estado'])) {
-		$new_estado = trim($_POST['new_estado']);
-	}
 
 	$res_success = false;
 	$error_msg = '';
@@ -402,7 +349,7 @@ if ($action == 'update_factura_estado' || $action == 'update_estado') {
 		$error_msg = "Datos de estado o factura no válidos";
 	}
 
-	if (GETPOST('ajax', 'int') || !empty($_POST['ajax']) || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+	if (GETPOSTINT('ajax') || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
 		header('Content-Type: application/json');
 		if ($res_success) {
 			echo json_encode(array(
@@ -441,9 +388,6 @@ if ($action == 'delete_factura' || $action == 'delete') {
 	}
 
 	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
 	if ($rowid > 0) {
 		$fac = new Facture($db);
 		if ($fac->fetch($rowid) > 0) {
@@ -472,9 +416,6 @@ if ($action == 'delete_factura' || $action == 'delete') {
 // Generar documento PDF de la factura según diseño de referencia
 if ($action == 'pdf' || $action == 'download_pdf') {
 	$fac_id = GETPOSTINT('id');
-	if (empty($fac_id) && !empty($_GET['id'])) {
-		$fac_id = (int) $_GET['id'];
-	}
 	if (empty($fac_id)) {
 		$fac_id = GETPOSTINT('fk_factura');
 	}
@@ -545,60 +486,26 @@ if ($action == 'add_factura_linea') {
 	}
 
 	$fk_factura = GETPOSTINT('fk_factura');
-	if (empty($fk_factura) && !empty($_POST['fk_factura'])) {
-		$fk_factura = (int) $_POST['fk_factura'];
-	}
 
 	$tipo = trim(GETPOST('tipo', 'alpha'));
-	if (empty($tipo) && !empty($_POST['tipo'])) {
-		$tipo = trim($_POST['tipo']);
-	}
 	if (empty($tipo)) {
 		$tipo = 'material';
 	}
 
 	$fk_material = GETPOSTINT('fk_material');
-	if (empty($fk_material) && !empty($_POST['fk_material'])) {
-		$fk_material = (int) $_POST['fk_material'];
-	}
-
 	$codigo = trim(GETPOST('codigo', 'alphanohtml'));
-	if (empty($codigo) && !empty($_POST['codigo'])) {
-		$codigo = trim($_POST['codigo']);
-	}
-
 	$descripcion = trim(GETPOST('descripcion', 'alphanohtml'));
-	if (empty($descripcion) && !empty($_POST['descripcion'])) {
-		$descripcion = trim($_POST['descripcion']);
-	}
 
-	$cantidad_raw = GETPOST('cantidad', 'alpha');
-	if ($cantidad_raw === '' && isset($_POST['cantidad'])) {
-		$cantidad_raw = $_POST['cantidad'];
-	}
-	$cantidad = (float) str_replace(',', '.', $cantidad_raw);
+	$cantidad = (float) price2num(GETPOST('cantidad', 'alphanohtml'));
 	if ($cantidad <= 0) $cantidad = 1.0;
 
-	$precio_raw = GETPOST('precio', 'alpha');
-	if ($precio_raw === '' && isset($_POST['precio'])) {
-		$precio_raw = $_POST['precio'];
-	}
-	$precio = (float) str_replace(',', '.', $precio_raw);
-
-	$descuento_raw = GETPOST('descuento', 'alpha');
-	if ($descuento_raw === '' && isset($_POST['descuento'])) {
-		$descuento_raw = $_POST['descuento'];
-	}
-	$descuento = (float) str_replace(',', '.', $descuento_raw);
+	$precio = (float) price2num(GETPOST('precio', 'alphanohtml'));
+	$descuento = (float) price2num(GETPOST('descuento', 'alphanohtml'));
 
 	$total_neto = $cantidad * $precio * (1 - ($descuento / 100));
 	if ($total_neto < 0) $total_neto = 0;
 
 	$notas = trim(GETPOST('notas', 'restricthtml'));
-	if (empty($notas) && !empty($_POST['notas'])) {
-		$notas = trim($_POST['notas']);
-	}
-
 	$guardar_catalogo = GETPOSTINT('guardar_catalogo');
 
 	if ($fk_factura <= 0) {
@@ -701,13 +608,7 @@ if ($action == 'delete_factura_linea') {
 	}
 
 	$linea_id = GETPOSTINT('linea_id');
-	if (empty($linea_id) && !empty($_POST['linea_id'])) {
-		$linea_id = (int) $_POST['linea_id'];
-	}
 	$fk_factura = GETPOSTINT('fk_factura');
-	if (empty($fk_factura) && !empty($_POST['fk_factura'])) {
-		$fk_factura = (int) $_POST['fk_factura'];
-	}
 
 	if ($fk_factura > 0 && $linea_id > 0) {
 		$fac = new Facture($db);
@@ -740,15 +641,7 @@ if ($action == 'save_factura_totales') {
 	}
 
 	$fk_factura = GETPOSTINT('fk_factura');
-	if (empty($fk_factura) && !empty($_POST['fk_factura'])) {
-		$fk_factura = (int) $_POST['fk_factura'];
-	}
-
-	$descuento_global_raw = GETPOST('descuento_global', 'alpha');
-	if ($descuento_global_raw === '' && isset($_POST['descuento_global'])) {
-		$descuento_global_raw = $_POST['descuento_global'];
-	}
-	$descuento_global = (float) str_replace(',', '.', $descuento_global_raw);
+	$descuento_global = (float) price2num(GETPOST('descuento_global', 'alphanohtml'));
 
 	if ($fk_factura > 0) {
 		$fac = new Facture($db);
@@ -836,9 +729,6 @@ $next_factura_numero = getNextFacturaNumero($db);
 
 // Vista individual de una factura (Documental)
 $view_id = GETPOSTINT('id');
-if (empty($view_id) && !empty($_GET['id'])) {
-	$view_id = (int) $_GET['id'];
-}
 $factura_single = null;
 $single_materiales = array();
 $single_reparaciones = array();

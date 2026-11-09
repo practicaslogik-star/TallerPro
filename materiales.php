@@ -108,10 +108,7 @@ $sql_create_mvt = "CREATE TABLE IF NOT EXISTS " . $table_stock_mvt . " (
 ) ENGINE=innodb;";
 $db->query($sql_create_mvt);
 
-$action = GETPOST('action', 'alpha');
-if (empty($action) && !empty($_POST['action'])) {
-	$action = $_POST['action'];
-}
+$action = GETPOST('action', 'aZ09');
 
 // Acción: Crear Material
 if ($action == 'create_material' || $action == 'add_material') {
@@ -124,35 +121,12 @@ if ($action == 'create_material' || $action == 'add_material') {
 		accessforbidden('Invalid security token');
 	}
 
-	$nombre = trim(GETPOST('nombre', 'alphanohtml'));
-	if (empty($nombre) && !empty($_POST['nombre'])) {
-		$nombre = trim($_POST['nombre']);
-	}
-
-	$ref = trim(GETPOST('ref', 'alphanohtml'));
-	if (empty($ref) && !empty($_POST['ref'])) {
-		$ref = trim($_POST['ref']);
-	}
-
+	$nombre    = trim(GETPOST('nombre', 'alphanohtml'));
+	$ref       = trim(GETPOST('ref', 'alphanohtml'));
 	$proveedor = trim(GETPOST('proveedor', 'alphanohtml'));
-	if (empty($proveedor) && !empty($_POST['proveedor'])) {
-		$proveedor = trim($_POST['proveedor']);
-	}
-
-	$stock = GETPOSTFLOAT('stock');
-	if ($stock === null || $stock === '') {
-		$stock = isset($_POST['stock']) ? (float) $_POST['stock'] : 0;
-	}
-
-	$precio = GETPOSTFLOAT('precio');
-	if ($precio === null || $precio === '') {
-		$precio = isset($_POST['precio']) ? (float) $_POST['precio'] : 0;
-	}
-
-	$notas = trim(GETPOST('notas', 'restricthtml'));
-	if (empty($notas) && !empty($_POST['notas'])) {
-		$notas = trim($_POST['notas']);
-	}
+	$stock     = (float) price2num(GETPOST('stock', 'alphanohtml'));
+	$precio    = (float) price2num(GETPOST('precio', 'alphanohtml'));
+	$notas     = trim(GETPOST('notas', 'restricthtml'));
 
 	if (empty($nombre)) {
 		setEventMessages($langs->trans("ErrorFieldRequired", "Nombre"), null, 'errors');
@@ -210,40 +184,13 @@ if ($action == 'update_material' || $action == 'edit_material') {
 		accessforbidden('Invalid security token');
 	}
 
-	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
-
-	$nombre = trim(GETPOST('nombre', 'alphanohtml'));
-	if (empty($nombre) && !empty($_POST['nombre'])) {
-		$nombre = trim($_POST['nombre']);
-	}
-
-	$ref = trim(GETPOST('ref', 'alphanohtml'));
-	if (empty($ref) && !empty($_POST['ref'])) {
-		$ref = trim($_POST['ref']);
-	}
-
+	$rowid     = GETPOSTINT('rowid');
+	$nombre    = trim(GETPOST('nombre', 'alphanohtml'));
+	$ref       = trim(GETPOST('ref', 'alphanohtml'));
 	$proveedor = trim(GETPOST('proveedor', 'alphanohtml'));
-	if (empty($proveedor) && !empty($_POST['proveedor'])) {
-		$proveedor = trim($_POST['proveedor']);
-	}
-
-	$stock = GETPOSTFLOAT('stock');
-	if ($stock === null || $stock === '') {
-		$stock = isset($_POST['stock']) ? (float) $_POST['stock'] : 0;
-	}
-
-	$precio = GETPOSTFLOAT('precio');
-	if ($precio === null || $precio === '') {
-		$precio = isset($_POST['precio']) ? (float) $_POST['precio'] : 0;
-	}
-
-	$notas = trim(GETPOST('notas', 'restricthtml'));
-	if (empty($notas) && !empty($_POST['notas'])) {
-		$notas = trim($_POST['notas']);
-	}
+	$stock     = (float) price2num(GETPOST('stock', 'alphanohtml'));
+	$precio    = (float) price2num(GETPOST('precio', 'alphanohtml'));
+	$notas     = trim(GETPOST('notas', 'restricthtml'));
 
 	if (empty($nombre)) {
 		setEventMessages($langs->trans("ErrorFieldRequired", "Nombre"), null, 'errors');
@@ -320,9 +267,6 @@ if ($action == 'delete_material' || $action == 'delete') {
 	}
 
 	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
 	if ($rowid > 0) {
 		$sql_del = "UPDATE " . $table_material . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_material') . ")";
 		$resql = $db->query($sql_del);

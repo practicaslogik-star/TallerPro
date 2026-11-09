@@ -72,10 +72,7 @@ $clientes_url = dol_buildpath('/taller/clientes.php', 1);
 
 require_once DOL_DOCUMENT_ROOT . '/societe/class/societe.class.php';
 
-$action = GETPOST('action', 'alpha');
-if (empty($action) && !empty($_POST['action'])) {
-	$action = $_POST['action'];
-}
+$action = GETPOST('action', 'aZ09');
 
 // Acción: Crear Cliente en módulo Terceros de Dolibarr
 if ($action == 'create_client' || $action == 'add_client') {
@@ -89,30 +86,11 @@ if ($action == 'create_client' || $action == 'add_client') {
 	}
 
 	$name    = trim(GETPOST('name', 'alphanohtml'));
-	if (empty($name) && !empty($_POST['name'])) {
-		$name = trim($_POST['name']);
-	}
-	$phone   = trim(GETPOST('phone', 'alpha'));
-	if (empty($phone) && !empty($_POST['phone'])) {
-		$phone = trim($_POST['phone']);
-	}
+	$phone   = trim(GETPOST('phone', 'alphanohtml'));
 	$email   = trim(GETPOST('email', 'custom', 0, FILTER_SANITIZE_EMAIL));
-	if (empty($email) && !empty($_POST['email'])) {
-		$email = trim($_POST['email']);
-	}
 	$cif     = trim(GETPOST('cif', 'alphanohtml'));
-	if (empty($cif) && !empty($_POST['cif'])) {
-		$cif = trim($_POST['cif']);
-	}
 	$address = trim(GETPOST('address', 'alphanohtml'));
-	if (empty($address) && !empty($_POST['address'])) {
-		$address = trim($_POST['address']);
-	}
-
 	$notes   = trim(GETPOST('notes', 'restricthtml'));
-	if (empty($notes) && !empty($_POST['notes'])) {
-		$notes = trim($_POST['notes']);
-	}
 
 	if (empty($name)) {
 		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("Name")), null, 'errors');
@@ -160,37 +138,16 @@ if ($action == 'update_client' || $action == 'edit_client') {
 	}
 
 	$socid = GETPOSTINT('socid');
-	if (empty($socid) && !empty($_POST['socid'])) {
-		$socid = (int) $_POST['socid'];
-	}
-	if (empty($socid) && !empty($_POST['rowid'])) {
-		$socid = (int) $_POST['rowid'];
+	if (empty($socid)) {
+		$socid = GETPOSTINT('rowid');
 	}
 
 	$name    = trim(GETPOST('name', 'alphanohtml'));
-	if (empty($name) && !empty($_POST['name'])) {
-		$name = trim($_POST['name']);
-	}
-	$phone   = trim(GETPOST('phone', 'alpha'));
-	if (empty($phone) && !empty($_POST['phone'])) {
-		$phone = trim($_POST['phone']);
-	}
+	$phone   = trim(GETPOST('phone', 'alphanohtml'));
 	$email   = trim(GETPOST('email', 'custom', 0, FILTER_SANITIZE_EMAIL));
-	if (empty($email) && !empty($_POST['email'])) {
-		$email = trim($_POST['email']);
-	}
 	$cif     = trim(GETPOST('cif', 'alphanohtml'));
-	if (empty($cif) && !empty($_POST['cif'])) {
-		$cif = trim($_POST['cif']);
-	}
 	$address = trim(GETPOST('address', 'alphanohtml'));
-	if (empty($address) && !empty($_POST['address'])) {
-		$address = trim($_POST['address']);
-	}
 	$notes   = trim(GETPOST('notes', 'restricthtml'));
-	if (empty($notes) && !empty($_POST['notes'])) {
-		$notes = trim($_POST['notes']);
-	}
 
 	if ($socid <= 0) {
 		setEventMessages("ID de cliente inválido", null, 'errors');
@@ -236,12 +193,9 @@ if ($action == 'delete_client' || $action == 'delete') {
 		accessforbidden('Invalid security token');
 	}
 
-	$socid = GETPOST('socid', 'int');
-	if (empty($socid) && !empty($_POST['socid'])) {
-		$socid = (int) $_POST['socid'];
-	}
-	if (empty($socid) && !empty($_POST['rowid'])) {
-		$socid = (int) $_POST['rowid'];
+	$socid = GETPOSTINT('socid');
+	if (empty($socid)) {
+		$socid = GETPOSTINT('rowid');
 	}
 	if ($socid > 0) {
 		$soc = new Societe($db);

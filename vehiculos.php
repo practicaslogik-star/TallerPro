@@ -84,18 +84,15 @@ $sql_create = "CREATE TABLE IF NOT EXISTS " . $table_vehiculo . " (
 ) ENGINE=innodb;";
 $db->query($sql_create);
 
-$action = GETPOST('action', 'alpha');
-if (empty($action) && !empty($_POST['action'])) {
-	$action = $_POST['action'];
-}
+$action = GETPOST('action', 'aZ09');
 
 // Acción: Ver o Descargar Documento de Vehículo
 if ($action == 'view_doc' || $action == 'download_doc') {
 	$veh_id = GETPOSTINT('id');
-	if (empty($veh_id) && isset($_GET['id'])) {
-		$veh_id = (int) $_GET['id'];
+	if (empty($veh_id)) {
+		$veh_id = GETPOSTINT('rowid');
 	}
-	$raw_file = isset($_GET['file']) ? $_GET['file'] : (isset($_POST['file']) ? $_POST['file'] : '');
+	$raw_file = GETPOST('file', 'alphanohtml');
 	$filename = basename(trim($raw_file));
 	$filename = preg_replace('/[^a-zA-Z0-9_\-\.]/', '', $filename);
 
@@ -242,10 +239,10 @@ if ($action == 'delete_doc') {
 	}
 
 	$veh_id = GETPOSTINT('id');
-	if (empty($veh_id) && isset($_POST['id'])) {
-		$veh_id = (int) $_POST['id'];
+	if (empty($veh_id)) {
+		$veh_id = GETPOSTINT('rowid');
 	}
-	$raw_file = isset($_POST['file']) ? $_POST['file'] : (isset($_GET['file']) ? $_GET['file'] : '');
+	$raw_file = GETPOST('file', 'alphanohtml');
 	$filename = basename(trim($raw_file));
 	$filename = preg_replace('/[^a-zA-Z0-9_\-\.]/', '', $filename);
 
@@ -283,25 +280,14 @@ if ($action == 'create_vehiculo' || $action == 'add_vehiculo') {
 	}
 
 	$matricula = strtoupper(trim(GETPOST('matricula', 'alphanohtml')));
-	if (empty($matricula) && !empty($_POST['matricula'])) {
-		$matricula = strtoupper(trim($_POST['matricula']));
-	}
-
-	$fk_soc = GETPOSTINT('fk_soc');
-	if (empty($fk_soc) && !empty($_POST['fk_soc'])) {
-		$fk_soc = (int) $_POST['fk_soc'];
-	}
-
-	$marca   = trim(GETPOST('marca', 'alphanohtml'));
-	$modelo  = trim(GETPOST('modelo', 'alphanohtml'));
-	$anio    = trim(GETPOST('anio', 'alphanohtml'));
-	$color   = trim(GETPOST('color', 'alphanohtml'));
-	$vin     = trim(GETPOST('vin', 'alphanohtml'));
-	$km      = GETPOSTINT('km');
-	$notas   = trim(GETPOST('notas', 'restricthtml'));
-	if (empty($notas) && !empty($_POST['notas'])) {
-		$notas = trim($_POST['notas']);
-	}
+	$fk_soc    = GETPOSTINT('fk_soc');
+	$marca     = trim(GETPOST('marca', 'alphanohtml'));
+	$modelo    = trim(GETPOST('modelo', 'alphanohtml'));
+	$anio      = trim(GETPOST('anio', 'alphanohtml'));
+	$color     = trim(GETPOST('color', 'alphanohtml'));
+	$vin       = trim(GETPOST('vin', 'alphanohtml'));
+	$km        = GETPOSTINT('km');
+	$notas     = trim(GETPOST('notas', 'restricthtml'));
 
 	if (empty($matricula)) {
 		setEventMessages($langs->trans("ErrorFieldRequired", "Matrícula"), null, 'errors');
@@ -350,9 +336,6 @@ if ($action == 'delete_vehiculo' || $action == 'delete') {
 	}
 
 	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
 	if ($rowid > 0) {
 		$sql_del = "UPDATE " . $table_vehiculo . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_vehiculo') . ")";
 		$resql = $db->query($sql_del);
@@ -389,19 +372,10 @@ $res_veh = $db->query($sql_veh);
 $num_veh = $res_veh ? $db->num_rows($res_veh) : 0;
 
 $veh_id = GETPOSTINT('id');
-if (empty($veh_id) && isset($_GET['id'])) {
-	$veh_id = (int) $_GET['id'];
-}
 if (empty($veh_id)) {
 	$veh_id = GETPOSTINT('rowid');
 }
-if (empty($veh_id) && isset($_GET['rowid'])) {
-	$veh_id = (int) $_GET['rowid'];
-}
 $veh_matricula = trim(GETPOST('matricula', 'alphanohtml'));
-if (empty($veh_matricula) && isset($_GET['matricula'])) {
-	$veh_matricula = trim($_GET['matricula']);
-}
 
 $veh_detail = null;
 $client_detail = null;

@@ -253,15 +253,17 @@ function rcopy($src, $dst)
  */
 function zipDir($folder, &$zip, $root = "")
 {
+	$cleanRoot = str_replace('\\', '/', rtrim($root, '/\\')) . '/';
 	foreach (new \DirectoryIterator($folder) as $f) {
 		if ($f->isDot()) {
 			continue;
 		} //skip . ..
 		$src = $folder . '/' . $f;
-		$dst = substr($f->getPathname(), strlen($root));
+		$cleanPath = str_replace('\\', '/', $f->getPathname());
+		$dst = substr($cleanPath, strlen($cleanRoot));
 		if ($f->isDir()) {
 			if ($zip->addEmptyDir($dst)) {
-				if (zipDir($src, $zip, $root)) {
+				if (zipDir($src, $zip, $cleanRoot)) {
 					continue;
 				} else {
 					return false;

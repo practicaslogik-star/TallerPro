@@ -1,0 +1,4 @@
+# Package and build artifacts
+*.zip
+dist/
+*.pdf

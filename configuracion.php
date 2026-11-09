@@ -87,7 +87,7 @@ if ($action == 'update_settings') {
 	$direccion = trim(GETPOST('taller_direccion', 'alphanohtml'));
 	$poblacion = trim(GETPOST('taller_poblacion', 'alphanohtml'));
 	$iban = trim(GETPOST('taller_iban', 'alphanohtml'));
-	$mostrar_iban = (!empty($_POST['taller_mostrar_iban']) && ($_POST['taller_mostrar_iban'] === '1' || $_POST['taller_mostrar_iban'] === 'on' || $_POST['taller_mostrar_iban'] === 1)) ? 1 : 0;
+	$mostrar_iban = (GETPOST('taller_mostrar_iban', 'alpha') === '1' || GETPOST('taller_mostrar_iban', 'alpha') === 'on' || GETPOSTINT('taller_mostrar_iban') === 1) ? 1 : 0;
 
 	dolibarr_set_const($db, 'TALLER_NOMBRE_COMERCIAL', $nombre, 'chaine', 0, '', $conf->entity);
 	dolibarr_set_const($db, 'TALLER_CIF', $cif, 'chaine', 0, '', $conf->entity);

@@ -1,25 +1,30 @@
 # Translation file - English
 ModuleTallerName = TallerPro
-ModuleTallerDesc = Workshop Management Module for Dolibarr
+ModuleTallerDesc = Comprehensive Workshop and Garage Management Module for Dolibarr
 
 TallerPro = TallerPro
-GestionDeTaller = Gestión de taller
-Menu = Menú
-Inicio = Inicio
-Clientes = Clientes
-Vehiculos = Vehículos
-Reparaciones = Reparaciones
-Materiales = Materiales
-Seguros = Seguros
-Facturas = Facturas
-Configuracion = Configuración
+GestionDeTaller = Workshop Management
+Menu = Menu
+Inicio = Home
+Clientes = Customers
+Vehiculos = Vehicles
+Reparaciones = Repairs
+Materiales = Materials
+Seguros = Insurance
+Facturas = Invoices
+Configuracion = Settings
 
-SearchPlaceholder = Ej: 1234ABC, Juan Pérez, filtro de aceite...
-SearchSubtitle = Busca por matrícula, propietario o producto.
+SearchPlaceholder = E.g.: 1234ABC, John Doe, oil filter...
+SearchSubtitle = Search by license plate, owner or product.
 
-UltimasReparaciones = Últimas reparaciones
-SinReparaciones = Sin reparaciones registradas.
-VehiculosRecientes = Vehículos recientes
-SinVehiculos = Aún no hay vehículos.
+UltimasReparaciones = Latest repairs
+SinReparaciones = No repairs registered yet.
+VehiculosRecientes = Recent vehicles
+SinVehiculos = No vehicles registered yet.
 
 VolverADolibarr = Dolibarr ERP
+
+# Setup & Administration
+TallerSetup = TallerPro Setup
+TallerSetupPage = TallerPro module configuration page
+TallerAbout = About TallerPro

@@ -302,12 +302,7 @@ if (!function_exists('revertirStockReparacion')) {
 	}
 }
 
-$action = GETPOST('action', 'alpha');
-if (empty($action) && !empty($_POST['action'])) {
-	$action = $_POST['action'];
-}
-
-
+$action = GETPOST('action', 'aZ09');
 
 // Acción: Crear Reparación
 if ($action == 'create_reparacion' || $action == 'add_reparacion') {
@@ -321,38 +316,18 @@ if ($action == 'create_reparacion' || $action == 'add_reparacion') {
 	}
 
 	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
-	if (empty($fk_vehiculo) && !empty($_POST['fk_vehiculo'])) {
-		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
-	}
-
 	$fecha = trim(GETPOST('fecha', 'alpha'));
-	if (empty($fecha) && !empty($_POST['fecha'])) {
-		$fecha = trim($_POST['fecha']);
-	}
 	if (empty($fecha)) {
 		$fecha = date('Y-m-d');
 	}
 
 	$descripcion = trim(GETPOST('descripcion', 'restricthtml'));
-	if (empty($descripcion) && !empty($_POST['descripcion'])) {
-		$descripcion = trim($_POST['descripcion']);
-	}
+	$coste_mo = (float) price2num(GETPOST('coste_mo', 'alphanohtml'));
 
-	$coste_mo = GETPOSTFLOAT('coste_mo');
-	if ($coste_mo === null || $coste_mo === '') {
-		$coste_mo = isset($_POST['coste_mo']) ? (float) $_POST['coste_mo'] : 0;
-	}
-
-	$lineas_json = !empty($_POST['lineas_json']) ? trim($_POST['lineas_json']) : '';
+	$lineas_json = trim(GETPOST('lineas_json', 'none'));
 	$notas = !empty($lineas_json) ? $lineas_json : trim(GETPOST('notas', 'restricthtml'));
-	if (empty($notas) && !empty($_POST['notas'])) {
-		$notas = trim($_POST['notas']);
-	}
 
-	$estado = trim(GETPOST('estado', 'alpha'));
-	if (empty($estado) && !empty($_POST['estado'])) {
-		$estado = trim($_POST['estado']);
-	}
+	$estado = trim(GETPOST('estado', 'aZ09'));
 	if (empty($estado)) {
 		$estado = 'en_curso';
 	}
@@ -403,43 +378,19 @@ if ($action == 'update_reparacion' || $action == 'edit_reparacion') {
 	}
 
 	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
-
 	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
-	if (empty($fk_vehiculo) && !empty($_POST['fk_vehiculo'])) {
-		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
-	}
-
 	$fecha = trim(GETPOST('fecha', 'alpha'));
-	if (empty($fecha) && !empty($_POST['fecha'])) {
-		$fecha = trim($_POST['fecha']);
-	}
 	if (empty($fecha)) {
 		$fecha = date('Y-m-d');
 	}
 
 	$descripcion = trim(GETPOST('descripcion', 'restricthtml'));
-	if (empty($descripcion) && !empty($_POST['descripcion'])) {
-		$descripcion = trim($_POST['descripcion']);
-	}
+	$coste_mo = (float) price2num(GETPOST('coste_mo', 'alphanohtml'));
 
-	$coste_mo = GETPOSTFLOAT('coste_mo');
-	if ($coste_mo === null || $coste_mo === '') {
-		$coste_mo = isset($_POST['coste_mo']) ? (float) $_POST['coste_mo'] : 0;
-	}
-
-	$lineas_json = !empty($_POST['lineas_json']) ? trim($_POST['lineas_json']) : '';
+	$lineas_json = trim(GETPOST('lineas_json', 'none'));
 	$notas = !empty($lineas_json) ? $lineas_json : trim(GETPOST('notas', 'restricthtml'));
-	if (empty($notas) && !empty($_POST['notas'])) {
-		$notas = trim($_POST['notas']);
-	}
 
-	$estado = trim(GETPOST('estado', 'alpha'));
-	if (empty($estado) && !empty($_POST['estado'])) {
-		$estado = trim($_POST['estado']);
-	}
+	$estado = trim(GETPOST('estado', 'aZ09'));
 	if (empty($estado)) {
 		$estado = 'en_curso';
 	}
@@ -482,7 +433,7 @@ if ($action == 'toggle_estado' || $action == 'update_estado') {
 	$token = GETPOST('token', 'alpha');
 	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
 	if (!$valid_token) {
-		if (GETPOST('ajax', 'int') || !empty($_POST['ajax']) || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+		if (GETPOSTINT('ajax') || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
 			header('Content-Type: application/json');
 			echo json_encode(array('success' => false, 'error' => 'Token de seguridad inválido'));
 			exit;
@@ -491,13 +442,7 @@ if ($action == 'toggle_estado' || $action == 'update_estado') {
 	}
 
 	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
-	$new_estado = trim(GETPOST('new_estado', 'alpha'));
-	if (empty($new_estado) && !empty($_POST['new_estado'])) {
-		$new_estado = trim($_POST['new_estado']);
-	}
+	$new_estado = trim(GETPOST('new_estado', 'aZ09'));
 	if ($rowid > 0) {
 		if (empty($new_estado)) {
 			$res_chk = $db->query("SELECT estado FROM " . $table_reparacion . " WHERE rowid = " . ((int) $rowid));
@@ -509,7 +454,7 @@ if ($action == 'toggle_estado' || $action == 'update_estado') {
 		}
 		$db->query("UPDATE " . $table_reparacion . " SET estado = '" . $db->escape($new_estado) . "' WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_reparacion') . ")");
 	}
-	if (GETPOST('ajax', 'int') || !empty($_POST['ajax']) || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+	if (GETPOSTINT('ajax') || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
 		header('Content-Type: application/json');
 		echo json_encode(array('success' => true, 'new_estado' => $new_estado));
 		exit;
@@ -527,9 +472,6 @@ if ($action == 'facturar_reparacion' || $action == 'facturar') {
 	}
 
 	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
 	if ($rowid > 0) {
 		require_once DOL_DOCUMENT_ROOT . '/compta/facture/class/facture.class.php';
 
@@ -651,26 +593,15 @@ if ($action == 'save_and_facturar') {
 	}
 
 	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
 	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
-	if (empty($fk_vehiculo) && !empty($_POST['fk_vehiculo'])) {
-		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
-	}
 	$fecha = trim(GETPOST('fecha', 'alpha'));
-	if (empty($fecha) && !empty($_POST['fecha'])) $fecha = trim($_POST['fecha']);
 	if (empty($fecha)) $fecha = date('Y-m-d');
 
 	$descripcion = trim(GETPOST('descripcion', 'restricthtml'));
-	if (empty($descripcion) && !empty($_POST['descripcion'])) $descripcion = trim($_POST['descripcion']);
+	$coste_mo = (float) price2num(GETPOST('coste_mo', 'alphanohtml'));
 
-	$coste_mo = GETPOSTFLOAT('coste_mo');
-	if ($coste_mo === null || $coste_mo === '') $coste_mo = isset($_POST['coste_mo']) ? (float) $_POST['coste_mo'] : 0;
-
-	$lineas_json = !empty($_POST['lineas_json']) ? trim($_POST['lineas_json']) : '';
+	$lineas_json = trim(GETPOST('lineas_json', 'none'));
 	$notas = !empty($lineas_json) ? $lineas_json : trim(GETPOST('notas', 'restricthtml'));
-	if (empty($notas) && !empty($_POST['notas'])) $notas = trim($_POST['notas']);
 
 	if ($fk_vehiculo <= 0) {
 		setEventMessages("Debe seleccionar un vehículo para la reparación", null, 'errors');
@@ -714,26 +645,15 @@ if ($action == 'save_and_albaran' || $action == 'crear_albaran') {
 	}
 
 	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
 	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
-	if (empty($fk_vehiculo) && !empty($_POST['fk_vehiculo'])) {
-		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
-	}
 	$fecha = trim(GETPOST('fecha', 'alpha'));
-	if (empty($fecha) && !empty($_POST['fecha'])) $fecha = trim($_POST['fecha']);
 	if (empty($fecha)) $fecha = date('Y-m-d');
 
 	$descripcion = trim(GETPOST('descripcion', 'restricthtml'));
-	if (empty($descripcion) && !empty($_POST['descripcion'])) $descripcion = trim($_POST['descripcion']);
+	$coste_mo = (float) price2num(GETPOST('coste_mo', 'alphanohtml'));
 
-	$coste_mo = GETPOSTFLOAT('coste_mo');
-	if ($coste_mo === null || $coste_mo === '') $coste_mo = isset($_POST['coste_mo']) ? (float) $_POST['coste_mo'] : 0;
-
-	$lineas_json = !empty($_POST['lineas_json']) ? trim($_POST['lineas_json']) : '';
+	$lineas_json = trim(GETPOST('lineas_json', 'none'));
 	$notas = !empty($lineas_json) ? $lineas_json : trim(GETPOST('notas', 'restricthtml'));
-	if (empty($notas) && !empty($_POST['notas'])) $notas = trim($_POST['notas']);
 
 	if ($fk_vehiculo <= 0) {
 		setEventMessages("Debe seleccionar un vehículo para la reparación", null, 'errors');
@@ -869,15 +789,12 @@ if ($action == 'delete_reparacion' || $action == 'delete') {
 	}
 
 	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
 	if ($rowid > 0) {
 		revertirStockReparacion($db, $rowid, $user->id, $conf->entity);
 		$sql_del = "UPDATE " . $table_reparacion . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_reparacion') . ")";
 		$resql = $db->query($sql_del);
 	}
-	if (GETPOST('ajax', 'int') || !empty($_POST['ajax']) || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+	if (GETPOSTINT('ajax') || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
 		header('Content-Type: application/json');
 		echo json_encode(array('success' => true));
 		exit;
