@@ -65,48 +65,8 @@ require_once __DIR__ . '/lib/taller_stock.lib.php';
 $table_material = MAIN_DB_PREFIX . "taller_material";
 $table_stock_mvt = MAIN_DB_PREFIX . "taller_stock_mvt";
 
-// Ensure table exists
-$sql_create = "CREATE TABLE IF NOT EXISTS " . $table_material . " (
-    rowid           INT AUTO_INCREMENT PRIMARY KEY,
-    nombre          VARCHAR(255) NOT NULL,
-    ref             VARCHAR(128) DEFAULT NULL,
-    fk_product      INT DEFAULT NULL,
-    proveedor       VARCHAR(255) DEFAULT NULL,
-    stock           DOUBLE DEFAULT 0,
-    precio          DOUBLE(24,8) DEFAULT 0,
-    notas           TEXT DEFAULT NULL,
-    date_creation   DATETIME NOT NULL,
-    tms             TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    fk_user_creat   INT NOT NULL,
-    entity          INT DEFAULT 1,
-    status          SMALLINT DEFAULT 1,
-    INDEX idx_taller_material_ref (ref),
-    INDEX idx_taller_material_nombre (nombre),
-    INDEX idx_taller_material_fk_product (fk_product)
-) ENGINE=innodb;";
-$db->query($sql_create);
-@$db->query("ALTER TABLE " . $table_material . " ADD COLUMN fk_product INT DEFAULT NULL AFTER ref");
-@$db->query("ALTER TABLE " . $table_material . " ADD INDEX idx_taller_material_fk_product (fk_product)");
-
 $default_warehouse_id = tallerpro_get_default_warehouse($user);
 tallerpro_sync_all_materials($user);
-
-$sql_create_mvt = "CREATE TABLE IF NOT EXISTS " . $table_stock_mvt . " (
-    rowid           INT AUTO_INCREMENT PRIMARY KEY,
-    fk_material     INT NOT NULL,
-    cantidad        DOUBLE NOT NULL,
-    tipo            VARCHAR(32) NOT NULL,
-    fk_reparacion   INT DEFAULT NULL,
-    stock_anterior  DOUBLE DEFAULT 0,
-    stock_posterior DOUBLE DEFAULT 0,
-    fecha           DATETIME NOT NULL,
-    fk_user         INT NOT NULL,
-    descripcion     VARCHAR(255) DEFAULT NULL,
-    entity          INT DEFAULT 1,
-    INDEX idx_taller_mvt_mat (fk_material),
-    INDEX idx_taller_mvt_rep (fk_reparacion)
-) ENGINE=innodb;";
-$db->query($sql_create_mvt);
 
 $action = GETPOST('action', 'aZ09');
 
@@ -131,6 +91,9 @@ if ($action == 'create_material' || $action == 'add_material') {
 	if (empty($nombre)) {
 		setEventMessages($langs->trans("ErrorFieldRequired", "Nombre"), null, 'errors');
 	} else {
+		$db->begin();
+		$ok = true;
+
 		// Sincronizar o crear en producto nativo de Dolibarr (llx_product)
 		$fk_product = tallerpro_get_or_create_product($ref, $nombre, (float) $precio, 0, $user);
 
@@ -156,17 +119,31 @@ if ($action == 'create_material' || $action == 'add_material') {
 			if ($new_mat_id > 0 && $stock > 0) {
 				// 1. Movimiento nativo en Almacén Dolibarr
 				if ($fk_product > 0) {
-					tallerpro_record_stock_movement($fk_product, (float) $stock, 'Alta inicial de material', 'taller_material', $new_mat_id, $user);
+					$res_sm = tallerpro_record_stock_movement($fk_product, (float) $stock, 'Alta inicial de material', 'taller_material', $new_mat_id, $user);
+					if ($res_sm < 0) {
+						$ok = false;
+					}
 				}
 				// 2. Registro histórico en taller_stock_mvt
-				$sql_mvt = "INSERT INTO " . $table_stock_mvt . " (fk_material, cantidad, tipo, stock_anterior, stock_posterior, fecha, fk_user, descripcion, entity) VALUES (";
-				$sql_mvt .= $new_mat_id . ", " . ((float) $stock) . ", 'alta_inicial', 0, " . ((float) $stock) . ", '" . $db->idate(dol_now()) . "', " . ((int) $user->id) . ", 'Alta inicial de material', " . ((int) $conf->entity) . ")";
-				$db->query($sql_mvt);
+				if ($ok) {
+					$sql_mvt = "INSERT INTO " . $table_stock_mvt . " (fk_material, cantidad, tipo, stock_anterior, stock_posterior, fecha, fk_user, descripcion, entity) VALUES (";
+					$sql_mvt .= $new_mat_id . ", " . ((float) $stock) . ", 'alta_inicial', 0, " . ((float) $stock) . ", '" . $db->idate(dol_now()) . "', " . ((int) $user->id) . ", 'Alta inicial de material', " . ((int) $conf->entity) . ")";
+					if (!$db->query($sql_mvt)) {
+						$ok = false;
+					}
+				}
 			}
+		} else {
+			$ok = false;
+		}
+
+		if ($ok) {
+			$db->commit();
 			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
 			header("Location: " . $_SERVER['PHP_SELF']);
 			exit;
 		} else {
+			$db->rollback();
 			dol_syslog("TallerPro - Error al guardar material: " . $db->lasterror(), LOG_ERR);
 			setEventMessages("Error al guardar el material", null, 'errors');
 		}
@@ -197,6 +174,9 @@ if ($action == 'update_material' || $action == 'edit_material') {
 	} elseif ($rowid <= 0) {
 		setEventMessages("Identificador de material no válido", null, 'errors');
 	} else {
+		$db->begin();
+		$ok = true;
+
 		$prev_stock = 0.0;
 		$prev_fk_product = 0;
 		$res_prev = $db->query("SELECT stock, fk_product FROM " . $table_material . " WHERE rowid = " . ((int) $rowid));
@@ -216,7 +196,10 @@ if ($action == 'update_material' || $action == 'edit_material') {
 					$prod_obj->ref = $ref;
 				}
 				$prod_obj->price = (float) $precio;
-				$prod_obj->update($prev_fk_product, $user);
+				$res_prod_upd = $prod_obj->update($prev_fk_product, $user);
+				if ($res_prod_upd < 0) {
+					$ok = false;
+				}
 			}
 		}
 
@@ -236,19 +219,33 @@ if ($action == 'update_material' || $action == 'edit_material') {
 		$sql_update .= "WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_material') . ")";
 
 		$resql = $db->query($sql_update);
-		if ($resql) {
+		if ($resql && $ok) {
 			if (abs($diff) > 0.0001 && $prev_fk_product > 0) {
 				// Movimiento nativo en Almacén Dolibarr
-				tallerpro_record_stock_movement($prev_fk_product, $diff, 'Ajuste manual de stock', 'taller_material', $rowid, $user);
+				$res_sm = tallerpro_record_stock_movement($prev_fk_product, $diff, 'Ajuste manual de stock', 'taller_material', $rowid, $user);
+				if ($res_sm < 0) {
+					$ok = false;
+				}
 
-				$sql_mvt = "INSERT INTO " . $table_stock_mvt . " (fk_material, cantidad, tipo, stock_anterior, stock_posterior, fecha, fk_user, descripcion, entity) VALUES (";
-				$sql_mvt .= ((int) $rowid) . ", " . $diff . ", 'ajuste_manual', " . $base_stock . ", " . ((float) $stock) . ", '" . $db->idate(dol_now()) . "', " . ((int) $user->id) . ", 'Ajuste manual de stock', " . ((int) $conf->entity) . ")";
-				$db->query($sql_mvt);
+				if ($ok) {
+					$sql_mvt = "INSERT INTO " . $table_stock_mvt . " (fk_material, cantidad, tipo, stock_anterior, stock_posterior, fecha, fk_user, descripcion, entity) VALUES (";
+					$sql_mvt .= ((int) $rowid) . ", " . $diff . ", 'ajuste_manual', " . $base_stock . ", " . ((float) $stock) . ", '" . $db->idate(dol_now()) . "', " . ((int) $user->id) . ", 'Ajuste manual de stock', " . ((int) $conf->entity) . ")";
+					if (!$db->query($sql_mvt)) {
+						$ok = false;
+					}
+				}
 			}
+		} else {
+			$ok = false;
+		}
+
+		if ($ok) {
+			$db->commit();
 			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
 			header("Location: " . $_SERVER['PHP_SELF']);
 			exit;
 		} else {
+			$db->rollback();
 			dol_syslog("TallerPro - Error al actualizar material ID " . $rowid . ": " . $db->lasterror(), LOG_ERR);
 			setEventMessages("Error al actualizar el material", null, 'errors');
 		}
@@ -268,13 +265,16 @@ if ($action == 'delete_material' || $action == 'delete') {
 
 	$rowid = GETPOSTINT('rowid');
 	if ($rowid > 0) {
+		$db->begin();
 		$sql_del = "UPDATE " . $table_material . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_material') . ")";
 		$resql = $db->query($sql_del);
 		if ($resql) {
+			$db->commit();
 			setEventMessages($langs->trans("RecordDeleted"), null, 'mesgs');
 			header("Location: " . $_SERVER['PHP_SELF']);
 			exit;
 		} else {
+			$db->rollback();
 			dol_syslog("TallerPro - Error al eliminar material ID " . $rowid . ": " . $db->lasterror(), LOG_ERR);
 			setEventMessages("Error al eliminar el material", null, 'errors');
 		}

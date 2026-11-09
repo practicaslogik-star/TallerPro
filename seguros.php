@@ -63,27 +63,6 @@ if (!isModEnabled('taller')) {
 $table_seguro = MAIN_DB_PREFIX . "taller_seguro";
 $table_vehiculo = MAIN_DB_PREFIX . "taller_vehiculo";
 
-// Ensure table exists
-$sql_create = "CREATE TABLE IF NOT EXISTS " . $table_seguro . " (
-    rowid           INT AUTO_INCREMENT PRIMARY KEY,
-    fk_vehiculo     INT DEFAULT NULL,
-    compania        VARCHAR(128) NOT NULL,
-    poliza          VARCHAR(64) DEFAULT NULL,
-    tipo            VARCHAR(64) DEFAULT NULL,
-    fecha_inicio    DATE DEFAULT NULL,
-    fecha_fin       DATE DEFAULT NULL,
-    telefono        VARCHAR(32) DEFAULT NULL,
-    notas           TEXT DEFAULT NULL,
-    date_creation   DATETIME NOT NULL,
-    tms             TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    fk_user_creat   INT NOT NULL,
-    entity          INT DEFAULT 1,
-    status          SMALLINT DEFAULT 1,
-    INDEX idx_taller_seguro_vehiculo (fk_vehiculo),
-    INDEX idx_taller_seguro_compania (compania)
-) ENGINE=innodb;";
-$db->query($sql_create);
-
 $action = GETPOST('action', 'aZ09');
 
 // Acción: Crear Seguro

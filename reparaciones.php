@@ -66,64 +66,130 @@ $table_reparacion = MAIN_DB_PREFIX . "taller_reparacion";
 $table_vehiculo = MAIN_DB_PREFIX . "taller_vehiculo";
 $table_material = MAIN_DB_PREFIX . "taller_material";
 
-// Ensure table exists
-$sql_create = "CREATE TABLE IF NOT EXISTS " . $table_reparacion . " (
-    rowid           INT AUTO_INCREMENT PRIMARY KEY,
-    fk_vehiculo     INT NOT NULL,
-    fecha           DATE NOT NULL,
-    ref_factura     VARCHAR(64) DEFAULT NULL,
-    descripcion     TEXT DEFAULT NULL,
-    coste_mo        DOUBLE(24,8) DEFAULT 0,
-    notas           TEXT DEFAULT NULL,
-    date_creation   DATETIME NOT NULL,
-    tms             TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    fk_user_creat   INT NOT NULL,
-    entity          INT DEFAULT 1,
-    status          SMALLINT DEFAULT 1,
-    estado          VARCHAR(32) DEFAULT 'en_curso',
-    INDEX idx_taller_rep_fk_vehiculo (fk_vehiculo),
-    INDEX idx_taller_rep_fecha (fecha)
-) ENGINE=innodb;";
-$db->query($sql_create);
-@$db->query("ALTER TABLE " . $table_reparacion . " ADD COLUMN estado VARCHAR(32) DEFAULT 'en_curso'");
-
-// Ensure extrafields on facture_extrafields for Albarán / Presupuesto
-$sql_ef_check = "SHOW COLUMNS FROM " . MAIN_DB_PREFIX . "facture_extrafields LIKE 'fk_vehiculo'";
-$res_ef_check = $db->query($sql_ef_check);
-if ($res_ef_check && $db->num_rows($res_ef_check) == 0) {
-	$db->query("ALTER TABLE " . MAIN_DB_PREFIX . "facture_extrafields ADD COLUMN fk_vehiculo INT DEFAULT NULL");
-}
-
-$sql_ef_rep = "SHOW COLUMNS FROM " . MAIN_DB_PREFIX . "facture_extrafields LIKE 'fk_reparacion'";
-$res_ef_rep = $db->query($sql_ef_rep);
-if ($res_ef_rep && $db->num_rows($res_ef_rep) == 0) {
-	$db->query("ALTER TABLE " . MAIN_DB_PREFIX . "facture_extrafields ADD COLUMN fk_reparacion INT DEFAULT NULL");
-}
-
-$sql_ef_tipo = "SHOW COLUMNS FROM " . MAIN_DB_PREFIX . "facture_extrafields LIKE 'tipo_doc'";
-$res_ef_tipo = $db->query($sql_ef_tipo);
-if ($res_ef_tipo && $db->num_rows($res_ef_tipo) == 0) {
-	$db->query("ALTER TABLE " . MAIN_DB_PREFIX . "facture_extrafields ADD COLUMN tipo_doc VARCHAR(32) DEFAULT 'factura'");
-}
-
-// Table: Historial y Movimientos de Stock
 $table_stock_mvt = MAIN_DB_PREFIX . "taller_stock_mvt";
-$sql_create_mvt = "CREATE TABLE IF NOT EXISTS " . $table_stock_mvt . " (
-    rowid           INT AUTO_INCREMENT PRIMARY KEY,
-    fk_material     INT NOT NULL,
-    cantidad        DOUBLE NOT NULL,
-    tipo            VARCHAR(32) NOT NULL,
-    fk_reparacion   INT DEFAULT NULL,
-    stock_anterior  DOUBLE DEFAULT 0,
-    stock_posterior DOUBLE DEFAULT 0,
-    fecha           DATETIME NOT NULL,
-    fk_user         INT NOT NULL,
-    descripcion     VARCHAR(255) DEFAULT NULL,
-    entity          INT DEFAULT 1,
-    INDEX idx_taller_mvt_mat (fk_material),
-    INDEX idx_taller_mvt_rep (fk_reparacion)
-) ENGINE=innodb;";
-$db->query($sql_create_mvt);
+
+/**
+ * Crea una Factura borrador oficial a partir de una orden de reparación.
+ *
+ * @param DoliDB $db
+ * @param int $rep_id
+ * @param User $user
+ * @param Conf $conf
+ * @return array
+ */
+if (!function_exists('tallerpro_create_facture_from_reparacion')) {
+	function tallerpro_create_facture_from_reparacion($db, $rep_id, $user, $conf) {
+		require_once DOL_DOCUMENT_ROOT . '/compta/facture/class/facture.class.php';
+
+		$table_reparacion = MAIN_DB_PREFIX . "taller_reparacion";
+		$table_vehiculo = MAIN_DB_PREFIX . "taller_vehiculo";
+
+		$sql_r = "SELECT r.*, v.fk_soc, v.matricula, v.marca, v.modelo ";
+		$sql_r .= "FROM " . $table_reparacion . " as r ";
+		$sql_r .= "LEFT JOIN " . $table_vehiculo . " as v ON r.fk_vehiculo = v.rowid ";
+		$sql_r .= "WHERE r.rowid = " . ((int) $rep_id);
+		$res_r = $db->query($sql_r);
+
+		if (!$res_r || !($rep = $db->fetch_object($res_r))) {
+			return array('status' => 'error', 'message' => "No se encontró la reparación indicada");
+		}
+
+		if (!empty($rep->ref_factura)) {
+			$sql_f_check = "SELECT rowid FROM " . MAIN_DB_PREFIX . "facture WHERE ref = '" . $db->escape($rep->ref_factura) . "' AND entity IN (" . getEntity('facture') . ")";
+			$res_f_check = $db->query($sql_f_check);
+			if ($res_f_check && ($f_exist = $db->fetch_object($res_f_check))) {
+				return array('status' => 'already_exists', 'fac_id' => (int) $f_exist->rowid, 'ref' => $rep->ref_factura, 'message' => "Esta reparación ya tiene emitida la Factura " . $rep->ref_factura);
+			}
+		}
+
+		if (empty($rep->fk_soc)) {
+			return array('status' => 'error', 'message' => "El vehículo asociado a esta reparación no tiene ningún cliente asignado");
+		}
+
+		$fac = new Facture($db);
+		$fac->socid = (int) $rep->fk_soc;
+		$fac->date = dol_now();
+		$fac->type = Facture::TYPE_STANDARD;
+		$ot_num = 'OT #' . str_pad($rep->rowid, 4, '0', STR_PAD_LEFT);
+
+		$user_nota = '';
+		if (!empty($rep->notas)) {
+			if ($rep->notas[0] === '{' || $rep->notas[0] === '[') {
+				$data_notas = json_decode($rep->notas, true);
+				if (!empty($data_notas['notas_usuario'])) {
+					$user_nota = trim($data_notas['notas_usuario']);
+				} elseif (!empty($data_notas['notas']) && is_string($data_notas['notas'])) {
+					$user_nota = trim($data_notas['notas']);
+				}
+			} else {
+				$user_nota = trim($rep->notas);
+			}
+		}
+		$fac->note_public = !empty($user_nota) ? $user_nota : '';
+		$fac->array_options['options_fk_vehiculo'] = (int) $rep->fk_vehiculo;
+
+		$fac_id = $fac->create($user);
+		if ($fac_id <= 0) {
+			dol_syslog("TallerPro - Error al generar factura desde reparación: " . $fac->error . " " . implode(' ', $fac->errors), LOG_ERR);
+			return array('status' => 'error', 'message' => "Error al generar la factura en Dolibarr: " . $fac->error);
+		}
+
+		$lineas = !empty($rep->notas) ? json_decode($rep->notas, true) : null;
+		if (!empty($lineas) && is_array($lineas) && (!empty($lineas['materiales']) || !empty($lineas['reparaciones']))) {
+			if (!empty($lineas['materiales'])) {
+				foreach ($lineas['materiales'] as $m) {
+					$p_cant = (float) (!empty($m['cantidad']) ? $m['cantidad'] : 1);
+					$p_precio = (float) (!empty($m['precio']) ? $m['precio'] : 0);
+					$p_desc = (float) (!empty($m['descuento']) ? $m['descuento'] : 0);
+					$p_desc_txt = !empty($m['descripcion']) ? $m['descripcion'] : 'Material';
+					$p_code = !empty($m['codigo']) ? trim($m['codigo']) : '';
+
+					$p_fk_product = 0;
+					if (!empty($m['fk_material'])) {
+						$res_pm = $db->query("SELECT fk_product FROM " . MAIN_DB_PREFIX . "taller_material WHERE rowid = " . ((int) $m['fk_material']));
+						if ($res_pm && ($pm_obj = $db->fetch_object($res_pm))) {
+							$p_fk_product = (int) $pm_obj->fk_product;
+						}
+					}
+					if ($p_fk_product <= 0) {
+						$p_fk_product = tallerpro_get_or_create_product($p_code, $p_desc_txt, $p_precio, 0, $user);
+					}
+
+					$res_al = $fac->addline($p_desc_txt, $p_precio, $p_cant, 21.0, 0, 0, $p_fk_product, $p_desc, '', '', 0, 0, 0, 'HT', 0, 0, -1, 0, '', 0, 0, null, 0, '', array(), 100, 0, null, 0, $p_code, 0);
+					if ($res_al <= 0) {
+						return array('status' => 'error', 'message' => "Error al añadir línea de material a la factura: " . $fac->error);
+					}
+				}
+			}
+			if (!empty($lineas['reparaciones'])) {
+				foreach ($lineas['reparaciones'] as $r) {
+					$r_precio = (float) (!empty($r['precio']) ? $r['precio'] : 0);
+					$r_desc = (float) (!empty($r['descuento']) ? $r['descuento'] : 0);
+					$r_desc_txt = !empty($r['descripcion']) ? $r['descripcion'] : 'Mano de obra';
+					$res_al = $fac->addline($r_desc_txt, $r_precio, 1, 21.0, 0, 0, 0, $r_desc, '', '', 0, 0, 0, 'HT', 0, 1);
+					if ($res_al <= 0) {
+						return array('status' => 'error', 'message' => "Error al añadir línea de mano de obra a la factura: " . $fac->error);
+					}
+				}
+			}
+		} else {
+			$desc_mo = !empty($rep->descripcion) ? $rep->descripcion : ("Mano de obra reparación " . $ot_num);
+			$coste_mo = (float) $rep->coste_mo;
+			if ($coste_mo <= 0) $coste_mo = 50.0;
+			$res_al = $fac->addline($desc_mo, $coste_mo, 1, 21.0, 0, 0, 0, 0, '', '', 0, 0, 0, 'HT', 0, 1);
+			if ($res_al <= 0) {
+				return array('status' => 'error', 'message' => "Error al añadir línea de mano de obra a la factura: " . $fac->error);
+			}
+		}
+
+		$res_upd = $db->query("UPDATE " . $table_reparacion . " SET ref_factura = '" . $db->escape($fac->ref) . "', estado = 'finalizada' WHERE rowid = " . ((int) $rep_id));
+		if (!$res_upd) {
+			return array('status' => 'error', 'message' => "Error al asociar la factura a la reparación");
+		}
+
+		return array('status' => 'ok', 'fac_id' => $fac_id, 'ref' => $fac->ref, 'message' => "Factura borrador " . $fac->ref . " creada con éxito");
+	}
+}
 
 /**
  * Obtener materiales de una orden de reparación decodificando sus notas JSON
@@ -335,6 +401,7 @@ if ($action == 'create_reparacion' || $action == 'add_reparacion') {
 	if ($fk_vehiculo <= 0) {
 		setEventMessages($langs->trans("ErrorFieldRequired", "Vehículo"), null, 'errors');
 	} else {
+		$db->begin();
 		$sql_insert = "INSERT INTO " . $table_reparacion . " (";
 		$sql_insert .= "fk_vehiculo, fecha, descripcion, coste_mo, notas, estado, date_creation, fk_user_creat, entity, status";
 		$sql_insert .= ") VALUES (";
@@ -356,10 +423,12 @@ if ($action == 'create_reparacion' || $action == 'add_reparacion') {
 			if ($new_rep_id > 0 && !empty($notas)) {
 				aplicarStockReparacion($db, $new_rep_id, $notas, null, $user->id, $conf->entity);
 			}
+			$db->commit();
 			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
 			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=saved");
 			exit;
 		} else {
+			$db->rollback();
 			dol_syslog("TallerPro - Error al guardar reparación: " . $db->lasterror(), LOG_ERR);
 			setEventMessages("Error al guardar la reparación", null, 'errors');
 		}
@@ -400,6 +469,7 @@ if ($action == 'update_reparacion' || $action == 'edit_reparacion') {
 	} elseif ($rowid <= 0) {
 		setEventMessages("Identificador de reparación no válido", null, 'errors');
 	} else {
+		$db->begin();
 		$prev_notas = null;
 		$res_prev = $db->query("SELECT notas FROM " . $table_reparacion . " WHERE rowid = " . ((int) $rowid));
 		if ($res_prev && ($p_obj = $db->fetch_object($res_prev))) {
@@ -418,10 +488,12 @@ if ($action == 'update_reparacion' || $action == 'edit_reparacion') {
 		$resql = $db->query($sql_update);
 		if ($resql) {
 			aplicarStockReparacion($db, $rowid, $notas, $prev_notas, $user->id, $conf->entity);
+			$db->commit();
 			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
 			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=saved");
 			exit;
 		} else {
+			$db->rollback();
 			dol_syslog("TallerPro - Error al actualizar reparación ID " . $rowid . ": " . $db->lasterror(), LOG_ERR);
 			setEventMessages("Error al actualizar la reparación", null, 'errors');
 		}
@@ -473,110 +545,16 @@ if ($action == 'facturar_reparacion' || $action == 'facturar') {
 
 	$rowid = GETPOSTINT('rowid');
 	if ($rowid > 0) {
-		require_once DOL_DOCUMENT_ROOT . '/compta/facture/class/facture.class.php';
-
-		// 1. Obtener la reparación con su vehículo y cliente
-		$sql_r = "SELECT r.*, v.fk_soc, v.matricula, v.marca, v.modelo ";
-		$sql_r .= "FROM " . $table_reparacion . " as r ";
-		$sql_r .= "LEFT JOIN " . $table_vehiculo . " as v ON r.fk_vehiculo = v.rowid ";
-		$sql_r .= "WHERE r.rowid = " . ((int) $rowid);
-		$res_r = $db->query($sql_r);
-
-		if ($res_r && ($rep = $db->fetch_object($res_r))) {
-			// Si ya tiene factura asociada, redirigir a la vista de la factura
-			if (!empty($rep->ref_factura)) {
-				$sql_f_check = "SELECT rowid FROM " . MAIN_DB_PREFIX . "facture WHERE ref = '" . $db->escape($rep->ref_factura) . "' AND entity IN (" . getEntity('facture') . ")";
-				$res_f_check = $db->query($sql_f_check);
-				if ($res_f_check && ($f_exist = $db->fetch_object($res_f_check))) {
-					setEventMessages("Esta reparación ya tiene emitida la Factura " . $rep->ref_factura, null, 'mesgs');
-					header("Location: " . dol_buildpath('/taller/facturas.php', 1) . '?id=' . ((int) $f_exist->rowid));
-					exit;
-				}
-			}
-
-			if (empty($rep->fk_soc)) {
-				setEventMessages("El vehículo asociado a esta reparación no tiene ningún cliente asignado", null, 'errors');
-			} else {
-				$fac = new Facture($db);
-				$fac->socid = (int) $rep->fk_soc;
-				$fac->date = dol_now();
-				$fac->type = Facture::TYPE_STANDARD;
-				$ot_num = 'OT #' . str_pad($rep->rowid, 4, '0', STR_PAD_LEFT);
-
-				// Extraer exclusivamente las notas del usuario (sin código ni JSON filtrado)
-				$user_nota = '';
-				if (!empty($rep->notas)) {
-					if ($rep->notas[0] === '{' || $rep->notas[0] === '[') {
-						$data_notas = json_decode($rep->notas, true);
-						if (!empty($data_notas['notas_usuario'])) {
-							$user_nota = trim($data_notas['notas_usuario']);
-						} elseif (!empty($data_notas['notas']) && is_string($data_notas['notas'])) {
-							$user_nota = trim($data_notas['notas']);
-						}
-					} else {
-						$user_nota = trim($rep->notas);
-					}
-				}
-				$fac->note_public = !empty($user_nota) ? $user_nota : '';
-				$fac->array_options['options_fk_vehiculo'] = (int) $rep->fk_vehiculo;
-
-				$fac_id = $fac->create($user);
-				if ($fac_id > 0) {
-					$lineas = !empty($rep->notas) ? json_decode($rep->notas, true) : null;
-					if (!empty($lineas) && is_array($lineas) && (!empty($lineas['materiales']) || !empty($lineas['reparaciones']))) {
-						if (!empty($lineas['materiales'])) {
-							foreach ($lineas['materiales'] as $m) {
-								$p_cant = (float) (!empty($m['cantidad']) ? $m['cantidad'] : 1);
-								$p_precio = (float) (!empty($m['precio']) ? $m['precio'] : 0);
-								$p_desc = (float) (!empty($m['descuento']) ? $m['descuento'] : 0);
-								$p_desc_txt = !empty($m['descripcion']) ? $m['descripcion'] : 'Material';
-								$p_code = !empty($m['codigo']) ? trim($m['codigo']) : '';
-
-								$p_fk_product = 0;
-								if (!empty($m['fk_material'])) {
-									$res_pm = $db->query("SELECT fk_product FROM " . MAIN_DB_PREFIX . "taller_material WHERE rowid = " . ((int) $m['fk_material']));
-									if ($res_pm && ($pm_obj = $db->fetch_object($res_pm))) {
-										$p_fk_product = (int) $pm_obj->fk_product;
-									}
-								}
-								if ($p_fk_product <= 0) {
-									$p_fk_product = tallerpro_get_or_create_product($p_code, $p_desc_txt, $p_precio, 0, $user);
-								}
-
-								$fac->addline($p_desc_txt, $p_precio, $p_cant, 21.0, 0, 0, $p_fk_product, $p_desc, '', '', 0, 0, 0, 'HT', 0, 0, -1, 0, '', 0, 0, null, 0, '', array(), 100, 0, null, 0, $p_code, 0);
-							}
-						}
-						if (!empty($lineas['reparaciones'])) {
-							foreach ($lineas['reparaciones'] as $r) {
-								$r_precio = (float) (!empty($r['precio']) ? $r['precio'] : 0);
-								$r_desc = (float) (!empty($r['descuento']) ? $r['descuento'] : 0);
-								$r_desc_txt = !empty($r['descripcion']) ? $r['descripcion'] : 'Mano de obra';
-								$fac->addline($r_desc_txt, $r_precio, 1, 21.0, 0, 0, 0, $r_desc, '', '', 0, 0, 0, 'HT', 0, 1);
-							}
-						}
-					} else {
-						// Añadir línea de mano de obra / trabajo realizado
-						$desc_mo = !empty($rep->descripcion) ? $rep->descripcion : ("Mano de obra reparación " . $ot_num);
-						$coste_mo = (float) $rep->coste_mo;
-						if ($coste_mo <= 0) $coste_mo = 50.0;
-						$tva_tx = 21.0;
-						$fac->addline($desc_mo, $coste_mo, 1, $tva_tx, 0, 0, 0, 0, '', '', 0, 0, 0, 'HT', 0, 1);
-					}
-
-					// La factura permanece en estado Borrador (permite editarla y borrarla)
-					// Actualizar la reparación con la referencia borrador de la factura y marcarla como finalizada
-					$db->query("UPDATE " . $table_reparacion . " SET ref_factura = '" . $db->escape($fac->ref) . "', estado = 'finalizada' WHERE rowid = " . ((int) $rowid));
-
-					setEventMessages("Factura borrador " . $fac->ref . " creada con éxito a partir de la reparación", null, 'mesgs');
-					header("Location: " . dol_buildpath('/taller/facturas.php', 1) . '?id=' . $fac_id);
-					exit;
-				} else {
-					dol_syslog("TallerPro - Error al generar factura desde reparación: " . $fac->error . " " . implode(' ', $fac->errors), LOG_ERR);
-					setEventMessages("Error al generar la factura en Dolibarr", null, 'errors');
-				}
-			}
+		$db->begin();
+		$res_fac = tallerpro_create_facture_from_reparacion($db, $rowid, $user, $conf);
+		if ($res_fac['status'] === 'ok' || $res_fac['status'] === 'already_exists') {
+			$db->commit();
+			setEventMessages($res_fac['message'], null, 'mesgs');
+			header("Location: " . dol_buildpath('/taller/facturas.php', 1) . '?id=' . ((int) $res_fac['fac_id']));
+			exit;
 		} else {
-			setEventMessages("No se encontró la reparación indicada", null, 'errors');
+			$db->rollback();
+			setEventMessages($res_fac['message'], null, 'errors');
 		}
 	}
 }
@@ -606,7 +584,10 @@ if ($action == 'save_and_facturar') {
 	if ($fk_vehiculo <= 0) {
 		setEventMessages("Debe seleccionar un vehículo para la reparación", null, 'errors');
 	} else {
+		$db->begin();
+		$ok = true;
 		$target_rep_id = 0;
+
 		if ($rowid > 0) {
 			$prev_notas = null;
 			$res_prev = $db->query("SELECT notas FROM " . $table_reparacion . " WHERE rowid = " . ((int) $rowid));
@@ -614,22 +595,41 @@ if ($action == 'save_and_facturar') {
 				$prev_notas = $p_obj->notas;
 			}
 			$sql_upd = "UPDATE " . $table_reparacion . " SET fk_vehiculo = " . ((int)$fk_vehiculo) . ", fecha = '" . $db->escape($fecha) . "', descripcion = '" . $db->escape($descripcion) . "', coste_mo = " . ((float)$coste_mo) . ", estado = 'finalizada', notas = '" . $db->escape($notas) . "' WHERE rowid = " . ((int)$rowid);
-			$db->query($sql_upd);
-			$target_rep_id = $rowid;
-			aplicarStockReparacion($db, $target_rep_id, $notas, $prev_notas, $user->id, $conf->entity);
+			if ($db->query($sql_upd)) {
+				$target_rep_id = $rowid;
+				aplicarStockReparacion($db, $target_rep_id, $notas, $prev_notas, $user->id, $conf->entity);
+			} else {
+				$ok = false;
+			}
 		} else {
 			$sql_ins = "INSERT INTO " . $table_reparacion . " (fk_vehiculo, fecha, descripcion, coste_mo, notas, estado, date_creation, fk_user_creat, entity, status) VALUES (";
 			$sql_ins .= ((int)$fk_vehiculo) . ", '" . $db->escape($fecha) . "', '" . $db->escape($descripcion) . "', " . ((float)$coste_mo) . ", '" . $db->escape($notas) . "', 'finalizada', '" . $db->idate(dol_now()) . "', " . ((int)$user->id) . ", " . ((int)$conf->entity) . ", 1)";
-			$db->query($sql_ins);
-			$target_rep_id = (int) $db->last_insert_id($table_reparacion);
-			if ($target_rep_id > 0 && !empty($notas)) {
-				aplicarStockReparacion($db, $target_rep_id, $notas, null, $user->id, $conf->entity);
+			if ($db->query($sql_ins)) {
+				$target_rep_id = (int) $db->last_insert_id($table_reparacion);
+				if ($target_rep_id > 0 && !empty($notas)) {
+					aplicarStockReparacion($db, $target_rep_id, $notas, null, $user->id, $conf->entity);
+				}
+			} else {
+				$ok = false;
 			}
 		}
 
-		$token_val = (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : ''));
-		header("Location: " . $_SERVER['PHP_SELF'] . "?action=facturar_reparacion&rowid=" . $target_rep_id . "&token=" . $token_val);
-		exit;
+		if ($ok && $target_rep_id > 0) {
+			$res_fac = tallerpro_create_facture_from_reparacion($db, $target_rep_id, $user, $conf);
+			if ($res_fac['status'] === 'ok' || $res_fac['status'] === 'already_exists') {
+				$db->commit();
+				setEventMessages($res_fac['message'], null, 'mesgs');
+				header("Location: " . dol_buildpath('/taller/facturas.php', 1) . '?id=' . ((int) $res_fac['fac_id']));
+				exit;
+			} else {
+				$db->rollback();
+				setEventMessages($res_fac['message'], null, 'errors');
+			}
+		} else {
+			$db->rollback();
+			dol_syslog("TallerPro - Error al guardar orden previa a facturar: " . $db->lasterror(), LOG_ERR);
+			setEventMessages("Error al guardar la orden de trabajo para facturación", null, 'errors');
+		}
 	}
 }
 
@@ -658,7 +658,10 @@ if ($action == 'save_and_albaran' || $action == 'crear_albaran') {
 	if ($fk_vehiculo <= 0) {
 		setEventMessages("Debe seleccionar un vehículo para la reparación", null, 'errors');
 	} else {
+		$db->begin();
+		$ok = true;
 		$target_rep_id = 0;
+
 		if ($rowid > 0) {
 			$prev_notas = null;
 			$res_prev = $db->query("SELECT notas FROM " . $table_reparacion . " WHERE rowid = " . ((int) $rowid));
@@ -666,111 +669,129 @@ if ($action == 'save_and_albaran' || $action == 'crear_albaran') {
 				$prev_notas = $p_obj->notas;
 			}
 			$sql_upd = "UPDATE " . $table_reparacion . " SET fk_vehiculo = " . ((int)$fk_vehiculo) . ", fecha = '" . $db->escape($fecha) . "', descripcion = '" . $db->escape($descripcion) . "', coste_mo = " . ((float)$coste_mo) . ", notas = '" . $db->escape($notas) . "' WHERE rowid = " . ((int)$rowid);
-			$db->query($sql_upd);
-			$target_rep_id = $rowid;
-			aplicarStockReparacion($db, $target_rep_id, $notas, $prev_notas, $user->id, $conf->entity);
+			if ($db->query($sql_upd)) {
+				$target_rep_id = $rowid;
+				aplicarStockReparacion($db, $target_rep_id, $notas, $prev_notas, $user->id, $conf->entity);
+			} else {
+				$ok = false;
+			}
 		} else {
 			$sql_ins = "INSERT INTO " . $table_reparacion . " (fk_vehiculo, fecha, descripcion, coste_mo, notas, estado, date_creation, fk_user_creat, entity, status) VALUES (";
 			$sql_ins .= ((int)$fk_vehiculo) . ", '" . $db->escape($fecha) . "', '" . $db->escape($descripcion) . "', " . ((float)$coste_mo) . ", '" . $db->escape($notas) . "', 'en_curso', '" . $db->idate(dol_now()) . "', " . ((int)$user->id) . ", " . ((int)$conf->entity) . ", 1)";
-			$db->query($sql_ins);
-			$target_rep_id = (int) $db->last_insert_id($table_reparacion);
-			if ($target_rep_id > 0 && !empty($notas)) {
-				aplicarStockReparacion($db, $target_rep_id, $notas, null, $user->id, $conf->entity);
+			if ($db->query($sql_ins)) {
+				$target_rep_id = (int) $db->last_insert_id($table_reparacion);
+				if ($target_rep_id > 0 && !empty($notas)) {
+					aplicarStockReparacion($db, $target_rep_id, $notas, null, $user->id, $conf->entity);
+				}
+			} else {
+				$ok = false;
 			}
 		}
 
-		// Crear el Albarán / Presupuesto enlazado a la reparación
-		require_once DOL_DOCUMENT_ROOT . '/compta/facture/class/facture.class.php';
+		if ($ok && $target_rep_id > 0) {
+			// Crear el Albarán / Presupuesto enlazado a la reparación
+			require_once DOL_DOCUMENT_ROOT . '/compta/facture/class/facture.class.php';
 
-		$sql_r = "SELECT r.*, v.fk_soc, v.matricula, v.marca, v.modelo ";
-		$sql_r .= "FROM " . $table_reparacion . " as r ";
-		$sql_r .= "LEFT JOIN " . $table_vehiculo . " as v ON r.fk_vehiculo = v.rowid ";
-		$sql_r .= "WHERE r.rowid = " . ((int) $target_rep_id);
-		$res_r = $db->query($sql_r);
+			$sql_r = "SELECT r.*, v.fk_soc, v.matricula, v.marca, v.modelo ";
+			$sql_r .= "FROM " . $table_reparacion . " as r ";
+			$sql_r .= "LEFT JOIN " . $table_vehiculo . " as v ON r.fk_vehiculo = v.rowid ";
+			$sql_r .= "WHERE r.rowid = " . ((int) $target_rep_id);
+			$res_r = $db->query($sql_r);
 
-		if ($res_r && ($rep = $db->fetch_object($res_r))) {
-			if (empty($rep->fk_soc)) {
-				setEventMessages("El vehículo asociado no tiene ningún cliente asignado", null, 'errors');
-			} else {
-				$fac = new Facture($db);
-				$fac->socid = (int) $rep->fk_soc;
-				$fac->date = dol_now();
-				$fac->type = Facture::TYPE_STANDARD;
-				$ot_num = 'OT #' . str_pad($rep->rowid, 4, '0', STR_PAD_LEFT);
-
-				$user_nota = '';
-				if (!empty($rep->notas)) {
-					if ($rep->notas[0] === '{' || $rep->notas[0] === '[') {
-						$data_notas = json_decode($rep->notas, true);
-						if (!empty($data_notas['notas_usuario'])) {
-							$user_nota = trim($data_notas['notas_usuario']);
-						} elseif (!empty($data_notas['notas']) && is_string($data_notas['notas'])) {
-							$user_nota = trim($data_notas['notas']);
-						}
-					} else {
-						$user_nota = trim($rep->notas);
-					}
-				}
-				$fac->note_public = !empty($user_nota) ? $user_nota : '';
-				$fac->array_options['options_fk_vehiculo'] = (int) $rep->fk_vehiculo;
-				$fac->array_options['options_fk_reparacion'] = (int) $target_rep_id;
-				$fac->array_options['options_tipo_doc'] = 'presupuesto';
-
-				$fac_id = $fac->create($user);
-				if ($fac_id > 0) {
-					// Extrafields asegurados
-					$db->query("UPDATE " . MAIN_DB_PREFIX . "facture_extrafields SET fk_vehiculo = " . ((int) $rep->fk_vehiculo) . ", fk_reparacion = " . ((int) $target_rep_id) . ", tipo_doc = 'presupuesto' WHERE fk_object = " . ((int) $fac_id));
-
-					// Referencia formal de Presupuesto / Albarán
-					$alb_ref = 'PRE' . date('ym') . '-' . str_pad($fac_id, 4, '0', STR_PAD_LEFT);
-					$db->query("UPDATE " . MAIN_DB_PREFIX . "facture SET ref = '" . $db->escape($alb_ref) . "' WHERE rowid = " . ((int) $fac_id));
-
-					$lineas = !empty($rep->notas) ? json_decode($rep->notas, true) : null;
-					if (!empty($lineas) && is_array($lineas) && (!empty($lineas['materiales']) || !empty($lineas['reparaciones']))) {
-						if (!empty($lineas['materiales'])) {
-							foreach ($lineas['materiales'] as $m) {
-								$p_cant = (float) (!empty($m['cantidad']) ? $m['cantidad'] : 1);
-								$p_precio = (float) (!empty($m['precio']) ? $m['precio'] : 0);
-								$p_desc = (float) (!empty($m['descuento']) ? $m['descuento'] : 0);
-								$p_desc_txt = !empty($m['descripcion']) ? $m['descripcion'] : 'Material';
-								$p_code = !empty($m['codigo']) ? trim($m['codigo']) : '';
-
-								$p_fk_product = 0;
-								if (!empty($m['fk_material'])) {
-									$res_pm = $db->query("SELECT fk_product FROM " . MAIN_DB_PREFIX . "taller_material WHERE rowid = " . ((int) $m['fk_material']));
-									if ($res_pm && ($pm_obj = $db->fetch_object($res_pm))) {
-										$p_fk_product = (int) $pm_obj->fk_product;
-									}
-								}
-								if ($p_fk_product <= 0) {
-									$p_fk_product = tallerpro_get_or_create_product($p_code, $p_desc_txt, $p_precio, 0, $user);
-								}
-
-								$fac->addline($p_desc_txt, $p_precio, $p_cant, 21.0, 0, 0, $p_fk_product, $p_desc, '', '', 0, 0, 0, 'HT', 0, 0, -1, 0, '', 0, 0, null, 0, '', array(), 100, 0, null, 0, $p_code, 0);
-							}
-						}
-						if (!empty($lineas['reparaciones'])) {
-							foreach ($lineas['reparaciones'] as $r) {
-								$r_precio = (float) (!empty($r['precio']) ? $r['precio'] : 0);
-								$r_desc = (float) (!empty($r['descuento']) ? $r['descuento'] : 0);
-								$r_desc_txt = !empty($r['descripcion']) ? $r['descripcion'] : 'Mano de obra';
-								$fac->addline($r_desc_txt, $r_precio, 1, 21.0, 0, 0, 0, $r_desc, '', '', 0, 0, 0, 'HT', 0, 1);
-							}
-						}
-					} else {
-						$desc_mo = !empty($rep->descripcion) ? $rep->descripcion : ("Mano de obra reparación " . $ot_num);
-						$coste_mo_val = (float) $rep->coste_mo;
-						if ($coste_mo_val <= 0) $coste_mo_val = 50.0;
-						$fac->addline($desc_mo, $coste_mo_val, 1, 21.0, 0, 0, 0, 0, '', '', 0, 0, 0, 'HT', 0, 1);
-					}
-
-					setEventMessages("Albarán / Presupuesto " . $alb_ref . " creado con éxito para la " . $ot_num, null, 'mesgs');
-					header("Location: " . dol_buildpath('/taller/facturas.php', 1) . '?id=' . $fac_id);
-					exit;
+			if ($res_r && ($rep = $db->fetch_object($res_r))) {
+				if (empty($rep->fk_soc)) {
+					$ok = false;
+					setEventMessages("El vehículo asociado no tiene ningún cliente asignado", null, 'errors');
 				} else {
-					setEventMessages("Error al generar el albarán en Dolibarr", null, 'errors');
+					$fac = new Facture($db);
+					$fac->socid = (int) $rep->fk_soc;
+					$fac->date = dol_now();
+					$fac->type = Facture::TYPE_STANDARD;
+					$ot_num = 'OT #' . str_pad($rep->rowid, 4, '0', STR_PAD_LEFT);
+
+					$user_nota = '';
+					if (!empty($rep->notas)) {
+						if ($rep->notas[0] === '{' || $rep->notas[0] === '[') {
+							$data_notas = json_decode($rep->notas, true);
+							if (!empty($data_notas['notas_usuario'])) {
+								$user_nota = trim($data_notas['notas_usuario']);
+							} elseif (!empty($data_notas['notas']) && is_string($data_notas['notas'])) {
+								$user_nota = trim($data_notas['notas']);
+							}
+						} else {
+							$user_nota = trim($rep->notas);
+						}
+					}
+					$fac->note_public = !empty($user_nota) ? $user_nota : '';
+					$fac->array_options['options_fk_vehiculo'] = (int) $rep->fk_vehiculo;
+					$fac->array_options['options_fk_reparacion'] = (int) $target_rep_id;
+					$fac->array_options['options_tipo_doc'] = 'presupuesto';
+
+					$fac_id = $fac->create($user);
+					if ($fac_id > 0) {
+						// Extrafields asegurados
+						$db->query("UPDATE " . MAIN_DB_PREFIX . "facture_extrafields SET fk_vehiculo = " . ((int) $rep->fk_vehiculo) . ", fk_reparacion = " . ((int) $target_rep_id) . ", tipo_doc = 'presupuesto' WHERE fk_object = " . ((int) $fac_id));
+
+						// Referencia formal de Presupuesto / Albarán
+						$alb_ref = 'PRE' . date('ym') . '-' . str_pad($fac_id, 4, '0', STR_PAD_LEFT);
+						$db->query("UPDATE " . MAIN_DB_PREFIX . "facture SET ref = '" . $db->escape($alb_ref) . "' WHERE rowid = " . ((int) $fac_id));
+
+						$lineas = !empty($rep->notas) ? json_decode($rep->notas, true) : null;
+						if (!empty($lineas) && is_array($lineas) && (!empty($lineas['materiales']) || !empty($lineas['reparaciones']))) {
+							if (!empty($lineas['materiales'])) {
+								foreach ($lineas['materiales'] as $m) {
+									$p_cant = (float) (!empty($m['cantidad']) ? $m['cantidad'] : 1);
+									$p_precio = (float) (!empty($m['precio']) ? $m['precio'] : 0);
+									$p_desc = (float) (!empty($m['descuento']) ? $m['descuento'] : 0);
+									$p_desc_txt = !empty($m['descripcion']) ? $m['descripcion'] : 'Material';
+									$p_code = !empty($m['codigo']) ? trim($m['codigo']) : '';
+
+									$p_fk_product = 0;
+									if (!empty($m['fk_material'])) {
+										$res_pm = $db->query("SELECT fk_product FROM " . MAIN_DB_PREFIX . "taller_material WHERE rowid = " . ((int) $m['fk_material']));
+										if ($res_pm && ($pm_obj = $db->fetch_object($res_pm))) {
+											$p_fk_product = (int) $pm_obj->fk_product;
+										}
+									}
+									if ($p_fk_product <= 0) {
+										$p_fk_product = tallerpro_get_or_create_product($p_code, $p_desc_txt, $p_precio, 0, $user);
+									}
+
+									$fac->addline($p_desc_txt, $p_precio, $p_cant, 21.0, 0, 0, $p_fk_product, $p_desc, '', '', 0, 0, 0, 'HT', 0, 0, -1, 0, '', 0, 0, null, 0, '', array(), 100, 0, null, 0, $p_code, 0);
+								}
+							}
+							if (!empty($lineas['reparaciones'])) {
+								foreach ($lineas['reparaciones'] as $r) {
+									$r_precio = (float) (!empty($r['precio']) ? $r['precio'] : 0);
+									$r_desc = (float) (!empty($r['descuento']) ? $r['descuento'] : 0);
+									$r_desc_txt = !empty($r['descripcion']) ? $r['descripcion'] : 'Mano de obra';
+									$fac->addline($r_desc_txt, $r_precio, 1, 21.0, 0, 0, 0, $r_desc, '', '', 0, 0, 0, 'HT', 0, 1);
+								}
+							}
+						} else {
+							$desc_mo = !empty($rep->descripcion) ? $rep->descripcion : ("Mano de obra reparación " . $ot_num);
+							$coste_mo_val = (float) $rep->coste_mo;
+							if ($coste_mo_val <= 0) $coste_mo_val = 50.0;
+							$fac->addline($desc_mo, $coste_mo_val, 1, 21.0, 0, 0, 0, 0, '', '', 0, 0, 0, 'HT', 0, 1);
+						}
+
+						$db->commit();
+						setEventMessages("Albarán / Presupuesto " . $alb_ref . " creado con éxito para la " . $ot_num, null, 'mesgs');
+						header("Location: " . dol_buildpath('/taller/facturas.php', 1) . '?id=' . $fac_id);
+						exit;
+					} else {
+						$ok = false;
+						setEventMessages("Error al generar el albarán en Dolibarr", null, 'errors');
+					}
 				}
+			} else {
+				$ok = false;
+				setEventMessages("No se encontró la reparación indicada", null, 'errors');
 			}
+		}
+
+		if (!$ok) {
+			$db->rollback();
 		}
 		header("Location: " . $_SERVER['PHP_SELF']);
 		exit;
@@ -789,14 +810,21 @@ if ($action == 'delete_reparacion' || $action == 'delete') {
 	}
 
 	$rowid = GETPOSTINT('rowid');
+	$resql = false;
 	if ($rowid > 0) {
+		$db->begin();
 		revertirStockReparacion($db, $rowid, $user->id, $conf->entity);
 		$sql_del = "UPDATE " . $table_reparacion . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_reparacion') . ")";
 		$resql = $db->query($sql_del);
+		if ($resql) {
+			$db->commit();
+		} else {
+			$db->rollback();
+		}
 	}
 	if (GETPOSTINT('ajax') || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
 		header('Content-Type: application/json');
-		echo json_encode(array('success' => true));
+		echo json_encode(array('success' => (bool)$resql));
 		exit;
 	}
 	if ($resql) {

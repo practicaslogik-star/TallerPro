@@ -460,6 +460,8 @@ class modTaller extends DolibarrModules
 		include_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
 		$extrafields = new ExtraFields($this->db);
 		$extrafields->addExtraField('fk_vehiculo', "Vehículo Taller", 'link', 1, '', 'facture', 0, 0, '', array('options'=>array('taller_vehiculo:matricula:rowid::status=1')), 1, '', -1, 0, '', '', 'taller@taller', 'isModEnabled("taller")');
+		$extrafields->addExtraField('fk_reparacion', "Reparación Taller", 'int', 2, '10', 'facture', 0, 0, '', '', 1, '', -1, 0, '', '', 'taller@taller', 'isModEnabled("taller")');
+		$extrafields->addExtraField('tipo_doc', "Tipo de Documento", 'varchar', 3, '32', 'facture', 0, 0, '', '', 1, '', -1, 0, '', '', 'taller@taller', 'isModEnabled("taller")');
 
 		// Permissions
 		$this->remove($options);

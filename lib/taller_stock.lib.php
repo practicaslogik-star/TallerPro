@@ -229,15 +229,6 @@ function tallerpro_sync_all_materials($user = null)
 	}
 
 	$table_material = MAIN_DB_PREFIX . "taller_material";
-
-	// 1. Asegurar columna fk_product en llx_taller_material
-	@$db->query("ALTER TABLE " . $table_material . " ADD COLUMN fk_product INT DEFAULT NULL AFTER ref");
-	@$db->query("ALTER TABLE " . $table_material . " ADD INDEX idx_taller_material_fk_product (fk_product)");
-
-	// Asegurar columna stock_descontado en llx_taller_reparacion
-	$table_reparacion = MAIN_DB_PREFIX . "taller_reparacion";
-	@$db->query("ALTER TABLE " . $table_reparacion . " ADD COLUMN stock_descontado SMALLINT DEFAULT 0 AFTER estado");
-
 	$warehouse_id = tallerpro_get_default_warehouse($user);
 
 	// 2. Mapear cada material existente a llx_product

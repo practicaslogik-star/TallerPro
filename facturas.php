@@ -79,25 +79,6 @@ require_once DOL_DOCUMENT_ROOT . '/core/class/extrafields.class.php';
 $table_vehiculo = MAIN_DB_PREFIX . "taller_vehiculo";
 $table_soc = MAIN_DB_PREFIX . "societe";
 
-// Ensure extrafield fk_vehiculo exists on facture_extrafields
-$sql_ef_check = "SHOW COLUMNS FROM " . MAIN_DB_PREFIX . "facture_extrafields LIKE 'fk_vehiculo'";
-$res_ef_check = $db->query($sql_ef_check);
-if ($res_ef_check && $db->num_rows($res_ef_check) == 0) {
-	$db->query("ALTER TABLE " . MAIN_DB_PREFIX . "facture_extrafields ADD COLUMN fk_vehiculo INT DEFAULT NULL");
-}
-
-$sql_ef_rep = "SHOW COLUMNS FROM " . MAIN_DB_PREFIX . "facture_extrafields LIKE 'fk_reparacion'";
-$res_ef_rep = $db->query($sql_ef_rep);
-if ($res_ef_rep && $db->num_rows($res_ef_rep) == 0) {
-	$db->query("ALTER TABLE " . MAIN_DB_PREFIX . "facture_extrafields ADD COLUMN fk_reparacion INT DEFAULT NULL");
-}
-
-$sql_ef_tipo = "SHOW COLUMNS FROM " . MAIN_DB_PREFIX . "facture_extrafields LIKE 'tipo_doc'";
-$res_ef_tipo = $db->query($sql_ef_tipo);
-if ($res_ef_tipo && $db->num_rows($res_ef_tipo) == 0) {
-	$db->query("ALTER TABLE " . MAIN_DB_PREFIX . "facture_extrafields ADD COLUMN tipo_doc VARCHAR(32) DEFAULT 'factura'");
-}
-
 // Función para obtener la siguiente referencia prevista de factura en Dolibarr
 if (!function_exists('getNextFacturaNumero')) {
 	function getNextFacturaNumero($db, $year_or_date = '', $entity = 1) {
@@ -171,6 +152,9 @@ if ($action == 'create_factura' || $action == 'add_factura') {
 	if ($fk_soc <= 0) {
 		setEventMessages("Debe seleccionar un cliente para emitir la factura", null, 'errors');
 	} else {
+		$db->begin();
+		$ok = true;
+
 		$fac = new Facture($db);
 		$fac->socid = (int) $fk_soc;
 		$fac->date = !empty($fecha) ? dol_stringtotime($fecha) : dol_now();
@@ -183,20 +167,32 @@ if ($action == 'create_factura' || $action == 'add_factura') {
 			if ($total > 0) {
 				$tva_tx = 21.0;
 				$subprice = round($total / (1 + ($tva_tx / 100)), 2);
-				$fac->addline("Servicios de taller", $subprice, 1, $tva_tx, 0, 0, 0, 0, '', '', 0, 0, 0, 'HT', 0, 1);
-			}
-			if ($estado == 'Borrador') {
-				// Permanece en borrador (PROV...), permitiendo edición y borrado
-			} else {
-				$fac->validate($user);
-				if ($estado == 'Pagada') {
-					$fac->setPaid($user);
+				$res_line = $fac->addline("Servicios de taller", $subprice, 1, $tva_tx, 0, 0, 0, 0, '', '', 0, 0, 0, 'HT', 0, 1);
+				if ($res_line <= 0) {
+					$ok = false;
 				}
 			}
+			if ($ok && $estado != 'Borrador') {
+				$res_val = $fac->validate($user);
+				if ($res_val >= 0) {
+					if ($estado == 'Pagada') {
+						$fac->setPaid($user);
+					}
+				} else {
+					$ok = false;
+				}
+			}
+		} else {
+			$ok = false;
+		}
+
+		if ($ok) {
+			$db->commit();
 			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
 			header("Location: " . $_SERVER['PHP_SELF'] . '?id=' . $fac_id);
 			exit;
 		} else {
+			$db->rollback();
 			dol_syslog("TallerPro - Error al crear factura: " . $fac->error . " " . implode(' ', $fac->errors), LOG_ERR);
 			setEventMessages("Error al crear la factura", null, 'errors');
 		}
@@ -234,17 +230,23 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 
 			$old_ref = $fac->ref;
 
+			$db->begin();
+			$ok = true;
+
 			// Actualizar Fecha y Notas (públicas) en la factura borrador o presupuesto
 			if (!empty($fecha)) {
 				$fac->date = dol_stringtotime($fecha);
 			}
 			$fac->note_public = $notas;
-			$fac->update($user);
+			$res_upd = $fac->update($user);
+			if ($res_upd < 0) {
+				$ok = false;
+			}
 
 			// Actualizar el estado si se cambia a Pendiente o Pagada (solo facturas normales, presupuestos siempre en borrador)
 			$fac->fetch_optionals();
 			$is_presupuesto = (!empty($fac->array_options['options_tipo_doc']) && $fac->array_options['options_tipo_doc'] === 'presupuesto');
-			if (!$is_presupuesto && ($estado == 'Pendiente' || $estado == 'Pagada')) {
+			if ($ok && !$is_presupuesto && ($estado == 'Pendiente' || $estado == 'Pagada')) {
 				$res_val = $fac->validate($user);
 				if ($res_val >= 0) {
 					if ($estado == 'Pagada') {
@@ -254,18 +256,20 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 					if (!empty($old_ref) && $old_ref !== $fac->ref) {
 						$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_reparacion SET ref_factura = '" . $db->escape($fac->ref) . "' WHERE ref_factura = '" . $db->escape($old_ref) . "'");
 					}
-					setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
-					header("Location: " . $_SERVER['PHP_SELF'] . '?id=' . $rowid);
-					exit;
 				} else {
+					$ok = false;
 					dol_syslog("TallerPro - Error al validar factura borrador ID " . $rowid . ": " . $fac->error . " " . implode(' ', $fac->errors), LOG_ERR);
-					setEventMessages("Error al validar la factura borrador", null, 'errors');
 				}
-			} else {
-				// Permanece en borrador, no se alteran otros campos
+			}
+
+			if ($ok) {
+				$db->commit();
 				setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
 				header("Location: " . $_SERVER['PHP_SELF'] . '?id=' . $rowid);
 				exit;
+			} else {
+				$db->rollback();
+				setEventMessages("Error al actualizar o validar la factura borrador", null, 'errors');
 			}
 		} else {
 			setEventMessages("No se encontró la factura a modificar", null, 'errors');
@@ -397,15 +401,18 @@ if ($action == 'delete_factura' || $action == 'delete') {
 				exit;
 			}
 			$del_ref = $fac->ref;
+			$db->begin();
 			$res = $fac->delete($user);
 			if ($res > 0) {
 				if (!empty($del_ref)) {
 					$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_reparacion SET ref_factura = NULL WHERE ref_factura = '" . $db->escape($del_ref) . "'");
 				}
+				$db->commit();
 				setEventMessages($langs->trans("RecordDeleted"), null, 'mesgs');
 				header("Location: " . $_SERVER['PHP_SELF']);
 				exit;
 			} else {
+				$db->rollback();
 				dol_syslog("TallerPro - Error al eliminar factura ID " . $rowid . ": " . $fac->error, LOG_ERR);
 				setEventMessages("No se pudo eliminar la factura solicitada", null, 'errors');
 			}
