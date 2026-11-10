@@ -193,6 +193,31 @@ function tallerpro_is_entity_allowed($obj_entity, $element)
 }
 
 /**
+ * Comprueba que un registro exista en base de datos dentro de la entidad activa.
+ *
+ * @param DoliDB $db         Manejador de base de datos
+ * @param string $table      Nombre de tabla sin prefijo (ej. 'societe', 'taller_vehiculo')
+ * @param int    $rowid      Identificador del registro
+ * @param string $element    Nombre del elemento en getEntity()
+ * @param string $extra_sql  Condición SQL adicional estática (ej. 'status = 1')
+ * @return bool
+ */
+function tallerpro_record_in_entity($db, $table, $rowid, $element, $extra_sql = '')
+{
+	$rowid = (int) $rowid;
+	if ($rowid <= 0 || empty($table) || empty($element)) {
+		return false;
+	}
+	$sql = "SELECT rowid FROM " . MAIN_DB_PREFIX . $table . " WHERE rowid = " . $rowid . " AND entity IN (" . getEntity($element) . ")";
+	if (!empty($extra_sql)) {
+		$sql .= " AND (" . $extra_sql . ")";
+	}
+	$sql .= " LIMIT 1";
+	$res = $db->query($sql);
+	return ($res && $db->num_rows($res) > 0);
+}
+
+/**
  * Devuelve el mapa de extensiones permitidas con sus tipos MIME reales aceptados.
  *
  * @return array<string, string[]>

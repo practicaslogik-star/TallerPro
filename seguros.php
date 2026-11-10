@@ -56,6 +56,7 @@ if (!$res) {
 $langs->loadLangs(array("taller@taller"));
 
 require_once __DIR__ . '/lib/taller.lib.php';
+require_once __DIR__ . '/class/taller_seguro.class.php';
 
 // Security check
 tallerpro_require_permission('read');
@@ -82,43 +83,30 @@ if ($action == 'create_seguro' || $action == 'add_seguro') {
 	$telefono     = trim(GETPOST('telefono', 'alphanohtml'));
 	$notas        = trim(GETPOST('notas', 'restricthtml'));
 
-	$vehiculo_valido = true;
-	if ($fk_vehiculo > 0) {
-		$res_v_chk = $db->query("SELECT rowid FROM " . $table_vehiculo . " WHERE rowid = " . ((int) $fk_vehiculo) . " AND entity IN (" . getEntity('taller_vehiculo') . ")");
-		if (!$res_v_chk || $db->num_rows($res_v_chk) <= 0) {
-			$vehiculo_valido = false;
-		}
-	}
+	$vehiculo_valido = ($fk_vehiculo <= 0 || tallerpro_record_in_entity($db, 'taller_vehiculo', $fk_vehiculo, 'taller_vehiculo', 'status = 1'));
 
 	if (empty($compania)) {
 		setEventMessages($langs->trans("ErrorFieldRequired", "Compañía"), null, 'errors');
 	} elseif (!$vehiculo_valido) {
 		setEventMessages("El vehículo seleccionado no pertenece a la empresa activa", null, 'errors');
 	} else {
-		$sql_insert = "INSERT INTO " . $table_seguro . " (";
-		$sql_insert .= "fk_vehiculo, compania, poliza, tipo, fecha_inicio, fecha_fin, telefono, notas, date_creation, fk_user_creat, entity, status";
-		$sql_insert .= ") VALUES (";
-		$sql_insert .= ($fk_vehiculo > 0 ? ((int) $fk_vehiculo) : "NULL") . ", ";
-		$sql_insert .= "'" . $db->escape($compania) . "', ";
-		$sql_insert .= "'" . $db->escape($poliza) . "', ";
-		$sql_insert .= "'" . $db->escape($tipo) . "', ";
-		$sql_insert .= (!empty($fecha_inicio) ? "'" . $db->escape($fecha_inicio) . "'" : "NULL") . ", ";
-		$sql_insert .= (!empty($fecha_fin) ? "'" . $db->escape($fecha_fin) . "'" : "NULL") . ", ";
-		$sql_insert .= "'" . $db->escape($telefono) . "', ";
-		$sql_insert .= "'" . $db->escape($notas) . "', ";
-		$sql_insert .= "'" . $db->idate(dol_now()) . "', ";
-		$sql_insert .= ((int) $user->id) . ", ";
-		$sql_insert .= ((int) $conf->entity) . ", ";
-		$sql_insert .= "1";
-		$sql_insert .= ")";
+		$seg_obj = new TallerSeguro($db);
+		$seg_obj->fk_vehiculo  = ($fk_vehiculo > 0 ? $fk_vehiculo : null);
+		$seg_obj->compania     = $compania;
+		$seg_obj->poliza       = $poliza;
+		$seg_obj->tipo         = $tipo;
+		$seg_obj->fecha_inicio = $fecha_inicio;
+		$seg_obj->fecha_fin    = $fecha_fin;
+		$seg_obj->telefono     = $telefono;
+		$seg_obj->notas        = $notas;
 
-		$resql = $db->query($sql_insert);
-		if ($resql) {
+		$res_create = $seg_obj->create($user);
+		if ($res_create > 0) {
 			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
 			header("Location: " . $_SERVER['PHP_SELF']);
 			exit;
 		} else {
-			dol_syslog("TallerPro - Error al guardar seguro: " . $db->lasterror(), LOG_ERR);
+			dol_syslog("TallerPro - Error al guardar seguro: " . $seg_obj->error . " " . implode(' ', $seg_obj->errors), LOG_ERR);
 			setEventMessages("Error al guardar el seguro", null, 'errors');
 		}
 	}
@@ -139,13 +127,7 @@ if ($action == 'update_seguro' || $action == 'edit_seguro') {
 	$telefono     = trim(GETPOST('telefono', 'alphanohtml'));
 	$notas        = trim(GETPOST('notas', 'restricthtml'));
 
-	$vehiculo_valido = true;
-	if ($fk_vehiculo > 0) {
-		$res_v_chk = $db->query("SELECT rowid FROM " . $table_vehiculo . " WHERE rowid = " . ((int) $fk_vehiculo) . " AND entity IN (" . getEntity('taller_vehiculo') . ")");
-		if (!$res_v_chk || $db->num_rows($res_v_chk) <= 0) {
-			$vehiculo_valido = false;
-		}
-	}
+	$vehiculo_valido = ($fk_vehiculo <= 0 || tallerpro_record_in_entity($db, 'taller_vehiculo', $fk_vehiculo, 'taller_vehiculo', 'status = 1'));
 
 	if (empty($compania)) {
 		setEventMessages($langs->trans("ErrorFieldRequired", "Compañía"), null, 'errors');
@@ -154,25 +136,27 @@ if ($action == 'update_seguro' || $action == 'edit_seguro') {
 	} elseif (!$vehiculo_valido) {
 		setEventMessages("El vehículo seleccionado no pertenece a la empresa activa", null, 'errors');
 	} else {
-		$sql_update = "UPDATE " . $table_seguro . " SET ";
-		$sql_update .= "fk_vehiculo = " . ($fk_vehiculo > 0 ? ((int) $fk_vehiculo) : "NULL") . ", ";
-		$sql_update .= "compania = '" . $db->escape($compania) . "', ";
-		$sql_update .= "poliza = '" . $db->escape($poliza) . "', ";
-		$sql_update .= "tipo = '" . $db->escape($tipo) . "', ";
-		$sql_update .= "fecha_inicio = " . (!empty($fecha_inicio) ? "'" . $db->escape($fecha_inicio) . "'" : "NULL") . ", ";
-		$sql_update .= "fecha_fin = " . (!empty($fecha_fin) ? "'" . $db->escape($fecha_fin) . "'" : "NULL") . ", ";
-		$sql_update .= "telefono = '" . $db->escape($telefono) . "', ";
-		$sql_update .= "notas = '" . $db->escape($notas) . "' ";
-		$sql_update .= "WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_seguro') . ")";
+		$seg_obj = new TallerSeguro($db);
+		if ($seg_obj->fetch($rowid) > 0) {
+			$seg_obj->fk_vehiculo  = ($fk_vehiculo > 0 ? $fk_vehiculo : null);
+			$seg_obj->compania     = $compania;
+			$seg_obj->poliza       = $poliza;
+			$seg_obj->tipo         = $tipo;
+			$seg_obj->fecha_inicio = $fecha_inicio;
+			$seg_obj->fecha_fin    = $fecha_fin;
+			$seg_obj->telefono     = $telefono;
+			$seg_obj->notas        = $notas;
 
-		$resql = $db->query($sql_update);
-		if ($resql) {
-			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
-			header("Location: " . $_SERVER['PHP_SELF']);
-			exit;
+			if ($seg_obj->update($user) > 0) {
+				setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
+				header("Location: " . $_SERVER['PHP_SELF']);
+				exit;
+			} else {
+				dol_syslog("TallerPro - Error al actualizar seguro ID " . $rowid . ": " . $seg_obj->error . " " . implode(' ', $seg_obj->errors), LOG_ERR);
+				setEventMessages("Error al actualizar el seguro", null, 'errors');
+			}
 		} else {
-			dol_syslog("TallerPro - Error al actualizar seguro ID " . $rowid . ": " . $db->lasterror(), LOG_ERR);
-			setEventMessages("Error al actualizar el seguro", null, 'errors');
+			setEventMessages("Seguro no encontrado en la empresa activa", null, 'errors');
 		}
 	}
 }
@@ -184,14 +168,13 @@ if ($action == 'delete_seguro' || $action == 'delete') {
 
 	$rowid = GETPOSTINT('rowid');
 	if ($rowid > 0) {
-		$sql_del = "UPDATE " . $table_seguro . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_seguro') . ")";
-		$resql = $db->query($sql_del);
-		if ($resql) {
+		$seg_obj = new TallerSeguro($db);
+		if ($seg_obj->fetch($rowid) > 0 && $seg_obj->delete($user) > 0) {
 			setEventMessages($langs->trans("RecordDeleted"), null, 'mesgs');
 			header("Location: " . $_SERVER['PHP_SELF']);
 			exit;
 		} else {
-			dol_syslog("TallerPro - Error al eliminar seguro ID " . $rowid . ": " . $db->lasterror(), LOG_ERR);
+			dol_syslog("TallerPro - Error al eliminar seguro ID " . $rowid . ": " . $seg_obj->error, LOG_ERR);
 			setEventMessages("Error al eliminar el seguro", null, 'errors');
 		}
 	}

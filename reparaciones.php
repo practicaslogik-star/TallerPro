@@ -56,6 +56,7 @@ if (!$res) {
 $langs->loadLangs(array("taller@taller"));
 
 require_once __DIR__ . '/lib/taller.lib.php';
+require_once __DIR__ . '/class/taller_reparacion.class.php';
 
 // Security check
 $is_ajax_req_top = (bool) (GETPOSTINT('ajax') || !empty($_SERVER['HTTP_X_REQUESTED_WITH']));
@@ -209,6 +210,79 @@ if (!function_exists('getMaterialesFromReparacionNotas')) {
 			return $data['materiales'];
 		}
 		return array();
+	}
+}
+
+/**
+ * Decodifica, valida tipos/estructura y sanea el JSON de líneas de reparación antes de persistirlo.
+ */
+if (!function_exists('tallerpro_extract_reparacion_notas')) {
+	function tallerpro_extract_reparacion_notas($raw_lineas_json, $fallback_notas = '') {
+		$raw_lineas_json = trim((string) $raw_lineas_json);
+		if (empty($raw_lineas_json)) {
+			return trim((string) $fallback_notas);
+		}
+		$decoded = json_decode($raw_lineas_json, true);
+		if (!is_array($decoded)) {
+			return trim((string) $fallback_notas);
+		}
+
+		$clean_mat = array();
+		if (!empty($decoded['materiales']) && is_array($decoded['materiales'])) {
+			foreach ($decoded['materiales'] as $m) {
+				if (!is_array($m)) {
+					continue;
+				}
+				$cant = max(0.0, (float) ($m['cantidad'] ?? 1));
+				$precio = max(0.0, (float) ($m['precio'] ?? 0));
+				$dto = min(100.0, max(0.0, (float) ($m['descuento'] ?? 0)));
+				$neto = isset($m['total_neto']) ? max(0.0, (float) $m['total_neto']) : max(0.0, $cant * $precio * (1 - ($dto / 100)));
+				$fk_mat_raw = !empty($m['fk_material']) ? (int) $m['fk_material'] : 0;
+
+				$clean_mat[] = array(
+					'fk_material'      => ($fk_mat_raw > 0 ? $fk_mat_raw : ''),
+					'codigo'           => strip_tags(trim((string) ($m['codigo'] ?? ''))),
+					'descripcion'      => strip_tags(trim((string) ($m['descripcion'] ?? ''))),
+					'cantidad'         => $cant,
+					'precio'           => $precio,
+					'descuento'        => $dto,
+					'total_neto'       => $neto,
+					'guardar_catalogo' => !empty($m['guardar_catalogo']) ? 1 : 0,
+				);
+			}
+		}
+
+		$clean_rep = array();
+		if (!empty($decoded['reparaciones']) && is_array($decoded['reparaciones'])) {
+			foreach ($decoded['reparaciones'] as $r) {
+				if (!is_array($r)) {
+					continue;
+				}
+				$precio = max(0.0, (float) ($r['precio'] ?? 0));
+				$dto = min(100.0, max(0.0, (float) ($r['descuento'] ?? 0)));
+				$neto = isset($r['total_neto']) ? max(0.0, (float) $r['total_neto']) : max(0.0, $precio * (1 - ($dto / 100)));
+
+				$clean_rep[] = array(
+					'descripcion' => strip_tags(trim((string) ($r['descripcion'] ?? ''))),
+					'precio'      => $precio,
+					'descuento'   => $dto,
+					'total_neto'  => $neto,
+					'notas'       => strip_tags(trim((string) ($r['notas'] ?? ''))),
+				);
+			}
+		}
+
+		$clean_payload = array(
+			'materiales'       => $clean_mat,
+			'reparaciones'     => $clean_rep,
+			'descuento_global' => max(0.0, (float) ($decoded['descuento_global'] ?? 0)),
+			'iva_porcentaje'   => max(0.0, (float) ($decoded['iva_porcentaje'] ?? 21)),
+			'total'            => number_format(max(0.0, (float) ($decoded['total'] ?? 0)), 2, '.', ''),
+			'notas_usuario'    => strip_tags(trim((string) ($decoded['notas_usuario'] ?? ''))),
+		);
+
+		$encoded = json_encode($clean_payload, JSON_UNESCAPED_UNICODE);
+		return ($encoded !== false) ? $encoded : trim((string) $fallback_notas);
 	}
 }
 
@@ -390,7 +464,7 @@ if ($action == 'create_reparacion' || $action == 'add_reparacion') {
 	$coste_mo = (float) price2num(GETPOST('coste_mo', 'alphanohtml'));
 
 	$lineas_json = trim(GETPOST('lineas_json', 'none'));
-	$notas = !empty($lineas_json) ? $lineas_json : trim(GETPOST('notas', 'restricthtml'));
+	$notas = tallerpro_extract_reparacion_notas($lineas_json, GETPOST('notas', 'restricthtml'));
 
 	$estado = trim(GETPOST('estado', 'aZ09'));
 	if (empty($estado)) {
@@ -399,29 +473,12 @@ if ($action == 'create_reparacion' || $action == 'add_reparacion') {
 
 	if ($fk_vehiculo <= 0) {
 		setEventMessages($langs->trans("ErrorFieldRequired", "Vehículo"), null, 'errors');
+	} elseif (!tallerpro_record_in_entity($db, 'taller_vehiculo', $fk_vehiculo, 'taller_vehiculo', 'status = 1')) {
+		setEventMessages("El vehículo seleccionado no existe o no pertenece a la empresa activa", null, 'errors');
 	} else {
 		$db->begin();
-		$sql_insert = "INSERT INTO " . $table_reparacion . " (";
-		$sql_insert .= "fk_vehiculo, fecha, descripcion, coste_mo, notas, estado, date_creation, fk_user_creat, entity, status";
-		$sql_insert .= ") VALUES (";
-		$sql_insert .= ((int) $fk_vehiculo) . ", ";
-		$sql_insert .= "'" . $db->escape($fecha) . "', ";
-		$sql_insert .= "'" . $db->escape($descripcion) . "', ";
-		$sql_insert .= ((float) $coste_mo) . ", ";
-		$sql_insert .= "'" . $db->escape($notas) . "', ";
-		$sql_insert .= "'" . $db->escape($estado) . "', ";
-		$sql_insert .= "'" . $db->idate(dol_now()) . "', ";
-		$sql_insert .= ((int) $user->id) . ", ";
-		$sql_insert .= ((int) $conf->entity) . ", ";
-		$sql_insert .= "1";
-		$sql_insert .= ")";
-
-		$resql = $db->query($sql_insert);
-		if ($resql) {
-			$new_rep_id = (int) $db->last_insert_id($table_reparacion);
-			if ($new_rep_id > 0 && !empty($notas)) {
-				aplicarStockReparacion($db, $new_rep_id, $notas, null, $user->id, $conf->entity);
-			}
+		$new_rep_id = tallerpro_save_reparacion_record($db, $user, $conf, 0, $fk_vehiculo, $fecha, $descripcion, $coste_mo, $notas, $estado);
+		if ($new_rep_id > 0) {
 			$db->commit();
 			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
 			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=saved");
@@ -430,6 +487,44 @@ if ($action == 'create_reparacion' || $action == 'add_reparacion') {
 			$db->rollback();
 			dol_syslog("TallerPro - Error al guardar reparación: " . $db->lasterror(), LOG_ERR);
 			setEventMessages("Error al guardar la reparación", null, 'errors');
+		}
+	}
+}
+
+// Helper interno para crear/actualizar reparación mediante TallerReparacion (CommonObject)
+if (!function_exists('tallerpro_save_reparacion_record')) {
+	function tallerpro_save_reparacion_record($db, User $user, Conf $conf, $rowid, $fk_vehiculo, $fecha, $descripcion, $coste_mo, $notas, $estado_force = '') {
+		$rep_obj = new TallerReparacion($db);
+		if ((int) $rowid > 0) {
+			if ($rep_obj->fetch((int) $rowid) <= 0) {
+				return 0;
+			}
+			$prev_notas = $rep_obj->notas;
+			$rep_obj->fk_vehiculo = (int) $fk_vehiculo;
+			$rep_obj->fecha       = $fecha;
+			$rep_obj->descripcion = $descripcion;
+			$rep_obj->coste_mo    = (float) $coste_mo;
+			$rep_obj->notas       = $notas;
+			if (!empty($estado_force)) {
+				$rep_obj->estado = $estado_force;
+			}
+			if ($rep_obj->update($user) <= 0) {
+				return 0;
+			}
+			aplicarStockReparacion($db, (int) $rowid, $notas, $prev_notas, $user->id, $conf->entity);
+			return (int) $rowid;
+		} else {
+			$rep_obj->fk_vehiculo = (int) $fk_vehiculo;
+			$rep_obj->fecha       = $fecha;
+			$rep_obj->descripcion = $descripcion;
+			$rep_obj->coste_mo    = (float) $coste_mo;
+			$rep_obj->notas       = $notas;
+			$rep_obj->estado      = !empty($estado_force) ? $estado_force : 'en_curso';
+			$new_id = (int) $rep_obj->create($user);
+			if ($new_id > 0 && !empty($notas)) {
+				aplicarStockReparacion($db, $new_id, $notas, null, $user->id, $conf->entity);
+			}
+			return $new_id;
 		}
 	}
 }
@@ -450,7 +545,7 @@ if ($action == 'update_reparacion' || $action == 'edit_reparacion') {
 	$coste_mo = (float) price2num(GETPOST('coste_mo', 'alphanohtml'));
 
 	$lineas_json = trim(GETPOST('lineas_json', 'none'));
-	$notas = !empty($lineas_json) ? $lineas_json : trim(GETPOST('notas', 'restricthtml'));
+	$notas = tallerpro_extract_reparacion_notas($lineas_json, GETPOST('notas', 'restricthtml'));
 
 	$estado = trim(GETPOST('estado', 'aZ09'));
 	if (empty($estado)) {
@@ -461,31 +556,12 @@ if ($action == 'update_reparacion' || $action == 'edit_reparacion') {
 		setEventMessages($langs->trans("ErrorFieldRequired", "Vehículo"), null, 'errors');
 	} elseif ($rowid <= 0) {
 		setEventMessages("Identificador de reparación no válido", null, 'errors');
+	} elseif (!tallerpro_record_in_entity($db, 'taller_vehiculo', $fk_vehiculo, 'taller_vehiculo', 'status = 1')) {
+		setEventMessages("El vehículo seleccionado no existe o no pertenece a la empresa activa", null, 'errors');
 	} else {
 		$db->begin();
-		$prev_notas = null;
-		$res_prev = $db->query("SELECT notas FROM " . $table_reparacion . " WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_reparacion') . ")");
-		if ($res_prev && ($p_obj = $db->fetch_object($res_prev))) {
-			$prev_notas = $p_obj->notas;
-		} else {
-			$db->rollback();
-			setEventMessages("Reparación no encontrada o sin acceso en esta entidad", null, 'errors');
-			header("Location: " . $_SERVER['PHP_SELF']);
-			exit;
-		}
-
-		$sql_update = "UPDATE " . $table_reparacion . " SET ";
-		$sql_update .= "fk_vehiculo = " . ((int) $fk_vehiculo) . ", ";
-		$sql_update .= "fecha = '" . $db->escape($fecha) . "', ";
-		$sql_update .= "descripcion = '" . $db->escape($descripcion) . "', ";
-		$sql_update .= "coste_mo = " . ((float) $coste_mo) . ", ";
-		$sql_update .= "estado = '" . $db->escape($estado) . "', ";
-		$sql_update .= "notas = '" . $db->escape($notas) . "' ";
-		$sql_update .= "WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_reparacion') . ")";
-
-		$resql = $db->query($sql_update);
-		if ($resql) {
-			aplicarStockReparacion($db, $rowid, $notas, $prev_notas, $user->id, $conf->entity);
+		$updated_id = tallerpro_save_reparacion_record($db, $user, $conf, $rowid, $fk_vehiculo, $fecha, $descripcion, $coste_mo, $notas, $estado);
+		if ($updated_id > 0) {
 			$db->commit();
 			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
 			header("Location: " . $_SERVER['PHP_SELF'] . "?msg=saved");
@@ -493,7 +569,7 @@ if ($action == 'update_reparacion' || $action == 'edit_reparacion') {
 		} else {
 			$db->rollback();
 			dol_syslog("TallerPro - Error al actualizar reparación ID " . $rowid . ": " . $db->lasterror(), LOG_ERR);
-			setEventMessages("Error al actualizar la reparación", null, 'errors');
+			setEventMessages("Reparación no encontrada o error al actualizar", null, 'errors');
 		}
 	}
 }
@@ -506,20 +582,22 @@ if ($action == 'toggle_estado' || $action == 'update_estado') {
 
 	$rowid = GETPOSTINT('rowid');
 	$new_estado = trim(GETPOST('new_estado', 'aZ09'));
+	$status_ok = false;
 	if ($rowid > 0) {
-		if (empty($new_estado)) {
-			$res_chk = $db->query("SELECT estado FROM " . $table_reparacion . " WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_reparacion') . ")");
-			if ($res_chk && ($chk_obj = $db->fetch_object($res_chk))) {
-				$new_estado = ($chk_obj->estado === 'finalizada' || $chk_obj->estado === 'finalizado') ? 'en_curso' : 'finalizada';
-			} else {
-				$new_estado = 'finalizada';
+		$rep_obj = new TallerReparacion($db);
+		if ($rep_obj->fetch($rowid) > 0) {
+			if (empty($new_estado)) {
+				$new_estado = ($rep_obj->estado === 'finalizada' || $rep_obj->estado === 'finalizado') ? 'en_curso' : 'finalizada';
+			}
+			$rep_obj->estado = $new_estado;
+			if ($rep_obj->update($user) > 0) {
+				$status_ok = true;
 			}
 		}
-		$db->query("UPDATE " . $table_reparacion . " SET estado = '" . $db->escape($new_estado) . "' WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_reparacion') . ")");
 	}
 	if (GETPOSTINT('ajax') || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
 		header('Content-Type: application/json');
-		echo json_encode(array('success' => true, 'new_estado' => $new_estado));
+		echo json_encode(array('success' => $status_ok, 'new_estado' => $new_estado));
 		exit;
 	}
 	header("Location: " . $_SERVER['PHP_SELF'] . "?msg=status_updated");
@@ -562,42 +640,16 @@ if ($action == 'save_and_facturar') {
 	$coste_mo = (float) price2num(GETPOST('coste_mo', 'alphanohtml'));
 
 	$lineas_json = trim(GETPOST('lineas_json', 'none'));
-	$notas = !empty($lineas_json) ? $lineas_json : trim(GETPOST('notas', 'restricthtml'));
+	$notas = tallerpro_extract_reparacion_notas($lineas_json, GETPOST('notas', 'restricthtml'));
 
 	if ($fk_vehiculo <= 0) {
 		setEventMessages("Debe seleccionar un vehículo para la reparación", null, 'errors');
+	} elseif (!tallerpro_record_in_entity($db, 'taller_vehiculo', $fk_vehiculo, 'taller_vehiculo', 'status = 1')) {
+		setEventMessages("El vehículo seleccionado no existe o no pertenece a la empresa activa", null, 'errors');
 	} else {
 		$db->begin();
-		$ok = true;
-		$target_rep_id = 0;
-
-		if ($rowid > 0) {
-			$prev_notas = null;
-			$res_prev = $db->query("SELECT notas FROM " . $table_reparacion . " WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_reparacion') . ")");
-			if ($res_prev && ($p_obj = $db->fetch_object($res_prev))) {
-				$prev_notas = $p_obj->notas;
-				$sql_upd = "UPDATE " . $table_reparacion . " SET fk_vehiculo = " . ((int)$fk_vehiculo) . ", fecha = '" . $db->escape($fecha) . "', descripcion = '" . $db->escape($descripcion) . "', coste_mo = " . ((float)$coste_mo) . ", estado = 'finalizada', notas = '" . $db->escape($notas) . "' WHERE rowid = " . ((int)$rowid) . " AND entity IN (" . getEntity('taller_reparacion') . ")";
-				if ($db->query($sql_upd)) {
-					$target_rep_id = $rowid;
-					aplicarStockReparacion($db, $target_rep_id, $notas, $prev_notas, $user->id, $conf->entity);
-				} else {
-					$ok = false;
-				}
-			} else {
-				$ok = false;
-			}
-		} else {
-			$sql_ins = "INSERT INTO " . $table_reparacion . " (fk_vehiculo, fecha, descripcion, coste_mo, notas, estado, date_creation, fk_user_creat, entity, status) VALUES (";
-			$sql_ins .= ((int)$fk_vehiculo) . ", '" . $db->escape($fecha) . "', '" . $db->escape($descripcion) . "', " . ((float)$coste_mo) . ", '" . $db->escape($notas) . "', 'finalizada', '" . $db->idate(dol_now()) . "', " . ((int)$user->id) . ", " . ((int)$conf->entity) . ", 1)";
-			if ($db->query($sql_ins)) {
-				$target_rep_id = (int) $db->last_insert_id($table_reparacion);
-				if ($target_rep_id > 0 && !empty($notas)) {
-					aplicarStockReparacion($db, $target_rep_id, $notas, null, $user->id, $conf->entity);
-				}
-			} else {
-				$ok = false;
-			}
-		}
+		$target_rep_id = tallerpro_save_reparacion_record($db, $user, $conf, $rowid, $fk_vehiculo, $fecha, $descripcion, $coste_mo, $notas, 'finalizada');
+		$ok = ($target_rep_id > 0);
 
 		if ($ok && $target_rep_id > 0) {
 			$res_fac = tallerpro_create_facture_from_reparacion($db, $target_rep_id, $user, $conf);
@@ -633,42 +685,16 @@ if ($action == 'save_and_albaran' || $action == 'crear_albaran') {
 	$coste_mo = (float) price2num(GETPOST('coste_mo', 'alphanohtml'));
 
 	$lineas_json = trim(GETPOST('lineas_json', 'none'));
-	$notas = !empty($lineas_json) ? $lineas_json : trim(GETPOST('notas', 'restricthtml'));
+	$notas = tallerpro_extract_reparacion_notas($lineas_json, GETPOST('notas', 'restricthtml'));
 
 	if ($fk_vehiculo <= 0) {
 		setEventMessages("Debe seleccionar un vehículo para la reparación", null, 'errors');
+	} elseif (!tallerpro_record_in_entity($db, 'taller_vehiculo', $fk_vehiculo, 'taller_vehiculo', 'status = 1')) {
+		setEventMessages("El vehículo seleccionado no existe o no pertenece a la empresa activa", null, 'errors');
 	} else {
 		$db->begin();
-		$ok = true;
-		$target_rep_id = 0;
-
-		if ($rowid > 0) {
-			$prev_notas = null;
-			$res_prev = $db->query("SELECT notas FROM " . $table_reparacion . " WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_reparacion') . ")");
-			if ($res_prev && ($p_obj = $db->fetch_object($res_prev))) {
-				$prev_notas = $p_obj->notas;
-				$sql_upd = "UPDATE " . $table_reparacion . " SET fk_vehiculo = " . ((int)$fk_vehiculo) . ", fecha = '" . $db->escape($fecha) . "', descripcion = '" . $db->escape($descripcion) . "', coste_mo = " . ((float)$coste_mo) . ", notas = '" . $db->escape($notas) . "' WHERE rowid = " . ((int)$rowid) . " AND entity IN (" . getEntity('taller_reparacion') . ")";
-				if ($db->query($sql_upd)) {
-					$target_rep_id = $rowid;
-					aplicarStockReparacion($db, $target_rep_id, $notas, $prev_notas, $user->id, $conf->entity);
-				} else {
-					$ok = false;
-				}
-			} else {
-				$ok = false;
-			}
-		} else {
-			$sql_ins = "INSERT INTO " . $table_reparacion . " (fk_vehiculo, fecha, descripcion, coste_mo, notas, estado, date_creation, fk_user_creat, entity, status) VALUES (";
-			$sql_ins .= ((int)$fk_vehiculo) . ", '" . $db->escape($fecha) . "', '" . $db->escape($descripcion) . "', " . ((float)$coste_mo) . ", '" . $db->escape($notas) . "', 'en_curso', '" . $db->idate(dol_now()) . "', " . ((int)$user->id) . ", " . ((int)$conf->entity) . ", 1)";
-			if ($db->query($sql_ins)) {
-				$target_rep_id = (int) $db->last_insert_id($table_reparacion);
-				if ($target_rep_id > 0 && !empty($notas)) {
-					aplicarStockReparacion($db, $target_rep_id, $notas, null, $user->id, $conf->entity);
-				}
-			} else {
-				$ok = false;
-			}
-		}
+		$target_rep_id = tallerpro_save_reparacion_record($db, $user, $conf, $rowid, $fk_vehiculo, $fecha, $descripcion, $coste_mo, $notas, '');
+		$ok = ($target_rep_id > 0);
 
 		if ($ok && $target_rep_id > 0) {
 			// Crear el Albarán / Presupuesto enlazado a la reparación
@@ -711,12 +737,13 @@ if ($action == 'save_and_albaran' || $action == 'crear_albaran') {
 
 					$fac_id = $fac->create($user);
 					if ($fac_id > 0) {
-						// Extrafields asegurados
-						$db->query("UPDATE " . MAIN_DB_PREFIX . "facture_extrafields SET fk_vehiculo = " . ((int) $rep->fk_vehiculo) . ", fk_reparacion = " . ((int) $target_rep_id) . ", tipo_doc = 'presupuesto' WHERE fk_object = " . ((int) $fac_id));
+						$fac->insertExtraFields();
 
 						// Referencia formal de Presupuesto / Albarán
 						$alb_ref = 'PRE' . date('ym') . '-' . str_pad($fac_id, 4, '0', STR_PAD_LEFT);
-						$db->query("UPDATE " . MAIN_DB_PREFIX . "facture SET ref = '" . $db->escape($alb_ref) . "' WHERE rowid = " . ((int) $fac_id));
+						if ($fac->setValueFrom('ref', $alb_ref, '', '', 'text', '', $user) < 0) {
+							$ok = false;
+						}
 
 						$lineas = !empty($rep->notas) ? json_decode($rep->notas, true) : null;
 						if (!empty($lineas) && is_array($lineas) && (!empty($lineas['materiales']) || !empty($lineas['reparaciones']))) {
@@ -790,9 +817,13 @@ if ($action == 'delete_reparacion' || $action == 'delete') {
 	$resql = false;
 	if ($rowid > 0) {
 		$db->begin();
-		revertirStockReparacion($db, $rowid, $user->id, $conf->entity);
-		$sql_del = "UPDATE " . $table_reparacion . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_reparacion') . ")";
-		$resql = $db->query($sql_del);
+		$rep_obj = new TallerReparacion($db);
+		if ($rep_obj->fetch($rowid) > 0) {
+			revertirStockReparacion($db, $rowid, $user->id, $conf->entity);
+			if ($rep_obj->delete($user) > 0) {
+				$resql = true;
+			}
+		}
 		if ($resql) {
 			$db->commit();
 		} else {

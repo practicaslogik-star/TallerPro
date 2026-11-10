@@ -56,6 +56,7 @@ if (!$res) {
 $langs->loadLangs(array("taller@taller"));
 
 require_once __DIR__ . '/lib/taller.lib.php';
+require_once __DIR__ . '/class/taller_material.class.php';
 
 // Security check
 tallerpro_require_permission('read');
@@ -94,26 +95,18 @@ if ($action == 'create_material' || $action == 'add_material') {
 		// Sincronizar o crear en producto nativo de Dolibarr (llx_product)
 		$fk_product = tallerpro_get_or_create_product($ref, $nombre, (float) $precio, 0, $user);
 
-		$sql_insert = "INSERT INTO " . $table_material . " (";
-		$sql_insert .= "nombre, ref, fk_product, proveedor, stock, precio, notas, date_creation, fk_user_creat, entity, status";
-		$sql_insert .= ") VALUES (";
-		$sql_insert .= "'" . $db->escape($nombre) . "', ";
-		$sql_insert .= "'" . $db->escape($ref) . "', ";
-		$sql_insert .= ($fk_product > 0 ? ((int) $fk_product) : "NULL") . ", ";
-		$sql_insert .= "'" . $db->escape($proveedor) . "', ";
-		$sql_insert .= ((float) $stock) . ", ";
-		$sql_insert .= ((float) $precio) . ", ";
-		$sql_insert .= "'" . $db->escape($notas) . "', ";
-		$sql_insert .= "'" . $db->idate(dol_now()) . "', ";
-		$sql_insert .= ((int) $user->id) . ", ";
-		$sql_insert .= ((int) $conf->entity) . ", ";
-		$sql_insert .= "1";
-		$sql_insert .= ")";
+		$mat_obj = new TallerMaterial($db);
+		$mat_obj->nombre     = $nombre;
+		$mat_obj->ref        = $ref;
+		$mat_obj->fk_product = ($fk_product > 0 ? $fk_product : null);
+		$mat_obj->proveedor  = $proveedor;
+		$mat_obj->stock      = (float) $stock;
+		$mat_obj->precio     = (float) $precio;
+		$mat_obj->notas      = $notas;
 
-		$resql = $db->query($sql_insert);
-		if ($resql) {
-			$new_mat_id = (int) $db->last_insert_id($table_material);
-			if ($new_mat_id > 0 && $stock > 0) {
+		$new_mat_id = (int) $mat_obj->create($user);
+		if ($new_mat_id > 0) {
+			if ($stock > 0) {
 				// 1. Movimiento nativo en Almacén Dolibarr
 				if ($fk_product > 0) {
 					$res_sm = tallerpro_record_stock_movement($fk_product, (float) $stock, 'Alta inicial de material', 'taller_material', $new_mat_id, $user);
@@ -141,7 +134,7 @@ if ($action == 'create_material' || $action == 'add_material') {
 			exit;
 		} else {
 			$db->rollback();
-			dol_syslog("TallerPro - Error al guardar material: " . $db->lasterror(), LOG_ERR);
+			dol_syslog("TallerPro - Error al guardar material: " . $mat_obj->error . " " . $db->lasterror(), LOG_ERR);
 			setEventMessages("Error al guardar el material", null, 'errors');
 		}
 	}
@@ -170,10 +163,10 @@ if ($action == 'update_material' || $action == 'edit_material') {
 
 		$prev_stock = 0.0;
 		$prev_fk_product = 0;
-		$res_prev = $db->query("SELECT stock, fk_product FROM " . $table_material . " WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_material') . ")");
-		if ($res_prev && ($p_mat = $db->fetch_object($res_prev))) {
-			$prev_stock = (float) $p_mat->stock;
-			$prev_fk_product = (int) $p_mat->fk_product;
+		$mat_obj = new TallerMaterial($db);
+		if ($mat_obj->fetch($rowid) > 0) {
+			$prev_stock = (float) $mat_obj->stock;
+			$prev_fk_product = (int) $mat_obj->fk_product;
 		} else {
 			$ok = false;
 		}
@@ -205,20 +198,21 @@ if ($action == 'update_material' || $action == 'edit_material') {
 			$current_wh_stock = tallerpro_get_product_stock($prev_fk_product, $default_warehouse_id);
 			$base_stock = ($current_wh_stock > 0 || $prev_stock == 0) ? $current_wh_stock : $prev_stock;
 			$diff = ((float) $stock) - $base_stock;
+
+			$mat_obj->nombre     = $nombre;
+			$mat_obj->ref        = $ref;
+			$mat_obj->fk_product = ($prev_fk_product > 0 ? $prev_fk_product : null);
+			$mat_obj->proveedor  = $proveedor;
+			$mat_obj->stock      = (float) $stock;
+			$mat_obj->precio     = (float) $precio;
+			$mat_obj->notas      = $notas;
+
+			if ($mat_obj->update($user) <= 0) {
+				$ok = false;
+			}
 		}
 
-		$sql_update = "UPDATE " . $table_material . " SET ";
-		$sql_update .= "nombre = '" . $db->escape($nombre) . "', ";
-		$sql_update .= "ref = '" . $db->escape($ref) . "', ";
-		$sql_update .= "fk_product = " . ($prev_fk_product > 0 ? ((int) $prev_fk_product) : "NULL") . ", ";
-		$sql_update .= "proveedor = '" . $db->escape($proveedor) . "', ";
-		$sql_update .= "stock = " . ((float) $stock) . ", ";
-		$sql_update .= "precio = " . ((float) $precio) . ", ";
-		$sql_update .= "notas = '" . $db->escape($notas) . "' ";
-		$sql_update .= "WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_material') . ")";
-
-		$resql = $ok ? $db->query($sql_update) : false;
-		if ($resql && $ok) {
+		if ($ok) {
 			if (abs($diff) > 0.0001 && $prev_fk_product > 0) {
 				// Movimiento nativo en Almacén Dolibarr
 				$res_sm = tallerpro_record_stock_movement($prev_fk_product, $diff, 'Ajuste manual de stock', 'taller_material', $rowid, $user);
@@ -234,8 +228,6 @@ if ($action == 'update_material' || $action == 'edit_material') {
 					}
 				}
 			}
-		} else {
-			$ok = false;
 		}
 
 		if ($ok) {
@@ -245,7 +237,7 @@ if ($action == 'update_material' || $action == 'edit_material') {
 			exit;
 		} else {
 			$db->rollback();
-			dol_syslog("TallerPro - Error al actualizar material ID " . $rowid . ": " . $db->lasterror(), LOG_ERR);
+			dol_syslog("TallerPro - Error al actualizar material ID " . $rowid . ": " . $mat_obj->error . " " . $db->lasterror(), LOG_ERR);
 			setEventMessages("Error al actualizar el material", null, 'errors');
 		}
 	}
@@ -259,16 +251,15 @@ if ($action == 'delete_material' || $action == 'delete') {
 	$rowid = GETPOSTINT('rowid');
 	if ($rowid > 0) {
 		$db->begin();
-		$sql_del = "UPDATE " . $table_material . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_material') . ")";
-		$resql = $db->query($sql_del);
-		if ($resql) {
+		$mat_obj = new TallerMaterial($db);
+		if ($mat_obj->fetch($rowid) > 0 && $mat_obj->delete($user) > 0) {
 			$db->commit();
 			setEventMessages($langs->trans("RecordDeleted"), null, 'mesgs');
 			header("Location: " . $_SERVER['PHP_SELF']);
 			exit;
 		} else {
 			$db->rollback();
-			dol_syslog("TallerPro - Error al eliminar material ID " . $rowid . ": " . $db->lasterror(), LOG_ERR);
+			dol_syslog("TallerPro - Error al eliminar material ID " . $rowid . ": " . $mat_obj->error, LOG_ERR);
 			setEventMessages("Error al eliminar el material", null, 'errors');
 		}
 	}

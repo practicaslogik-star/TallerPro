@@ -49,16 +49,14 @@ function tallerpro_get_default_warehouse($user = null)
 
 	// 3. Si no existe ninguno, crear el Almacén Principal de Taller automáticamente
 	$ent = new Entrepot($db);
-	$ent->label = 'Almacén Principal Taller';
-	$ent->lieu = 'Taller';
+	$ent->label = 'ALM-TALLER';
+	$ent->lieu = 'Almacén Principal Taller';
 	$ent->description = 'Almacén oficial de repuestos y materiales de TallerPro';
 	$ent->statut = 1;
 	$ent->entity = (int) $conf->entity;
 
 	$ent_id = $ent->create($user);
 	if ($ent_id > 0) {
-		// Asegurar que ref sea ALM-TALLER
-		$db->query("UPDATE " . $table_entrepot . " SET ref = 'ALM-TALLER' WHERE rowid = " . ((int) $ent_id));
 		return (int) $ent_id;
 	}
 
@@ -146,18 +144,14 @@ function tallerpro_get_product_stock($product_id, $warehouse_id = 0)
 		$warehouse_id = tallerpro_get_default_warehouse();
 	}
 
-	$table_pstock = MAIN_DB_PREFIX . "product_stock";
-	$sql = "SELECT reel FROM " . $table_pstock . " WHERE fk_product = " . ((int) $product_id) . " AND fk_entrepot = " . ((int) $warehouse_id) . " LIMIT 1";
-	$res = $db->query($sql);
-	if ($res && ($obj = $db->fetch_object($res))) {
-		return (float) $obj->reel;
-	}
-
-	// Si no hay registro específico de almacén, consultar stock total de llx_product
-	$sql_p = "SELECT stock FROM " . MAIN_DB_PREFIX . "product WHERE rowid = " . ((int) $product_id);
-	$res_p = $db->query($sql_p);
-	if ($res_p && ($p_obj = $db->fetch_object($res_p))) {
-		return (float) $p_obj->stock;
+	$prod = new Product($db);
+	if ($prod->fetch((int) $product_id) > 0) {
+		$fallback_stock = (float) $prod->stock_reel;
+		$prod->load_stock('nobatch,novirtual');
+		if ($warehouse_id > 0 && isset($prod->stock_warehouse[$warehouse_id])) {
+			return (float) $prod->stock_warehouse[$warehouse_id]->real;
+		}
+		return ($prod->stock_reel > 0 || $fallback_stock == 0) ? (float) $prod->stock_reel : $fallback_stock;
 	}
 
 	return 0.0;

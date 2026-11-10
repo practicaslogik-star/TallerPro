@@ -597,6 +597,70 @@ if (window.__tallerProLoaded) {
             });
         }
 
+        function syncFacturaModalPaymentFields() {
+            const facPaymentFields = document.getElementById('facModalPaymentFields');
+            const facEstado = document.getElementById('fac_estado');
+            const facDatePaye = document.getElementById('fac_datepaye');
+            const facPaiementId = document.getElementById('fac_paiementid');
+            const facAccountId = document.getElementById('fac_accountid');
+            if (!facPaymentFields || !facEstado) return;
+
+            const estadoGroup = facEstado.closest('.tallerpro-form-group');
+            const isEstadoVisible = !estadoGroup || estadoGroup.style.display !== 'none';
+            const showPayFields = (isEstadoVisible && !facEstado.disabled && facEstado.value === 'Pagada');
+
+            facPaymentFields.style.display = showPayFields ? 'flex' : 'none';
+            if (facDatePaye) {
+                facDatePaye.required = showPayFields;
+                if (showPayFields && !facDatePaye.value) {
+                    facDatePaye.value = new Date().toISOString().split('T')[0];
+                }
+            }
+            if (facPaiementId) facPaiementId.required = showPayFields;
+            if (facAccountId) facAccountId.required = showPayFields;
+        }
+
+        const facEstadoSelect = document.getElementById('fac_estado');
+        if (facEstadoSelect) {
+            facEstadoSelect.addEventListener('change', syncFacturaModalPaymentFields);
+        }
+
+        if (facForm) {
+            facForm.addEventListener('submit', function (e) {
+                const facEstado = document.getElementById('fac_estado');
+                if (facEstado && facEstado.value === 'Pagada') {
+                    const facTotal = document.getElementById('fac_total');
+                    const totalVal = facTotal ? parseFloat(facTotal.value || '0') : 0;
+                    const facPaiementId = document.getElementById('fac_paiementid');
+                    const facAccountId = document.getElementById('fac_accountid');
+
+                    if (isNaN(totalVal) || totalVal <= 0) {
+                        e.preventDefault();
+                        if (typeof window.showTallerToast === 'function') {
+                            window.showTallerToast('El importe total debe ser mayor que 0,00 € para registrar el cobro.', 'error');
+                        }
+                        return;
+                    }
+                    if (facPaiementId && !facPaiementId.value) {
+                        e.preventDefault();
+                        facPaiementId.focus();
+                        if (typeof window.showTallerToast === 'function') {
+                            window.showTallerToast('Debe seleccionar un modo de pago para registrar el cobro.', 'error');
+                        }
+                        return;
+                    }
+                    if (facAccountId && !facAccountId.value) {
+                        e.preventDefault();
+                        facAccountId.focus();
+                        if (typeof window.showTallerToast === 'function') {
+                            window.showTallerToast('Debe seleccionar una cuenta bancaria o caja abierta.', 'error');
+                        }
+                        return;
+                    }
+                }
+            });
+        }
+
         function resetFacturaFormStyles() {
             const facEditNotice = document.getElementById('facEditNotice');
             if (facEditNotice) facEditNotice.style.display = 'none';
@@ -638,10 +702,13 @@ if (window.__tallerProLoaded) {
             }
             const facEstado = document.getElementById('fac_estado');
             if (facEstado) {
+                const estadoGroup = facEstado.closest('.tallerpro-form-group');
+                if (estadoGroup) estadoGroup.style.display = '';
                 facEstado.disabled = false;
                 facEstado.style.borderColor = '';
                 facEstado.style.boxShadow = '';
             }
+            syncFacturaModalPaymentFields();
         }
 
         if (addFacBtn && facForm) {
@@ -660,6 +727,15 @@ if (window.__tallerProLoaded) {
                 if (facEstado) {
                     facEstado.value = 'Borrador';
                 }
+                const facDatePaye = document.getElementById('fac_datepaye');
+                const facPaiementId = document.getElementById('fac_paiementid');
+                const facAccountId = document.getElementById('fac_accountid');
+                const facNumPayment = document.getElementById('fac_num_payment');
+                if (facDatePaye) facDatePaye.value = todayStr;
+                if (facPaiementId) facPaiementId.value = '';
+                if (facAccountId) facAccountId.value = '';
+                if (facNumPayment) facNumPayment.value = '';
+                syncFacturaModalPaymentFields();
                 if (facNumero) {
                     facNumero.readOnly = true;
                     updateNextInvoiceNumber(todayStr);
@@ -754,6 +830,15 @@ if (window.__tallerProLoaded) {
                         facEstado.style.boxShadow = '0 0 0 2px rgba(5, 150, 105, 0.15)';
                     }
                 }
+                const facDatePaye = document.getElementById('fac_datepaye');
+                const facPaiementId = document.getElementById('fac_paiementid');
+                const facAccountId = document.getElementById('fac_accountid');
+                const facNumPayment = document.getElementById('fac_num_payment');
+                if (facDatePaye) facDatePaye.value = new Date().toISOString().split('T')[0];
+                if (facPaiementId) facPaiementId.value = '';
+                if (facAccountId) facAccountId.value = '';
+                if (facNumPayment) facNumPayment.value = '';
+                syncFacturaModalPaymentFields();
 
                 if (facEditNotice) {
                     facEditNotice.style.display = 'block';
@@ -827,7 +912,11 @@ if (window.__tallerProLoaded) {
             </span>
         `;
 
-            toast.innerHTML = iconSvg + '<span class="tallerpro-toast-text">' + message + '</span>';
+            toast.innerHTML = iconSvg;
+            const toastTextSpan = document.createElement('span');
+            toastTextSpan.className = 'tallerpro-toast-text';
+            toastTextSpan.textContent = (message === undefined || message === null) ? '' : String(message);
+            toast.appendChild(toastTextSpan);
             container.appendChild(toast);
 
             requestAnimationFrame(function () {
@@ -1256,6 +1345,7 @@ if (window.__tallerProLoaded) {
             const oldEstado = invSelect.getAttribute('data-current-estado') || 'Borrador';
             const newEstado = invSelect.value;
             const ref = invSelect.getAttribute('data-ref') || '';
+            const totalAttr = invSelect.getAttribute('data-total') || '';
             const tr = invSelect.closest('tr');
 
             if (newEstado === oldEstado) return;
@@ -1265,6 +1355,14 @@ if (window.__tallerProLoaded) {
                 invSelect.value = oldEstado;
                 if (typeof window.showTallerToast === 'function') {
                     window.showTallerToast('Una factura emitida no puede volver a estado Borrador', 'error');
+                }
+                return;
+            }
+
+            if (newEstado === 'Pagada' && totalAttr !== '' && (isNaN(parseFloat(totalAttr)) || parseFloat(totalAttr) <= 0)) {
+                invSelect.value = oldEstado;
+                if (typeof window.showTallerToast === 'function') {
+                    window.showTallerToast('El importe de la factura debe ser mayor que 0,00 € para registrar un cobro', 'error');
                 }
                 return;
             }
@@ -1292,12 +1390,26 @@ if (window.__tallerProLoaded) {
             } else if (newEstado === 'Pagada') {
                 const modal = document.getElementById('pagadaConfirmModal');
                 const desc = document.getElementById('pagadaModalDesc');
+                const totalTxt = totalAttr ? ' (' + totalAttr + ' €)' : '';
                 if (desc) {
                     if (oldEstado === 'Borrador') {
-                        desc.textContent = 'Se validará la factura oficial ' + (ref ? '(' + ref + ') ' : '') + 'y se registrará el cobro total en el sistema.';
+                        desc.textContent = 'Se validará la factura oficial ' + (ref ? '(' + ref + ') ' : '') + 'y se registrará el cobro total' + totalTxt + ' en Dolibarr.';
                     } else {
-                        desc.textContent = 'Se registrará el cobro completo de la factura ' + (ref ? '(' + ref + ') ' : '') + 'en el sistema.';
+                        desc.textContent = 'Se registrará el cobro completo' + totalTxt + ' de la factura ' + (ref ? '(' + ref + ') ' : '') + 'en Dolibarr.';
                     }
+                }
+                const pagDatePaye = document.getElementById('pagada_datepaye');
+                const pagPaiementId = document.getElementById('pagada_paiementid');
+                const pagAccountId = document.getElementById('pagada_accountid');
+                const pagNumPayment = document.getElementById('pagada_num_payment');
+                const pagErrorBox = document.getElementById('pagadaModalError');
+                if (pagDatePaye) pagDatePaye.value = new Date().toISOString().split('T')[0];
+                if (pagPaiementId) pagPaiementId.value = '';
+                if (pagAccountId) pagAccountId.value = '';
+                if (pagNumPayment) pagNumPayment.value = '';
+                if (pagErrorBox) {
+                    pagErrorBox.style.display = 'none';
+                    pagErrorBox.textContent = '';
                 }
                 if (modal) modal.classList.add('active');
             }
@@ -1337,16 +1449,55 @@ if (window.__tallerProLoaded) {
             const { select, rowid, oldEstado, newEstado, tr } = pendingInvoiceStateChange;
             const modalToClose = confirmPendiente ? document.getElementById('pendienteConfirmModal') : document.getElementById('pagadaConfirmModal');
             const clickedBtn = confirmPendiente || confirmPagada;
-            clickedBtn.disabled = true;
-
-            const tokenInput = document.querySelector('#tallerGlobalDeleteForm input[name="token"]');
-            const token = tokenInput ? tokenInput.value : '';
 
             const formData = new FormData();
             formData.append('action', 'update_factura_estado');
             formData.append('rowid', rowid);
             formData.append('new_estado', newEstado);
             formData.append('ajax', '1');
+
+            if (confirmPagada) {
+                const pagDatePaye = document.getElementById('pagada_datepaye');
+                const pagPaiementId = document.getElementById('pagada_paiementid');
+                const pagAccountId = document.getElementById('pagada_accountid');
+                const pagNumPayment = document.getElementById('pagada_num_payment');
+                const pagErrorBox = document.getElementById('pagadaModalError');
+
+                const showPagadaModalErr = function (msg, elToFocus) {
+                    if (pagErrorBox) {
+                        pagErrorBox.textContent = msg;
+                        pagErrorBox.style.display = 'block';
+                    }
+                    if (elToFocus) elToFocus.focus();
+                };
+
+                if (pagErrorBox) {
+                    pagErrorBox.style.display = 'none';
+                    pagErrorBox.textContent = '';
+                }
+                if (pagDatePaye && !pagDatePaye.value) {
+                    showPagadaModalErr('Debe indicar la fecha de cobro.', pagDatePaye);
+                    return;
+                }
+                if (pagPaiementId && !pagPaiementId.value) {
+                    showPagadaModalErr('Debe seleccionar un modo de pago.', pagPaiementId);
+                    return;
+                }
+                if (pagAccountId && !pagAccountId.value) {
+                    showPagadaModalErr('Debe seleccionar una cuenta bancaria o caja abierta.', pagAccountId);
+                    return;
+                }
+
+                if (pagDatePaye) formData.append('datepaye', pagDatePaye.value);
+                if (pagPaiementId) formData.append('paiementid', pagPaiementId.value);
+                if (pagAccountId) formData.append('accountid', pagAccountId.value);
+                if (pagNumPayment) formData.append('num_payment', pagNumPayment.value.trim());
+            }
+
+            clickedBtn.disabled = true;
+
+            const tokenInput = document.querySelector('#tallerGlobalDeleteForm input[name="token"]');
+            const token = tokenInput ? tokenInput.value : '';
             if (token) formData.append('token', token);
 
             fetch(window.location.pathname, {
@@ -2166,8 +2317,9 @@ if (window.__tallerProLoaded) {
                 } else {
                     itemsHtml = '<div class="tallerpro-search-items-list">' +
                         items.map(function (item) {
-                            const url = item.url || defaultUrl || '#';
-                            return '<a href="' + url + '" class="tallerpro-search-item-card">' +
+                            const rawUrl = String(item.url || defaultUrl || '#').trim();
+                            const safeUrl = /^(https?:\/\/|\/|[a-zA-Z0-9_\-\.]+\.php)/i.test(rawUrl) ? rawUrl : '#';
+                            return '<a href="' + escapeHtml(safeUrl) + '" class="tallerpro-search-item-card">' +
                                 '<div class="tallerpro-search-item-title">' + escapeHtml(item.title) + '</div>' +
                                 (item.subtitle ? '<div class="tallerpro-search-item-sub">' + escapeHtml(item.subtitle) + '</div>' : '') +
                                 '</a>';

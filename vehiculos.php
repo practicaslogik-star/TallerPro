@@ -56,6 +56,7 @@ if (!$res) {
 $langs->loadLangs(array("taller@taller", "companies"));
 
 require_once __DIR__ . '/lib/taller.lib.php';
+require_once __DIR__ . '/class/taller_vehiculo.class.php';
 
 // Security check
 tallerpro_require_permission('read');
@@ -76,9 +77,8 @@ if (!function_exists('tallerpro_vehicle_in_entity')) {
 		if ($veh_id <= 0) {
 			return false;
 		}
-		$sql_chk = "SELECT rowid FROM " . MAIN_DB_PREFIX . "taller_vehiculo WHERE rowid = " . $veh_id . " AND status = 1 AND entity IN (" . getEntity('taller_vehiculo') . ") LIMIT 1";
-		$res_chk = $db->query($sql_chk);
-		return ($res_chk && $db->num_rows($res_chk) > 0);
+		$veh_obj = new TallerVehiculo($db);
+		return ($veh_obj->fetch($veh_id) > 0 && ((int) $veh_obj->status) === 1);
 	}
 }
 
@@ -292,31 +292,24 @@ if ($action == 'create_vehiculo' || $action == 'add_vehiculo') {
 		if (!$res_soc_chk || $db->num_rows($res_soc_chk) <= 0) {
 			setEventMessages("El cliente seleccionado no pertenece a la empresa activa", null, 'errors');
 		} else {
-			$sql_insert = "INSERT INTO " . $table_vehiculo . " (";
-			$sql_insert .= "fk_soc, matricula, marca, modelo, anio, color, vin, km, notas, date_creation, fk_user_creat, entity, status";
-			$sql_insert .= ") VALUES (";
-			$sql_insert .= ((int) $fk_soc) . ", ";
-			$sql_insert .= "'" . $db->escape($matricula) . "', ";
-			$sql_insert .= "'" . $db->escape($marca) . "', ";
-			$sql_insert .= "'" . $db->escape($modelo) . "', ";
-			$sql_insert .= "'" . $db->escape($anio) . "', ";
-			$sql_insert .= "'" . $db->escape($color) . "', ";
-			$sql_insert .= "'" . $db->escape($vin) . "', ";
-			$sql_insert .= ((int) $km) . ", ";
-			$sql_insert .= "'" . $db->escape($notas) . "', ";
-			$sql_insert .= "'" . $db->idate(dol_now()) . "', ";
-			$sql_insert .= ((int) $user->id) . ", ";
-			$sql_insert .= ((int) $conf->entity) . ", ";
-			$sql_insert .= "1";
-			$sql_insert .= ")";
+			$veh_obj = new TallerVehiculo($db);
+			$veh_obj->fk_soc    = (int) $fk_soc;
+			$veh_obj->matricula = $matricula;
+			$veh_obj->marca     = $marca;
+			$veh_obj->modelo    = $modelo;
+			$veh_obj->anio      = $anio;
+			$veh_obj->color     = $color;
+			$veh_obj->vin       = $vin;
+			$veh_obj->km        = (int) $km;
+			$veh_obj->notas     = $notas;
 
-			$resql = $db->query($sql_insert);
-			if ($resql) {
+			$res_create = $veh_obj->create($user);
+			if ($res_create > 0) {
 				setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
 				header("Location: " . $_SERVER['PHP_SELF']);
 				exit;
 			} else {
-				dol_syslog("TallerPro - Error al guardar vehículo: " . $db->lasterror(), LOG_ERR);
+				dol_syslog("TallerPro - Error al guardar vehículo: " . $veh_obj->error . " " . implode(' ', $veh_obj->errors), LOG_ERR);
 				setEventMessages("Error al guardar el vehículo", null, 'errors');
 			}
 		}
@@ -330,14 +323,13 @@ if ($action == 'delete_vehiculo' || $action == 'delete') {
 
 	$rowid = GETPOSTINT('rowid');
 	if ($rowid > 0) {
-		$sql_del = "UPDATE " . $table_vehiculo . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_vehiculo') . ")";
-		$resql = $db->query($sql_del);
-		if ($resql) {
+		$veh_obj = new TallerVehiculo($db);
+		if ($veh_obj->fetch($rowid) > 0 && $veh_obj->delete($user) > 0) {
 			setEventMessages($langs->trans("RecordDeleted"), null, 'mesgs');
 			header("Location: " . $_SERVER['PHP_SELF']);
 			exit;
 		} else {
-			dol_syslog("TallerPro - Error al eliminar vehículo ID " . $rowid . ": " . $db->lasterror(), LOG_ERR);
+			dol_syslog("TallerPro - Error al eliminar vehículo ID " . $rowid . ": " . $veh_obj->error, LOG_ERR);
 			setEventMessages("Error al eliminar el vehículo", null, 'errors');
 		}
 	}

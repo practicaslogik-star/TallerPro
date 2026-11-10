@@ -57,7 +57,7 @@ if (!$res) {
  */
 
 // Load translation files required by the page
-$langs->loadLangs(array("taller@taller"));
+$langs->loadLangs(array("taller@taller", "bills", "banks", "errors"));
 
 require_once __DIR__ . '/lib/taller.lib.php';
 
@@ -72,7 +72,13 @@ $user_can_facturar = $user->hasRight('taller', 'facturar');
 $user_can_delete_fac = $user->hasRight('taller', 'delete') && $user_can_facturar;
 
 $facture_enabled = isModEnabled('facture');
-if (!$facture_enabled && !empty($action) && in_array($action, array('create_factura', 'add_factura', 'update_factura', 'delete_factura', 'add_factura_linea', 'delete_factura_linea', 'save_factura_totales'))) {
+$bank_enabled = isModEnabled('bank');
+if (!$facture_enabled && !empty($action) && in_array($action, array('create_factura', 'add_factura', 'update_factura', 'update_factura_estado', 'update_estado', 'delete_factura', 'add_factura_linea', 'delete_factura_linea', 'save_factura_totales'))) {
+	if ($is_ajax_action) {
+		header('Content-Type: application/json');
+		echo json_encode(array('success' => false, 'error' => 'El módulo de Facturación nativo de Dolibarr está desactivado.'));
+		exit;
+	}
 	setEventMessages("El módulo de Facturación nativo de Dolibarr está desactivado. Actívelo en Configuración -> Módulos para gestionar facturas.", null, 'errors');
 	header("Location: " . $_SERVER['PHP_SELF']);
 	exit;
@@ -80,6 +86,8 @@ if (!$facture_enabled && !empty($action) && in_array($action, array('create_fact
 
 require_once DOL_DOCUMENT_ROOT . '/core/lib/date.lib.php';
 require_once DOL_DOCUMENT_ROOT . '/compta/facture/class/facture.class.php';
+require_once DOL_DOCUMENT_ROOT . '/compta/paiement/class/paiement.class.php';
+require_once DOL_DOCUMENT_ROOT . '/societe/class/societe.class.php';
 require_once __DIR__ . '/lib/taller_stock.lib.php';
 require_once DOL_DOCUMENT_ROOT . '/core/class/extrafields.class.php';
 
@@ -119,6 +127,182 @@ if (!function_exists('tallerpro_clean_notas')) {
 	}
 }
 
+/**
+ * Obtiene los modos de pago activos de Dolibarr en la entidad actual.
+ */
+if (!function_exists('tallerpro_get_payment_methods')) {
+	function tallerpro_get_payment_methods($db, $langs) {
+		$list = array();
+		$sql = "SELECT id, code, libelle FROM " . MAIN_DB_PREFIX . "c_paiement ";
+		$sql .= "WHERE active = 1 AND code != '' AND entity IN (" . getEntity('c_paiement') . ") ";
+		$sql .= "ORDER BY position ASC, libelle ASC";
+		$res = $db->query($sql);
+		if ($res) {
+			while ($obj = $db->fetch_object($res)) {
+				$lbl = $obj->libelle;
+				$tr_key = 'PaymentType' . $obj->code;
+				$tr_val = $langs->transnoentitiesnoconv($tr_key);
+				if (!empty($tr_val) && $tr_val !== $tr_key) {
+					$lbl = $tr_val;
+				}
+				$obj->label_display = $lbl;
+				$list[] = $obj;
+			}
+		}
+		return $list;
+	}
+}
+
+/**
+ * Obtiene las cuentas bancarias/cajas abiertas de Dolibarr en la entidad actual.
+ */
+if (!function_exists('tallerpro_get_bank_accounts')) {
+	function tallerpro_get_bank_accounts($db) {
+		$list = array();
+		if (!isModEnabled('bank')) {
+			return $list;
+		}
+		$sql = "SELECT rowid, ref, label, courant FROM " . MAIN_DB_PREFIX . "bank_account ";
+		$sql .= "WHERE clos = 0 AND entity IN (" . getEntity('bank_account') . ") ";
+		$sql .= "ORDER BY label ASC, ref ASC";
+		$res = $db->query($sql);
+		if ($res) {
+			while ($obj = $db->fetch_object($res)) {
+				$list[] = $obj;
+			}
+		}
+		return $list;
+	}
+}
+
+/**
+ * Convierte una fecha YYYY-MM-DD a timestamp seguro al mediodía.
+ */
+if (!function_exists('tallerpro_parse_payment_date')) {
+	function tallerpro_parse_payment_date($date_str) {
+		$date_str = trim((string) $date_str);
+		if (preg_match('/^(\d{4})-(\d{2})-(\d{2})$/', $date_str, $m)) {
+			return dol_mktime(12, 0, 0, (int) $m[2], (int) $m[3], (int) $m[1]);
+		}
+		if (!empty($date_str)) {
+			$ts = dol_stringtotime($date_str);
+			if ($ts > 0) {
+				return $ts;
+			}
+		}
+		return dol_now();
+	}
+}
+
+/**
+ * Valida modo de pago y cuenta bancaria (si el módulo Bank está activo) para la entidad actual.
+ *
+ * @return array{valid:bool,paiementcode:string,error:string}
+ */
+if (!function_exists('tallerpro_validate_payment_inputs')) {
+	function tallerpro_validate_payment_inputs($db, $paiementid, $accountid) {
+		$paiementid = (int) $paiementid;
+		$accountid = (int) $accountid;
+
+		if ($paiementid <= 0) {
+			return array('valid' => false, 'paiementcode' => '', 'error' => 'Debe seleccionar un modo de pago válido para registrar el cobro.');
+		}
+		$sql_pm = "SELECT id, code FROM " . MAIN_DB_PREFIX . "c_paiement WHERE id = " . $paiementid . " AND active = 1 AND entity IN (" . getEntity('c_paiement') . ") LIMIT 1";
+		$res_pm = $db->query($sql_pm);
+		if (!$res_pm || $db->num_rows($res_pm) <= 0) {
+			return array('valid' => false, 'paiementcode' => '', 'error' => 'El modo de pago seleccionado no es válido o no pertenece a la empresa activa.');
+		}
+		$pm_obj = $db->fetch_object($res_pm);
+		$paiementcode = (string) $pm_obj->code;
+
+		if (isModEnabled('bank')) {
+			if ($accountid <= 0) {
+				return array('valid' => false, 'paiementcode' => '', 'error' => 'Debe seleccionar una cuenta bancaria o caja abierta para registrar el cobro.');
+			}
+			$sql_ba = "SELECT rowid FROM " . MAIN_DB_PREFIX . "bank_account WHERE rowid = " . $accountid . " AND clos = 0 AND entity IN (" . getEntity('bank_account') . ") LIMIT 1";
+			$res_ba = $db->query($sql_ba);
+			if (!$res_ba || $db->num_rows($res_ba) <= 0) {
+				return array('valid' => false, 'paiementcode' => '', 'error' => 'La cuenta bancaria o caja seleccionada no es válida o está cerrada.');
+			}
+		}
+
+		return array('valid' => true, 'paiementcode' => $paiementcode, 'error' => '');
+	}
+}
+
+/**
+ * Registra un cobro contable real en Dolibarr usando Paiement y lo enlaza al banco/caja si está activo.
+ * Debe ejecutarse dentro de una transacción activa en $db.
+ *
+ * @return array{success:bool,error:string}
+ */
+if (!function_exists('tallerpro_register_invoice_payment')) {
+	function tallerpro_register_invoice_payment($db, Facture $fac, User $user, $paiementid, $accountid, $datepaye_str = '', $num_payment = '') {
+		if ($fac->id <= 0 || $fac->fetch($fac->id) <= 0 || !tallerpro_is_entity_allowed($fac->entity, 'facture')) {
+			return array('success' => false, 'error' => 'No se pudo cargar la factura dentro de la empresa activa.');
+		}
+		if ($fac->statut == Facture::STATUS_DRAFT) {
+			return array('success' => false, 'error' => 'La factura debe estar validada antes de registrar un cobro.');
+		}
+		if ($fac->paye == 1 || $fac->statut == Facture::STATUS_CLOSED) {
+			return array('success' => true, 'error' => '');
+		}
+
+		$paid_sum = (float) $fac->getSommePaiement();
+		$credit_sum = (float) $fac->getSumCreditNotesUsed();
+		$deposit_sum = (float) $fac->getSumDepositsUsed();
+		$resteapayer = (float) price2num($fac->total_ttc - $paid_sum - $credit_sum - $deposit_sum, 'MT');
+
+		if ($resteapayer <= 0) {
+			return array('success' => false, 'error' => 'El importe pendiente debe ser mayor que 0,00 € para registrar un cobro.');
+		}
+
+		$chk = tallerpro_validate_payment_inputs($db, $paiementid, $accountid);
+		if (empty($chk['valid'])) {
+			return array('success' => false, 'error' => $chk['error']);
+		}
+
+		$thirdparty = new Societe($db);
+		if ($fac->socid > 0) {
+			$thirdparty->fetch($fac->socid);
+		}
+
+		$paiement = new Paiement($db);
+		$paiement->datepaye = tallerpro_parse_payment_date($datepaye_str);
+		$paiement->amounts = array($fac->id => $resteapayer);
+		if (!empty($fac->multicurrency_code)) {
+			$paiement->multicurrency_code = array($fac->id => $fac->multicurrency_code);
+		}
+		if (!empty($fac->multicurrency_tx)) {
+			$paiement->multicurrency_tx = array($fac->id => $fac->multicurrency_tx);
+		}
+		$paiement->paiementid = (int) $paiementid;
+		$paiement->paiementcode = $chk['paiementcode'];
+		$paiement->num_payment = trim((string) $num_payment);
+		$paiement->note_private = 'Cobro registrado desde TallerPro';
+		$paiement->fk_account = (isModEnabled('bank') && (int) $accountid > 0) ? (int) $accountid : 0;
+
+		$paiement_id = $paiement->create($user, 1, $thirdparty);
+		if ($paiement_id <= 0) {
+			$err = trim($paiement->error . ' ' . implode(' ', $paiement->errors));
+			dol_syslog("TallerPro - Error al crear Paiement para factura ID " . $fac->id . ": " . $err, LOG_ERR);
+			return array('success' => false, 'error' => 'Error al registrar el cobro en Dolibarr' . (!empty($err) ? ': ' . $err : '.'));
+		}
+
+		if (isModEnabled('bank') && (int) $accountid > 0) {
+			$label = ($fac->type == Facture::TYPE_CREDIT_NOTE) ? '(CustomerInvoicePaymentBack)' : '(CustomerInvoicePayment)';
+			$bank_line_id = $paiement->addPaymentToBank($user, 'payment', $label, (int) $accountid, '', '');
+			if ($bank_line_id < 0) {
+				$err = trim($paiement->error . ' ' . implode(' ', $paiement->errors));
+				dol_syslog("TallerPro - Error al añadir apunte bancario para Paiement ID " . $paiement_id . ": " . $err, LOG_ERR);
+				return array('success' => false, 'error' => 'Error al registrar el apunte bancario del cobro' . (!empty($err) ? ': ' . $err : '.'));
+			}
+		}
+
+		return array('success' => true, 'error' => '');
+	}
+}
+
 // AJAX: Obtener siguiente número de factura automático
 if ($action == 'get_next_factura_numero') {
 	$next_num = getNextFacturaNumero($db);
@@ -147,12 +331,35 @@ if ($action == 'create_factura' || $action == 'add_factura') {
 	}
 
 	$notas = trim(GETPOST('notas', 'restricthtml'));
+	$pay_datepaye = trim(GETPOST('datepaye', 'alpha'));
+	$pay_paiementid = GETPOSTINT('paiementid');
+	$pay_accountid = GETPOSTINT('accountid');
+	$pay_num_payment = trim(GETPOST('num_payment', 'alphanohtml'));
 
+	$pre_error = '';
 	if ($fk_soc <= 0) {
-		setEventMessages("Debe seleccionar un cliente para emitir la factura", null, 'errors');
+		$pre_error = "Debe seleccionar un cliente para emitir la factura";
+	} elseif (!tallerpro_record_in_entity($db, 'societe', $fk_soc, 'societe')) {
+		$pre_error = "El cliente seleccionado no pertenece a la empresa activa";
+	} elseif ($fk_vehiculo > 0 && !tallerpro_record_in_entity($db, 'taller_vehiculo', $fk_vehiculo, 'taller_vehiculo', 'status = 1')) {
+		$pre_error = "El vehículo seleccionado no pertenece a la empresa activa";
+	} elseif ($estado == 'Pagada') {
+		if ($total <= 0) {
+			$pre_error = "Para crear una factura directamente como Pagada, el importe total debe ser mayor que 0,00 €.";
+		} else {
+			$pay_chk = tallerpro_validate_payment_inputs($db, $pay_paiementid, $pay_accountid);
+			if (empty($pay_chk['valid'])) {
+				$pre_error = $pay_chk['error'];
+			}
+		}
+	}
+
+	if (!empty($pre_error)) {
+		setEventMessages($pre_error, null, 'errors');
 	} else {
 		$db->begin();
 		$ok = true;
+		$create_error_msg = '';
 
 		$fac = new Facture($db);
 		$fac->socid = (int) $fk_soc;
@@ -175,7 +382,11 @@ if ($action == 'create_factura' || $action == 'add_factura') {
 				$res_val = $fac->validate($user);
 				if ($res_val >= 0) {
 					if ($estado == 'Pagada') {
-						$fac->setPaid($user);
+						$pay_res = tallerpro_register_invoice_payment($db, $fac, $user, $pay_paiementid, $pay_accountid, $pay_datepaye, $pay_num_payment);
+						if (empty($pay_res['success'])) {
+							$ok = false;
+							$create_error_msg = $pay_res['error'];
+						}
 					}
 				} else {
 					$ok = false;
@@ -193,7 +404,7 @@ if ($action == 'create_factura' || $action == 'add_factura') {
 		} else {
 			$db->rollback();
 			dol_syslog("TallerPro - Error al crear factura: " . $fac->error . " " . implode(' ', $fac->errors), LOG_ERR);
-			setEventMessages("Error al crear la factura", null, 'errors');
+			setEventMessages(!empty($create_error_msg) ? $create_error_msg : "Error al crear la factura", null, 'errors');
 		}
 	}
 }
@@ -209,6 +420,10 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
 	$estado = trim(GETPOST('estado', 'alphanohtml'));
 	$notas = trim(GETPOST('notas', 'restricthtml'));
+	$pay_datepaye = trim(GETPOST('datepaye', 'alpha'));
+	$pay_paiementid = GETPOSTINT('paiementid');
+	$pay_accountid = GETPOSTINT('accountid');
+	$pay_num_payment = trim(GETPOST('num_payment', 'alphanohtml'));
 
 	if ($rowid <= 0) {
 		setEventMessages("Identificador de factura no válido", null, 'errors');
@@ -222,47 +437,68 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 			}
 
 			$old_ref = $fac->ref;
-
-			$db->begin();
-			$ok = true;
-
-			// Actualizar Fecha y Notas (públicas) en la factura borrador o presupuesto
-			if (!empty($fecha)) {
-				$fac->date = dol_stringtotime($fecha);
-			}
-			$fac->note_public = $notas;
-			$res_upd = $fac->update($user);
-			if ($res_upd < 0) {
-				$ok = false;
-			}
-
-			// Actualizar el estado si se cambia a Pendiente o Pagada (solo facturas normales, presupuestos siempre en borrador)
 			$fac->fetch_optionals();
 			$is_presupuesto = (!empty($fac->array_options['options_tipo_doc']) && $fac->array_options['options_tipo_doc'] === 'presupuesto');
-			if ($ok && !$is_presupuesto && ($estado == 'Pendiente' || $estado == 'Pagada')) {
-				$res_val = $fac->validate($user);
-				if ($res_val >= 0) {
-					if ($estado == 'Pagada') {
-						$fac->setPaid($user);
-					}
-					// Sincronizar referencia definitiva en reparaciones si se validó la factura
-					if (!empty($old_ref) && $old_ref !== $fac->ref) {
-						$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_reparacion SET ref_factura = '" . $db->escape($fac->ref) . "' WHERE ref_factura = '" . $db->escape($old_ref) . "' AND entity IN (" . getEntity('taller_reparacion') . ")");
-					}
+
+			$pre_pay_error = '';
+			if (!$is_presupuesto && $estado == 'Pagada') {
+				if ((float) $fac->total_ttc <= 0) {
+					$pre_pay_error = "El importe de la factura debe ser mayor que 0,00 € para registrarla como Pagada.";
 				} else {
-					$ok = false;
-					dol_syslog("TallerPro - Error al validar factura borrador ID " . $rowid . ": " . $fac->error . " " . implode(' ', $fac->errors), LOG_ERR);
+					$pay_chk = tallerpro_validate_payment_inputs($db, $pay_paiementid, $pay_accountid);
+					if (empty($pay_chk['valid'])) {
+						$pre_pay_error = $pay_chk['error'];
+					}
 				}
 			}
 
-			if ($ok) {
-				$db->commit();
-				setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
-				header("Location: " . $_SERVER['PHP_SELF'] . '?id=' . $rowid);
-				exit;
+			if (!empty($pre_pay_error)) {
+				setEventMessages($pre_pay_error, null, 'errors');
 			} else {
-				$db->rollback();
-				setEventMessages("Error al actualizar o validar la factura borrador", null, 'errors');
+				$db->begin();
+				$ok = true;
+				$upd_error_msg = '';
+
+				// Actualizar Fecha y Notas (públicas) en la factura borrador o presupuesto
+				if (!empty($fecha)) {
+					$fac->date = dol_stringtotime($fecha);
+				}
+				$fac->note_public = $notas;
+				$res_upd = $fac->update($user);
+				if ($res_upd < 0) {
+					$ok = false;
+				}
+
+				// Actualizar el estado si se cambia a Pendiente o Pagada (solo facturas normales, presupuestos siempre en borrador)
+				if ($ok && !$is_presupuesto && ($estado == 'Pendiente' || $estado == 'Pagada')) {
+					$res_val = $fac->validate($user);
+					if ($res_val >= 0) {
+						// Sincronizar referencia definitiva en reparaciones si se validó la factura
+						if (!empty($old_ref) && $old_ref !== $fac->ref) {
+							$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_reparacion SET ref_factura = '" . $db->escape($fac->ref) . "' WHERE ref_factura = '" . $db->escape($old_ref) . "' AND entity IN (" . getEntity('taller_reparacion') . ")");
+						}
+						if ($estado == 'Pagada') {
+							$pay_res = tallerpro_register_invoice_payment($db, $fac, $user, $pay_paiementid, $pay_accountid, $pay_datepaye, $pay_num_payment);
+							if (empty($pay_res['success'])) {
+								$ok = false;
+								$upd_error_msg = $pay_res['error'];
+							}
+						}
+					} else {
+						$ok = false;
+						dol_syslog("TallerPro - Error al validar factura borrador ID " . $rowid . ": " . $fac->error . " " . implode(' ', $fac->errors), LOG_ERR);
+					}
+				}
+
+				if ($ok) {
+					$db->commit();
+					setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
+					header("Location: " . $_SERVER['PHP_SELF'] . '?id=' . $rowid);
+					exit;
+				} else {
+					$db->rollback();
+					setEventMessages(!empty($upd_error_msg) ? $upd_error_msg : "Error al actualizar o validar la factura borrador", null, 'errors');
+				}
 			}
 		} else {
 			setEventMessages("No se encontró la factura a modificar", null, 'errors');
@@ -278,6 +514,10 @@ if ($action == 'update_factura_estado' || $action == 'update_estado') {
 
 	$rowid = GETPOSTINT('rowid');
 	$new_estado = trim(GETPOST('new_estado', 'alphanohtml'));
+	$pay_datepaye = trim(GETPOST('datepaye', 'alpha'));
+	$pay_paiementid = GETPOSTINT('paiementid');
+	$pay_accountid = GETPOSTINT('accountid');
+	$pay_num_payment = trim(GETPOST('num_payment', 'alphanohtml'));
 
 	$res_success = false;
 	$error_msg = '';
@@ -296,33 +536,58 @@ if ($action == 'update_factura_estado' || $action == 'update_estado') {
 				$is_draft = ($fac->statut == Facture::STATUS_DRAFT);
 				$was_paid = ($fac->statut == Facture::STATUS_CLOSED || $fac->paye == 1);
 
+				$db->begin();
+				$ok = true;
+
 				if ($is_draft) {
 					// Validar borrador para asignar número oficial definitivo
 					$res_val = $fac->validate($user);
 					if ($res_val >= 0) {
-						if ($new_estado === 'Pagada') {
-							$fac->setPaid($user);
-						}
 						// Sincronizar referencia si cambió en órdenes de reparación
 						if (!empty($old_ref) && $old_ref !== $fac->ref) {
 							$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_reparacion SET ref_factura = '" . $db->escape($fac->ref) . "' WHERE ref_factura = '" . $db->escape($old_ref) . "' AND entity IN (" . getEntity('taller_reparacion') . ")");
 						}
-						$res_success = true;
+						if ($new_estado === 'Pagada') {
+							$pay_res = tallerpro_register_invoice_payment($db, $fac, $user, $pay_paiementid, $pay_accountid, $pay_datepaye, $pay_num_payment);
+							if (empty($pay_res['success'])) {
+								$ok = false;
+								$error_msg = $pay_res['error'];
+							}
+						}
 					} else {
+						$ok = false;
 						dol_syslog("TallerPro - Error al validar factura borrador ID " . $rowid . ": " . $fac->error . " " . implode(' ', $fac->errors), LOG_ERR);
 						$error_msg = "Error al validar la factura borrador";
 					}
 				} else {
 					// Factura ya validada: cambiar entre Pendiente y Pagada
 					if ($new_estado === 'Pagada' && !$was_paid) {
-						$fac->setPaid($user);
-						$res_success = true;
+						$pay_res = tallerpro_register_invoice_payment($db, $fac, $user, $pay_paiementid, $pay_accountid, $pay_datepaye, $pay_num_payment);
+						if (empty($pay_res['success'])) {
+							$ok = false;
+							$error_msg = $pay_res['error'];
+						}
 					} elseif ($new_estado === 'Pendiente' && $was_paid) {
-						$fac->setUnpaid($user);
-						$res_success = true;
-					} else {
-						$res_success = true;
+						$paid_sum = (float) $fac->getSommePaiement();
+						$res_pf = $db->query("SELECT COUNT(rowid) as nb FROM " . MAIN_DB_PREFIX . "paiement_facture WHERE fk_facture = " . ((int) $fac->id));
+						$nb_pf = ($res_pf && ($pf_obj = $db->fetch_object($res_pf))) ? (int) $pf_obj->nb : 0;
+
+						if ($paid_sum > 0 || $nb_pf > 0) {
+							$ok = false;
+							$error_msg = "No se puede pasar a Pendiente porque esta factura tiene cobros contables registrados en Dolibarr. Anula primero el cobro desde la ficha oficial de Dolibarr.";
+						} elseif ($fac->setUnpaid($user) < 0) {
+							$ok = false;
+							$error_msg = "Error al reabrir la factura como Pendiente";
+						}
 					}
+				}
+
+				if ($ok) {
+					$db->commit();
+					$res_success = true;
+				} else {
+					$db->rollback();
+					$res_success = false;
 				}
 			}
 
@@ -411,9 +676,12 @@ if ($action == 'pdf' || $action == 'download_pdf') {
 		require_once __DIR__ . '/lib/pdf_factura.lib.php';
 		$download = GETPOSTINT('download');
 		$mode = ($download == 1) ? 'D' : 'I';
-		tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $mode);
+		if (!tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $mode)) {
+			accessforbidden('Factura no encontrada o sin acceso en esta empresa');
+		}
 		exit;
 	}
+	accessforbidden('Identificador de factura no válido');
 }
 
 // AJAX: Obtener líneas y datos completos de una factura
@@ -659,6 +927,10 @@ if ($res_v) {
 		$vehicles_list[] = $v;
 	}
 }
+
+// Consultar métodos de pago y cuentas bancarias/cajas activas de Dolibarr
+$payment_methods_list = tallerpro_get_payment_methods($db, $langs);
+$bank_accounts_list = tallerpro_get_bank_accounts($db);
 
 // Consultar catálogo de materiales con stock nativo de Dolibarr
 $wh_id_fac = tallerpro_get_default_warehouse($user);
@@ -1323,6 +1595,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 														data-id="<?php echo (int) $f->rowid; ?>"
 														data-current-estado="<?php echo $cur_estado; ?>"
 														data-ref="<?php echo dol_escape_htmltag($f->numero_factura); ?>"
+														data-total="<?php echo number_format((float) $f->total, 2, '.', ''); ?>"
 														<?php if (!$user_can_facturar) echo 'disabled'; ?>
 														title="Cambiar estado de factura">
 														<?php if ($is_borrador): ?>
@@ -1399,6 +1672,49 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 
 	<?php
 	$next_factura_numero = getNextFacturaNumero($db, date('Y-m-d'), $conf->entity);
+
+	if (!function_exists('tallerpro_render_payment_fields')) {
+		function tallerpro_render_payment_fields($id_prefix, $payment_methods_list, $bank_accounts_list, $bank_enabled) {
+			$id_prefix = preg_replace('/[^a-zA-Z0-9_]/', '', (string) $id_prefix);
+			?>
+			<div class="tallerpro-form-group">
+				<label class="tallerpro-form-label" for="<?php echo $id_prefix; ?>_datepaye">Fecha de cobro <span class="tallerpro-required">*</span></label>
+				<input type="date" name="datepaye" id="<?php echo $id_prefix; ?>_datepaye" class="tallerpro-form-input" value="<?php echo date('Y-m-d'); ?>" />
+			</div>
+			<div class="tallerpro-form-group">
+				<label class="tallerpro-form-label" for="<?php echo $id_prefix; ?>_paiementid">Modo de pago <span class="tallerpro-required">*</span></label>
+				<select name="paiementid" id="<?php echo $id_prefix; ?>_paiementid" class="tallerpro-form-select">
+					<option value="">— Selecciona modo de pago —</option>
+					<?php foreach ($payment_methods_list as $pm): ?>
+						<option value="<?php echo (int) $pm->id; ?>">
+							<?php echo dol_escape_htmltag($pm->label_display); ?>
+						</option>
+					<?php endforeach; ?>
+				</select>
+			</div>
+			<?php if ($bank_enabled): ?>
+			<div class="tallerpro-form-group">
+				<label class="tallerpro-form-label" for="<?php echo $id_prefix; ?>_accountid">Cuenta bancaria / Caja <span class="tallerpro-required">*</span></label>
+				<select name="accountid" id="<?php echo $id_prefix; ?>_accountid" class="tallerpro-form-select">
+					<option value="">— Selecciona cuenta / caja —</option>
+					<?php foreach ($bank_accounts_list as $ba): ?>
+						<option value="<?php echo (int) $ba->rowid; ?>">
+							<?php echo dol_escape_htmltag((!empty($ba->ref) ? $ba->ref . ' - ' : '') . $ba->label); ?>
+						</option>
+					<?php endforeach; ?>
+				</select>
+				<?php if (empty($bank_accounts_list)): ?>
+					<span class="tallerpro-form-help-text" style="color: #dc2626;">No hay cuentas bancarias/cajas abiertas en esta entidad. Cree una en Bancos/Cajas de Dolibarr antes de cobrar.</span>
+				<?php endif; ?>
+			</div>
+			<?php endif; ?>
+			<div class="tallerpro-form-group">
+				<label class="tallerpro-form-label" for="<?php echo $id_prefix; ?>_num_payment">Nº de operación / Referencia</label>
+				<input type="text" name="num_payment" id="<?php echo $id_prefix; ?>_num_payment" class="tallerpro-form-input" placeholder="Ej. TPV-1042, Transferencia..." maxlength="50" />
+			</div>
+			<?php
+		}
+	}
 	?>
 	<!-- Modal Nuevo Registro Facturas -->
 	<div class="tallerpro-modal-backdrop" id="tallerFacturaModal">
@@ -1478,6 +1794,12 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<option value="Pagada">Pagada</option>
 					</select>
 				</div>
+				<div id="facModalPaymentFields" style="display: none; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; flex-direction: column; gap: 12px;">
+					<div style="font-size: 12px; font-weight: 700; color: #059669; text-transform: uppercase; letter-spacing: 0.04em;">
+						Datos del cobro real (Dolibarr)
+					</div>
+					<?php tallerpro_render_payment_fields('fac', $payment_methods_list, $bank_accounts_list, $bank_enabled); ?>
+				</div>
 				<div class="tallerpro-form-group">
 					<label class="tallerpro-form-label">Notas</label>
 					<textarea name="notas" id="fac_notas" class="tallerpro-form-textarea" rows="3"></textarea>
@@ -1516,24 +1838,30 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 
 	<!-- Modal Confirmación para poner Factura en Pagada -->
 	<div class="tallerpro-modal-backdrop" id="pagadaConfirmModal" style="z-index: 1000006;">
-		<div class="tallerpro-modal-card" style="max-width: 440px; padding: 28px 24px; text-align: center;">
-			<div style="width: 52px; height: 52px; border-radius: 50%; background-color: #ecfdf5; color: #059669; display: inline-flex; align-items: center; justify-content: center; margin: 0 auto 16px auto;">
+		<div class="tallerpro-modal-card" style="max-width: 480px; padding: 26px 24px; text-align: center;">
+			<div style="width: 52px; height: 52px; border-radius: 50%; background-color: #ecfdf5; color: #059669; display: inline-flex; align-items: center; justify-content: center; margin: 0 auto 14px auto;">
 				<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 					<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
 					<polyline points="22 4 12 14.01 9 11.01"></polyline>
 				</svg>
 			</div>
 			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">¿Deseas marcar la factura como Pagada?</h3>
-			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;" id="pagadaModalDesc">
+			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 16px 0; line-height: 1.5;" id="pagadaModalDesc">
 				Se registrará el cobro completo de la factura en el sistema.
 			</p>
+
+			<div id="pagadaModalError" style="display: none; text-align: left; padding: 10px 12px; margin-bottom: 14px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; font-size: 13px; color: #b91c1c;"></div>
+
+			<div style="text-align: left; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
+				<?php tallerpro_render_payment_fields('pagada', $payment_methods_list, $bank_accounts_list, $bank_enabled); ?>
+			</div>
 
 			<div style="display: flex; gap: 12px; justify-content: center;">
 				<button type="button" id="btnCancelPagada" style="flex: 1; padding: 10px 16px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px;">
 					Rechazar
 				</button>
 				<button type="button" id="btnConfirmPagada" style="flex: 1; padding: 10px 16px; border: none; background: #059669; color: #ffffff; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(5, 150, 105, 0.25);">
-					Confirmar
+					Confirmar cobro
 				</button>
 			</div>
 		</div>
