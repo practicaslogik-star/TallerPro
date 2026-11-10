@@ -81,3 +81,4 @@ class TallerMaterial extends TallerBaseObject
 		return parent::update($user, $notrigger);
 	}
 }
+

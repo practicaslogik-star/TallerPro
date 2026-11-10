@@ -68,7 +68,7 @@ $action = GETPOST('action', 'aZ09');
 
 $societe_enabled = isModEnabled('societe');
 if (!$societe_enabled && !empty($action) && in_array($action, array('create_client', 'add_client', 'update_client', 'edit_client', 'delete_client', 'delete'))) {
-	setEventMessages("El módulo de Terceros de Dolibarr está desactivado. Actívelo en Configuración -> Módulos para gestionar clientes.", null, 'errors');
+	setEventMessages($langs->trans("ErrModuleSocieteDisabled"), null, 'errors');
 	header("Location: " . $_SERVER['PHP_SELF']);
 	exit;
 }
@@ -117,7 +117,7 @@ if ($action == 'create_client' || $action == 'add_client') {
 			header("Location: " . $_SERVER['PHP_SELF']);
 			exit;
 		} else {
-			$errmsg = !empty($soc->error) ? $soc->error : (!empty($soc->errors) ? implode(', ', $soc->errors) : 'Error al crear el cliente');
+			$errmsg = !empty($soc->error) ? $soc->error : (!empty($soc->errors) ? implode(', ', $soc->errors) : $langs->trans("ErrCreateClient"));
 			setEventMessages($errmsg, $soc->errors, 'errors');
 		}
 	}
@@ -141,7 +141,7 @@ if ($action == 'update_client' || $action == 'edit_client') {
 	$notes   = trim(GETPOST('notes', 'restricthtml'));
 
 	if ($socid <= 0) {
-		setEventMessages("ID de cliente inválido", null, 'errors');
+		setEventMessages($langs->trans("ErrInvalidClientId"), null, 'errors');
 	} elseif (empty($name)) {
 		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("Name")), null, 'errors');
 	} else {
@@ -164,11 +164,11 @@ if ($action == 'update_client' || $action == 'edit_client') {
 				header("Location: " . $_SERVER['PHP_SELF'] . ($stay_detail ? '?id=' . $socid : ''));
 				exit;
 			} else {
-				$errmsg = !empty($soc->error) ? $soc->error : (!empty($soc->errors) ? implode(', ', $soc->errors) : 'Error al actualizar el cliente');
+				$errmsg = !empty($soc->error) ? $soc->error : (!empty($soc->errors) ? implode(', ', $soc->errors) : $langs->trans("ErrUpdateClient"));
 				setEventMessages($errmsg, $soc->errors, 'errors');
 			}
 		} else {
-			setEventMessages("Cliente no encontrado", null, 'errors');
+			setEventMessages($langs->trans("ErrClientNotFound"), null, 'errors');
 		}
 	}
 }
@@ -193,7 +193,7 @@ if ($action == 'delete_client' || $action == 'delete') {
 				exit;
 			} else {
 				dol_syslog("TallerPro - Error al eliminar cliente ID " . $socid . ": " . $soc->error, LOG_ERR);
-				setEventMessages("No se pudo eliminar el cliente seleccionado", null, 'errors');
+				setEventMessages($langs->trans("ErrDeleteClient"), null, 'errors');
 			}
 		}
 	}
@@ -259,19 +259,10 @@ if (!$resql) {
 }
 $num_rows = $resql ? $db->num_rows($resql) : 0;
 
-$css_file = __DIR__ . '/css/tallerpro.css';
-$js_file = __DIR__ . '/js/tallerpro.js';
-$css_version = (file_exists($css_file) ? filemtime($css_file) : dol_now()) . '_' . dol_now();
-$js_version = (file_exists($js_file) ? filemtime($js_file) : dol_now()) . '_' . dol_now();
-
-$css_url = dol_buildpath('/taller/css/tallerpro.css', 1) . '?v=' . $css_version;
-$js_url = dol_buildpath('/taller/js/tallerpro.js', 1) . '?v=' . $js_version;
-
-$morehead = '<link rel="stylesheet" type="text/css" href="'.$css_url.'">'."\n";
-$morehead .= '<script src="'.$js_url.'"></script>'."\n";
+$morehead = tallerpro_build_morehead($langs);
 
 // Page Header
-llxHeader($morehead, 'Clientes - TallerPro', '', '', 0, 0, array(), array(), '', 'mod-taller page-tallerpro');
+llxHeader($morehead, $langs->trans("Clientes") . ' - ' . $langs->trans("TallerPro"), '', '', 0, 0, array(), array(), '', 'mod-taller page-tallerpro');
 
 
 $dolibarr_root_url = DOL_URL_ROOT . '/index.php';
@@ -421,7 +412,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 
 		<!-- Collapse Button -->
 		<div class="tallerpro-sidebar-bottom">
-			<button type="button" class="tallerpro-collapse-btn" id="tallerCollapseBtn" title="Colapsar menú">
+			<button type="button" class="tallerpro-collapse-btn" id="tallerCollapseBtn" title="<?php echo dol_escape_htmltag($langs->trans("ColapsarMenu")); ?>">
 				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
 					<polyline points="15 18 9 12 15 6"></polyline>
 				</svg>
@@ -433,7 +424,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 	<div class="tallerpro-main">
 		<!-- Top Bar -->
 		<header class="tallerpro-topbar">
-			<button type="button" class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="Alternar menú" aria-label="Alternar menú">
+			<button type="button" class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="<?php echo dol_escape_htmltag($langs->trans("AlternarMenu")); ?>" aria-label="<?php echo dol_escape_htmltag($langs->trans("AlternarMenu")); ?>">
 				<svg class="tallerpro-toggle-icon-desktop" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 					<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
 					<line x1="9" y1="3" x2="9" y2="21"></line>
@@ -478,12 +469,12 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<line x1="12" y1="17" x2="12.01" y2="17"></line>
 							</svg>
 							<div>
-								<h3 style="margin: 0 0 4px 0; font-size: 14.5px; font-weight: 600; color: #92400e;">Módulo nativo de Terceros de Dolibarr desactivado</h3>
+								<h3 style="margin: 0 0 4px 0; font-size: 14.5px; font-weight: 600; color: #92400e;"><?php echo $langs->trans("ModuleSocieteDisabledTitle"); ?></h3>
 								<p style="margin: 0 0 12px 0; font-size: 13px; color: #b45309; line-height: 1.5;">
-									TallerPro requiere el módulo oficial <strong>Terceros</strong> para gestionar fichas de clientes.
+									<?php echo $langs->trans("ModuleSocieteDisabledBody"); ?>
 								</p>
 								<a href="<?php echo DOL_URL_ROOT; ?>/admin/modules.php?mainmenu=home" class="tallerpro-btn-primary" style="display: inline-flex; text-decoration: none; padding: 7px 14px; font-size: 12.5px;">
-									Activar módulo Terceros en Dolibarr
+									<?php echo $langs->trans("ModuleSocieteDisabledBtn"); ?>
 								</a>
 							</div>
 						</div>
@@ -503,7 +494,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					$contact_parts = array();
 					if (!empty($client_detail->phone)) $contact_parts[] = $client_detail->phone;
 					if (!empty($client_detail->email)) $contact_parts[] = $client_detail->email;
-					$contact_str = !empty($contact_parts) ? implode(' · ', $contact_parts) : 'Sin contacto';
+					$contact_str = !empty($contact_parts) ? implode(' · ', $contact_parts) : $langs->trans("SinContacto");
 					?>
 
 
@@ -514,7 +505,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<line x1="19" y1="12" x2="5" y2="12"></line>
 								<polyline points="12 19 5 12 12 5"></polyline>
 							</svg>
-							<span>Volver a clientes</span>
+							<span><?php echo $langs->trans("VolverAClientes"); ?></span>
 						</a>
 
 						<!-- Tarjeta 1: Información del Cliente -->
@@ -526,7 +517,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								</div>
 								<?php if ($can_write): ?>
 								<button type="button" class="tallerpro-action-btn btn-edit-client"
-									title="Editar cliente"
+									title="<?php echo dol_escape_htmltag($langs->trans("EditarCliente")); ?>"
 									data-id="<?php echo (int) $client_detail->id; ?>"
 									data-name="<?php echo dol_escape_htmltag($client_detail->nom); ?>"
 									data-phone="<?php echo dol_escape_htmltag($client_detail->phone ?? ''); ?>"
@@ -543,11 +534,11 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							</div>
 							<div class="tallerpro-client-meta-group">
 								<div class="tallerpro-client-meta-item">
-									<span class="tallerpro-client-meta-label">DNI / CIF</span>
+									<span class="tallerpro-client-meta-label"><?php echo $langs->trans("DniCifUpper"); ?></span>
 									<span class="tallerpro-client-meta-value"><?php echo dol_escape_htmltag($cif); ?></span>
 								</div>
 								<div class="tallerpro-client-meta-item">
-									<span class="tallerpro-client-meta-label">DIRECCIÓN</span>
+									<span class="tallerpro-client-meta-label"><?php echo $langs->trans("DireccionUpper"); ?></span>
 									<span class="tallerpro-client-meta-value"><?php echo dol_escape_htmltag($address); ?></span>
 								</div>
 							</div>
@@ -563,7 +554,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<path d="M9 17h6"></path>
 										<circle cx="17" cy="17" r="2"></circle>
 									</svg>
-									<span>Vehículos del cliente</span>
+									<span><?php echo $langs->trans("VehiculosDelCliente"); ?></span>
 								</div>
 								<span class="tallerpro-badge-pill"><?php echo count($client_vehicles); ?></span>
 							</div>
@@ -572,15 +563,15 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									<?php foreach ($client_vehicles as $v): ?>
 										<?php
 										$sub_desc = array_filter(array($v->marca, $v->modelo));
-										$sub_str = !empty($sub_desc) ? implode(' · ', $sub_desc) : 'Sin marca / modelo';
+										$sub_str = !empty($sub_desc) ? implode(' · ', $sub_desc) : $langs->trans("SinMarcaModelo");
 										?>
 										<div class="tallerpro-detail-item">
 											<div class="tallerpro-detail-item-main">
 												<span class="tallerpro-detail-item-title"><?php echo dol_escape_htmltag($v->matricula); ?></span>
 												<span class="tallerpro-detail-item-sub"><?php echo dol_escape_htmltag($sub_str); ?></span>
 											</div>
-											<a href="<?php echo $vehiculos_url . '?id=' . $v->rowid; ?>" class="tallerpro-detail-item-link" title="Ver vehículo">
-												<span>Ver vehículo</span>
+											<a href="<?php echo $vehiculos_url . '?id=' . $v->rowid; ?>" class="tallerpro-detail-item-link" title="<?php echo dol_escape_htmltag($langs->trans("VerVehiculo")); ?>">
+												<span><?php echo $langs->trans("VerVehiculo"); ?></span>
 												<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 													<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
 													<polyline points="15 3 21 3 21 9"></polyline>
@@ -590,7 +581,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										</div>
 									<?php endforeach; ?>
 								<?php else: ?>
-									<div class="tallerpro-empty-message">Este cliente aún no tiene vehículos registrados.</div>
+									<div class="tallerpro-empty-message"><?php echo $langs->trans("ClientNoVehicles"); ?></div>
 								<?php endif; ?>
 							</div>
 						</div>
@@ -606,7 +597,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<line x1="16" y1="17" x2="8" y2="17"></line>
 										<line x1="10" y1="9" x2="8" y2="9"></line>
 									</svg>
-									<span>Facturas del cliente</span>
+									<span><?php echo $langs->trans("FacturasDelCliente"); ?></span>
 								</div>
 								<span class="tallerpro-badge-pill"><?php echo count($client_invoices); ?></span>
 							</div>
@@ -615,9 +606,9 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									<?php foreach ($client_invoices as $f): ?>
 										<?php
 										$is_paid = !empty($f->paye);
-										$status_label = $is_paid ? 'Pagada' : 'Pendiente';
+										$status_label = $is_paid ? $langs->trans("Pagada") : $langs->trans("Pendiente");
 										$status_class = $is_paid ? 'pagada' : 'pendiente';
-										$invoice_title = (stripos($f->ref, 'factura') === false) ? ('Factura ' . $f->ref) : $f->ref;
+										$invoice_title = (stripos($f->ref, 'factura') === false) ? (trim($langs->trans("FacturaPrefix")) . ' ' . $f->ref) : $f->ref;
 										?>
 										<div class="tallerpro-detail-item">
 											<div class="tallerpro-detail-item-main">
@@ -626,12 +617,12 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 											</div>
 											<div class="tallerpro-detail-item-end">
 												<span class="tallerpro-detail-item-price"><?php echo price($f->total_ttc, 0, $langs, 1, -1, -1, $conf->currency); ?></span>
-												<span class="tallerpro-badge-status-<?php echo $status_class; ?>"><?php echo $status_label; ?></span>
+												<span class="tallerpro-badge-status-<?php echo $status_class; ?>"><?php echo dol_escape_htmltag($status_label); ?></span>
 											</div>
 										</div>
 									<?php endforeach; ?>
 								<?php else: ?>
-									<div class="tallerpro-empty-message">Este cliente aún no tiene facturas registradas.</div>
+									<div class="tallerpro-empty-message"><?php echo $langs->trans("ClientNoInvoices"); ?></div>
 								<?php endif; ?>
 							</div>
 						</div>
@@ -643,7 +634,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<div class="tallerpro-header-actions">
 						<div class="tallerpro-content-header" style="margin-bottom: 0;">
 							<h1 class="tallerpro-page-title"><?php echo $langs->trans("Clientes"); ?></h1>
-							<p class="tallerpro-page-subtitle"><?php echo $num_rows; ?> registro(s)</p>
+							<p class="tallerpro-page-subtitle"><?php echo $langs->trans("RegistrosCount", $num_rows); ?></p>
 						</div>
 						<?php if ($can_write): ?>
 						<div>
@@ -652,7 +643,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									<line x1="12" y1="5" x2="12" y2="19"></line>
 									<line x1="5" y1="12" x2="19" y2="12"></line>
 								</svg>
-								<span>Añadir</span>
+								<span><?php echo $langs->trans("Anadir"); ?></span>
 							</button>
 						</div>
 						<?php endif; ?>
@@ -663,10 +654,10 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<table class="tallerpro-table">
 							<thead>
 								<tr>
-									<th>Nombre</th>
-									<th>Teléfono</th>
-									<th>Email</th>
-									<th>Vehículos</th>
+									<th><?php echo $langs->trans("Nombre"); ?></th>
+									<th><?php echo $langs->trans("Telefono"); ?></th>
+									<th><?php echo $langs->trans("Email"); ?></th>
+									<th><?php echo $langs->trans("Vehiculos"); ?></th>
 									<th style="width: 100px; text-align: right;"></th>
 								</tr>
 							</thead>
@@ -674,19 +665,19 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<?php if ($num_rows > 0 && $resql): ?>
 									<?php while ($obj = $db->fetch_object($resql)): ?>
 										<?php
-										$view_url = $_SERVER['PHP_SELF'] . '?id=' . $obj->rowid;
-										$edit_url = DOL_URL_ROOT . '/societe/card.php?action=edit&socid=' . $obj->rowid;
+										$view_url = dol_escape_htmltag($_SERVER['PHP_SELF']) . '?id=' . ((int) $obj->rowid);
+										$edit_url = DOL_URL_ROOT . '/societe/card.php?action=edit&socid=' . ((int) $obj->rowid);
 										?>
 										<tr>
 											<td style="font-weight: 500; color: #0f172a;">
-												<a href="<?php echo $view_url; ?>" style="font-weight: 500; color: #0f172a; text-decoration: none;" title="Ver detalles del cliente"><?php echo dol_escape_htmltag($obj->name); ?></a>
+												<a href="<?php echo $view_url; ?>" style="font-weight: 500; color: #0f172a; text-decoration: none;" title="<?php echo dol_escape_htmltag($langs->trans("VerDetallesCliente")); ?>"><?php echo dol_escape_htmltag($obj->name); ?></a>
 											</td>
 											<td><?php echo !empty($obj->phone) ? dol_escape_htmltag($obj->phone) : '<span style="color: #94a3b8;">—</span>'; ?></td>
 											<td><?php echo !empty($obj->email) ? dol_escape_htmltag($obj->email) : '<span style="color: #94a3b8;">—</span>'; ?></td>
 											<td><span class="tallerpro-badge-pill"><?php echo (int) $obj->nb_vehiculos; ?></span></td>
 											<td>
 												<div class="tallerpro-actions">
-													<a href="<?php echo $view_url; ?>" class="tallerpro-action-btn" title="Ver detalles del cliente">
+													<a href="<?php echo $view_url; ?>" class="tallerpro-action-btn" title="<?php echo dol_escape_htmltag($langs->trans("VerDetallesCliente")); ?>">
 														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 															<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
 															<polyline points="15 3 21 3 21 9"></polyline>
@@ -695,7 +686,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 													</a>
 													<?php if ($can_write): ?>
 													<button type="button" class="tallerpro-action-btn btn-edit-client"
-														title="Editar cliente"
+														title="<?php echo dol_escape_htmltag($langs->trans("EditarCliente")); ?>"
 														data-id="<?php echo (int) $obj->rowid; ?>"
 														data-name="<?php echo dol_escape_htmltag($obj->name); ?>"
 														data-phone="<?php echo dol_escape_htmltag($obj->phone ?? ''); ?>"
@@ -712,7 +703,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 													<?php if ($can_delete): ?>
 													<button type="button"
 														class="tallerpro-action-btn btn-delete-action"
-														title="Eliminar"
+														title="<?php echo dol_escape_htmltag($langs->trans("Eliminar")); ?>"
 														data-id="<?php echo (int) $obj->rowid; ?>"
 														data-action="delete_client">
 														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -728,7 +719,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<?php else: ?>
 									<tr>
 										<td colspan="5" style="text-align: center; color: #94a3b8; padding: 40px 20px;">
-											Aún no hay clientes registrados. Pulsa en <strong>Añadir</strong> para crear el primero.
+											<?php echo $langs->trans("ClientsEmptyTable"); ?>
 										</td>
 									</tr>
 								<?php endif; ?>
@@ -745,49 +736,49 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 	<div class="tallerpro-modal-backdrop" id="tallerClientModal">
 		<div class="tallerpro-modal-card" style="max-width: 520px;">
 			<div class="tallerpro-modal-header">
-				<h2 class="tallerpro-modal-title" id="tallerClientModalTitle">Nuevo registro de cliente</h2>
-				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="Cerrar">
+				<h2 class="tallerpro-modal-title" id="tallerClientModalTitle"><?php echo $langs->trans("NuevoRegistroCliente"); ?></h2>
+				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="<?php echo dol_escape_htmltag($langs->trans("Cerrar")); ?>">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<line x1="18" y1="6" x2="6" y2="18"></line>
 						<line x1="6" y1="6" x2="18" y2="18"></line>
 					</svg>
 				</button>
 			</div>
-			<form class="tallerpro-modal-form" id="tallerClientForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
+			<form class="tallerpro-modal-form" id="tallerClientForm" method="POST" action="<?php echo dol_escape_htmltag($_SERVER['PHP_SELF']); ?>">
 				<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
 				<input type="hidden" name="action" id="clientFormAction" value="create_client">
 				<input type="hidden" name="socid" id="clientFormSocid" value="0">
 				<input type="hidden" name="stay_detail" id="clientFormStayDetail" value="<?php echo $client_detail ? '1' : '0'; ?>">
 
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Nombre / Razón Social <span class="tallerpro-required">*</span></label>
-					<input type="text" name="name" id="client_name" class="tallerpro-form-input" placeholder="Ej: Talleres Mecánicos SL o Juan Pérez" required autocomplete="off" />
+					<label class="tallerpro-form-label"><?php echo $langs->trans("NombreRazonSocial"); ?> <span class="tallerpro-required">*</span></label>
+					<input type="text" name="name" id="client_name" class="tallerpro-form-input" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderClientName")); ?>" required autocomplete="off" />
 				</div>
 				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
 					<div class="tallerpro-form-group">
-						<label class="tallerpro-form-label">Teléfono</label>
-						<input type="text" name="phone" id="client_phone" class="tallerpro-form-input" placeholder="Ej: 600123456" />
+						<label class="tallerpro-form-label"><?php echo $langs->trans("Telefono"); ?></label>
+						<input type="text" name="phone" id="client_phone" class="tallerpro-form-input" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderClientPhone")); ?>" />
 					</div>
 					<div class="tallerpro-form-group">
-						<label class="tallerpro-form-label">DNI / CIF</label>
-						<input type="text" name="cif" id="client_cif" class="tallerpro-form-input" placeholder="Ej: B12345678" />
+						<label class="tallerpro-form-label"><?php echo $langs->trans("DniCifUpper"); ?></label>
+						<input type="text" name="cif" id="client_cif" class="tallerpro-form-input" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderClientCif")); ?>" />
 					</div>
 				</div>
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Email</label>
-					<input type="email" name="email" id="client_email" class="tallerpro-form-input" placeholder="ejemplo@correo.com" />
+					<label class="tallerpro-form-label"><?php echo $langs->trans("Email"); ?></label>
+					<input type="email" name="email" id="client_email" class="tallerpro-form-input" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderClientEmail")); ?>" />
 				</div>
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Dirección</label>
-					<input type="text" name="address" id="client_address" class="tallerpro-form-input" placeholder="Calle, número, ciudad..." />
+					<label class="tallerpro-form-label"><?php echo $langs->trans("Direccion"); ?></label>
+					<input type="text" name="address" id="client_address" class="tallerpro-form-input" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderClientAddress")); ?>" />
 				</div>
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Notas</label>
-					<textarea name="notes" id="client_notes" class="tallerpro-form-textarea" rows="3" placeholder="Información adicional del cliente..."></textarea>
+					<label class="tallerpro-form-label"><?php echo $langs->trans("Notas"); ?></label>
+					<textarea name="notes" id="client_notes" class="tallerpro-form-textarea" rows="3" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderClientNotes")); ?>"></textarea>
 				</div>
 				<div class="tallerpro-modal-footer">
-					<button type="button" class="tallerpro-btn-cancel" id="tallerCancelModalBtn">Cancelar</button>
-					<button type="submit" class="tallerpro-btn-save" id="btnGuardarClienteNuevo">Guardar</button>
+					<button type="button" class="tallerpro-btn-cancel" id="tallerCancelModalBtn"><?php echo $langs->trans("Cancelar"); ?></button>
+					<button type="submit" class="tallerpro-btn-save" id="btnGuardarClienteNuevo"><?php echo $langs->trans("Guardar"); ?></button>
 				</div>
 			</form>
 		</div>
@@ -804,22 +795,22 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<line x1="14" y1="11" x2="14" y2="17"></line>
 				</svg>
 			</div>
-			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">¿Estás seguro de que deseas borrar?</h3>
-			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;">Este cliente dejará de mostrarse en la lista activa, pero sus datos se conservarán en el sistema.</p>
+			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;"><?php echo $langs->trans("ConfirmDeleteTitle"); ?></h3>
+			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;"><?php echo $langs->trans("ConfirmDeleteBodyClient"); ?></p>
 
 			<div style="display: flex; gap: 12px; justify-content: center;">
 				<button type="button" id="btnCancelDelete" style="flex: 1; padding: 10px 16px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px;">
-					Rechazar
+					<?php echo $langs->trans("Rechazar"); ?>
 				</button>
 				<button type="button" id="btnConfirmDelete" style="flex: 1; padding: 10px 16px; border: none; background: #ef4444; color: #ffffff; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);">
-					Confirmar
+					<?php echo $langs->trans("Confirmar"); ?>
 				</button>
 			</div>
 		</div>
 	</div>
 
 	<!-- Formulario oculto para borrado seguro POST con CSRF Token -->
-	<form id="tallerGlobalDeleteForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: none;">
+	<form id="tallerGlobalDeleteForm" method="POST" action="<?php echo dol_escape_htmltag($_SERVER['PHP_SELF']); ?>" style="display: none;">
 		<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
 		<input type="hidden" name="action" id="globalDeleteAction" value="">
 		<input type="hidden" name="rowid" id="globalDeleteRowid" value="">

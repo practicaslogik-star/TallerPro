@@ -3,3 +3,9 @@
 dist/
 *.pdf
 
+# Local IDE and build environment files
+.vscode/
+.tx/
+modulebuilder.txt
+
+

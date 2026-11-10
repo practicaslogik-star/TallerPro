@@ -73,7 +73,7 @@ class modTaller extends DolibarrModules
 		// Author
 		$this->editor_name = 'Logi-K Soluciones Digitales';
 		$this->editor_url = 'https://logi-k.es/';		// Must be an external online web site
-		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@taller'
+		$this->editor_squarred_logo = 'tallerpro_logo.png@taller';					// Must be image filename into the module/img directory followed with @modulename.
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
 		$this->version = '1.0.0';
@@ -87,7 +87,7 @@ class modTaller extends DolibarrModules
 		// If file is in theme/yourtheme/img directory under name object_pictovalue.png, use this->picto='pictovalue'
 		// If file is in module/img directory under name object_pictovalue.png, use this->picto='pictovalue@module'
 		// To use a supported fa-xxx css style of font awesome, use this->picto='xxx'
-		$this->picto = 'fa-wrench';
+		$this->picto = 'taller@taller';
 
 		// Define some features supported by module (triggers, login, substitutions, menus, css, etc...)
 		$this->module_parts = array(
@@ -109,14 +109,9 @@ class modTaller extends DolibarrModules
 			'printing' => 0,
 			// Set this to 1 if module has its own theme directory (theme)
 			'theme' => 0,
-			// Set this to relative path of css file if module has its own css file
-			'css' => array(
-				'/taller/css/tallerpro.css',
-			),
-			// Set this to relative path of js file if module must load a js on all pages
-			'js' => array(
-				'/taller/js/tallerpro.js',
-			),
+			// CSS y JS propios cargados exclusivamente en las pantallas TallerPro (evita contaminación global del ERP)
+			'css' => array(),
+			'js' => array(),
 			// Set here all hooks context managed by module. To find available hook context, make a "grep -r '>initHooks(' *" on source code. You can also set hook context to 'all'
 			/* BEGIN MODULEBUILDER HOOKSCONTEXTS */
 			'hooks' => array(
@@ -145,8 +140,8 @@ class modTaller extends DolibarrModules
 		// Dependencies
 		// A condition to hide module
 		$this->hidden = getDolGlobalInt('MODULE_TALLER_DISABLED'); // A condition to disable module;
-		// List of module class names that must be enabled if this module is enabled. Example: array('always'=>array('modModuleToEnable1','modModuleToEnable2'), 'FR'=>array('modModuleToEnableFR')...)
-		$this->depends = array('modFacture', 'modSociete', 'modProduct', 'modStock');
+		// List of module class names that must be enabled if this module is enabled.
+		$this->depends = array('modFacture', 'modPropale', 'modSociete', 'modProduct', 'modStock');
 		// List of module class names to disable if this one is disabled. Example: array('modModuleToDisable1', ...)
 		$this->requiredby = array();
 		// List of module class names this module is in conflict with. Example: array('modModuleToDisable1', ...)
@@ -376,70 +371,9 @@ class modTaller extends DolibarrModules
 
 		// Exports profiles provided by this module
 		$r = 0;
-		/* BEGIN MODULEBUILDER EXPORT MYOBJECT */
-		/*
-		$langs->load("taller@taller");
-		$this->export_code[$r] = $this->rights_class.'_'.$r;
-		$this->export_label[$r] = 'MyObjectLines';	// Translation key (used only if key ExportDataset_xxx_z not found)
-		$this->export_icon[$r] = $this->picto;
-		// Define $this->export_fields_array, $this->export_TypeFields_array and $this->export_entities_array
-		$keyforclass = 'MyObject'; $keyforclassfile='/taller/class/myobject.class.php'; $keyforelement='myobject@taller';
-		include DOL_DOCUMENT_ROOT.'/core/commonfieldsinexport.inc.php';
-		//$this->export_fields_array[$r]['t.fieldtoadd']='FieldToAdd'; $this->export_TypeFields_array[$r]['t.fieldtoadd']='Text';
-		//unset($this->export_fields_array[$r]['t.fieldtoremove']);
-		//$keyforclass = 'MyObjectLine'; $keyforclassfile='/taller/class/myobject.class.php'; $keyforelement='myobjectline@taller'; $keyforalias='tl';
-		//include DOL_DOCUMENT_ROOT.'/core/commonfieldsinexport.inc.php';
-		$keyforselect='myobject'; $keyforaliasextra='extra'; $keyforelement='myobject@taller';
-		include DOL_DOCUMENT_ROOT.'/core/extrafieldsinexport.inc.php';
-		//$keyforselect='myobjectline'; $keyforaliasextra='extraline'; $keyforelement='myobjectline@taller';
-		//include DOL_DOCUMENT_ROOT.'/core/extrafieldsinexport.inc.php';
-		//$this->export_dependencies_array[$r] = array('myobjectline' => array('tl.rowid','tl.ref')); // To force to activate one or several fields if we select some fields that need same (like to select a unique key if we ask a field of a child to avoid the DISTINCT to discard them, or for computed field than need several other fields)
-		//$this->export_special_array[$r] = array('t.field' => '...');
-		//$this->export_examplevalues_array[$r] = array('t.field' => 'Example');
-		//$this->export_help_array[$r] = array('t.field' => 'FieldDescHelp');
-		$this->export_sql_start[$r]='SELECT DISTINCT ';
-		$this->export_sql_end[$r]  =' FROM '.$this->db->prefix().'taller_myobject as t';
-		//$this->export_sql_end[$r]  .=' LEFT JOIN '.$this->db->prefix().'taller_myobject_line as tl ON tl.fk_myobject = t.rowid';
-		$this->export_sql_end[$r] .=' WHERE 1 = 1';
-		$this->export_sql_end[$r] .=' AND t.entity IN ('.getEntity('myobject').')';
-		$r++; */
-		/* END MODULEBUILDER EXPORT MYOBJECT */
 
 		// Imports profiles provided by this module
 		$r = 0;
-		/* BEGIN MODULEBUILDER IMPORT MYOBJECT */
-		/*
-		$langs->load("taller@taller");
-		$this->import_code[$r] = $this->rights_class.'_'.$r;
-		$this->import_label[$r] = 'MyObjectLines';	// Translation key (used only if key ExportDataset_xxx_z not found)
-		$this->import_icon[$r] = $this->picto;
-		$this->import_tables_array[$r] = array('t' => $this->db->prefix().'taller_myobject', 'extra' => $this->db->prefix().'taller_myobject_extrafields');
-		$this->import_tables_creator_array[$r] = array('t' => 'fk_user_author'); // Fields to store import user id
-		$import_sample = array();
-		$keyforclass = 'MyObject'; $keyforclassfile='/taller/class/myobject.class.php'; $keyforelement='myobject@taller';
-		include DOL_DOCUMENT_ROOT.'/core/commonfieldsinimport.inc.php';
-		$import_extrafield_sample = array();
-		$keyforselect='myobject'; $keyforaliasextra='extra'; $keyforelement='myobject@taller';
-		include DOL_DOCUMENT_ROOT.'/core/extrafieldsinimport.inc.php';
-		$this->import_fieldshidden_array[$r] = array('extra.fk_object' => 'lastrowid-'.$this->db->prefix().'taller_myobject');
-		$this->import_regex_array[$r] = array();
-		$this->import_examplevalues_array[$r] = array_merge($import_sample, $import_extrafield_sample);
-		$this->import_updatekeys_array[$r] = array('t.ref' => 'Ref');
-		$this->import_convertvalue_array[$r] = array(
-			't.ref' => array(
-				'rule'=>'getrefifauto',
-				'class'=>(!getDolGlobalString('TALLER_MYOBJECT_ADDON') ? 'mod_myobject_standard' : getDolGlobalString('TALLER_MYOBJECT_ADDON')),
-				'path'=>"/core/modules/taller/".(!getDolGlobalString('TALLER_MYOBJECT_ADDON') ? 'mod_myobject_standard' : getDolGlobalString('TALLER_MYOBJECT_ADDON')).'.php',
-				'classobject'=>'MyObject',
-				'pathobject'=>'/taller/class/myobject.class.php',
-			),
-			't.fk_soc' => array('rule' => 'fetchidfromref', 'file' => '/societe/class/societe.class.php', 'class' => 'Societe', 'method' => 'fetch', 'element' => 'ThirdParty'),
-			't.fk_user_valid' => array('rule' => 'fetchidfromref', 'file' => '/user/class/user.class.php', 'class' => 'User', 'method' => 'fetch', 'element' => 'user'),
-			't.fk_mode_reglement' => array('rule' => 'fetchidfromcodeorlabel', 'file' => '/compta/paiement/class/cpaiement.class.php', 'class' => 'Cpaiement', 'method' => 'fetch', 'element' => 'cpayment'),
-		);
-		$this->import_run_sql_after_array[$r] = array();
-		$r++; */
-		/* END MODULEBUILDER IMPORT MYOBJECT */
 	}
 
 	/**
@@ -452,59 +386,29 @@ class modTaller extends DolibarrModules
 	 */
 	public function init($options = '')
 	{
-		global $conf, $langs;
+		global $conf, $langs, $user;
 
 		// Create tables of module at module activation
-		//$result = $this->_load_tables('/install/mysql/', 'taller');
 		$result = $this->_load_tables('/taller/sql/');
 		if ($result < 0) {
-			return -1; // Do not activate module if error 'not allowed' returned when loading module SQL queries (the _load_table run sql with run_sql with the error allowed parameter set to 'default')
+			return -1; // Do not activate module if error 'not allowed' returned when loading module SQL queries
 		}
 
-		// Create extrafields during init
-		include_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
-		$extrafields = new ExtraFields($this->db);
-		$extrafields->addExtraField('fk_vehiculo', "Vehículo Taller", 'link', 1, '', 'facture', 0, 0, '', array('options'=>array('taller_vehiculo:matricula:rowid::status=1')), 1, '', -1, 0, '', '', 'taller@taller', 'isModEnabled("taller")');
-		$extrafields->addExtraField('fk_reparacion', "Reparación Taller", 'int', 2, '10', 'facture', 0, 0, '', '', 1, '', -1, 0, '', '', 'taller@taller', 'isModEnabled("taller")');
-		$extrafields->addExtraField('tipo_doc', "Tipo de Documento", 'varchar', 3, '32', 'facture', 0, 0, '', '', 1, '', -1, 0, '', '', 'taller@taller', 'isModEnabled("taller")');
+		// Create or repair extrafields during init (facture y propal)
+		require_once dirname(dirname(__DIR__)).'/lib/taller.lib.php';
+		tallerpro_ensure_module_extrafields($this->db);
 
 		// Permissions
 		$this->remove($options);
 
 		$sql = array();
 
-		// Document templates
-		$moduledir = dol_sanitizeFileName('taller');
-		$myTmpObjects = array();
-		$myTmpObjects['MyObject'] = array('includerefgeneration' => 0, 'includedocgeneration' => 0);
-
-		foreach ($myTmpObjects as $myTmpObjectKey => $myTmpObjectArray) {
-			if ($myTmpObjectArray['includerefgeneration']) {
-				$src = DOL_DOCUMENT_ROOT.'/install/doctemplates/'.$moduledir.'/template_myobjects.odt';
-				$dirodt = DOL_DATA_ROOT.($conf->entity > 1 ? '/'.$conf->entity : '').'/doctemplates/'.$moduledir;
-				$dest = $dirodt.'/template_myobjects.odt';
-
-				if (file_exists($src) && !file_exists($dest)) {
-					require_once DOL_DOCUMENT_ROOT.'/core/lib/files.lib.php';
-					dol_mkdir($dirodt);
-					$result = dol_copy($src, $dest, '0', 0);
-					if ($result < 0) {
-						$langs->load("errors");
-						$this->error = $langs->trans('ErrorFailToCopyFile', $src, $dest);
-						return 0;
-					}
-				}
-
-				$sql = array_merge($sql, array(
-					"DELETE FROM ".$this->db->prefix()."document_model WHERE nom = 'standard_".strtolower($myTmpObjectKey)."' AND type = '".$this->db->escape(strtolower($myTmpObjectKey))."' AND entity = ".((int) $conf->entity),
-					"INSERT INTO ".$this->db->prefix()."document_model (nom, type, entity) VALUES('standard_".strtolower($myTmpObjectKey)."', '".$this->db->escape(strtolower($myTmpObjectKey))."', ".((int) $conf->entity).")",
-					"DELETE FROM ".$this->db->prefix()."document_model WHERE nom = 'generic_".strtolower($myTmpObjectKey)."_odt' AND type = '".$this->db->escape(strtolower($myTmpObjectKey))."' AND entity = ".((int) $conf->entity),
-					"INSERT INTO ".$this->db->prefix()."document_model (nom, type, entity) VALUES('generic_".strtolower($myTmpObjectKey)."_odt', '".$this->db->escape(strtolower($myTmpObjectKey))."', ".((int) $conf->entity).")"
-				));
-			}
+		$res_init = $this->_init($sql, $options);
+		if ($res_init > 0) {
+			// Migrar presupuestos antiguos guardados como Facture borrador a Propal nativo
+			tallerpro_migrate_legacy_presupuestos_to_propal($this->db, $user);
 		}
-
-		return $this->_init($sql, $options);
+		return $res_init;
 	}
 
 	/**

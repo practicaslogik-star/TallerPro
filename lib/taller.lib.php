@@ -30,10 +30,6 @@ function tallerAdminPrepareHead()
 {
 	global $langs, $conf;
 
-	// global $db;
-	// $extrafields = new ExtraFields($db);
-	// $extrafields->fetch_name_optionals_label('myobject');
-
 	$langs->load("taller@taller");
 
 	$h = 0;
@@ -44,39 +40,11 @@ function tallerAdminPrepareHead()
 	$head[$h][2] = 'settings';
 	$h++;
 
-	/*
-	$head[$h][0] = dol_buildpath("/taller/admin/myobject_extrafields.php", 1);
-	$head[$h][1] = $langs->trans("ExtraFields");
-	$nbExtrafields = (isset($extrafields->attributes['myobject']['label']) && is_countable($extrafields->attributes['myobject']['label'])) ? count($extrafields->attributes['myobject']['label']) : 0;
-	if ($nbExtrafields > 0) {
-		$head[$h][1] .= '<span class="badge marginleftonlyshort">' . $nbExtrafields . '</span>';
-	}
-	$head[$h][2] = 'myobject_extrafields';
-	$h++;
-
-	$head[$h][0] = dol_buildpath("/taller/admin/myobjectline_extrafields.php", 1);
-	$head[$h][1] = $langs->trans("ExtraFieldsLines");
-	$nbExtrafields = (isset($extrafields->attributes['myobjectline']['label']) && is_countable($extrafields->attributes['myobjectline']['label'])) ? count($extrafields->attributes['myobject']['label']) : 0;
-	if ($nbExtrafields > 0) {
-		$head[$h][1] .= '<span class="badge marginleftonlyshort">' . $nbExtrafields . '</span>';
-	}
-	$head[$h][2] = 'myobject_extrafieldsline';
-	$h++;
-	*/
-
 	$head[$h][0] = dol_buildpath("/taller/admin/about.php", 1);
 	$head[$h][1] = $langs->trans("About");
 	$head[$h][2] = 'about';
 	$h++;
 
-	// Show more tabs from modules
-	// Entries must be declared in modules descriptor with line
-	//$this->tabs = array(
-	//	'entity:+tabname:Title:@taller:/taller/mypage.php?id=__ID__'
-	//); // to add new tab
-	//$this->tabs = array(
-	//	'entity:-tabname:Title:@taller:/taller/mypage.php?id=__ID__'
-	//); // to remove a tab
 	complete_head_from_modules($conf, $langs, null, $head, $h, 'taller@taller');
 
 	complete_head_from_modules($conf, $langs, null, $head, $h, 'taller@taller', 'remove');
@@ -335,3 +303,419 @@ function tallerpro_validate_uploaded_file($tmp_path, $ext)
 		'error' => ''
 	);
 }
+
+/**
+ * Limpia metadatos técnicos JSON o prefijos heredados del campo de notas de documentos.
+ *
+ * @param string $notas_str Texto bruto de notas
+ * @return string
+ */
+function tallerpro_clean_notas($notas_str)
+{
+	$notas_raw = trim((string) $notas_str);
+	if (empty($notas_raw)) {
+		return '';
+	}
+	if (strpos($notas_raw, '{') !== false && strpos($notas_raw, '}') !== false) {
+		if ($notas_raw[0] === '{') {
+			$dec = json_decode($notas_raw, true);
+			return !empty($dec['notas_usuario']) ? trim($dec['notas_usuario']) : (!empty($dec['notas']) && is_string($dec['notas']) ? trim($dec['notas']) : '');
+		}
+		$clean = preg_replace('/\{.*?\}$/s', '', $notas_raw);
+		if (preg_match('/^Factura de reparaci[oó]n\s+OT\s*#\d+/i', trim($clean))) {
+			$clean = preg_replace('/^Factura de reparaci[oó]n\s+OT\s*#\d+[^\n]*\n?/i', '', trim($clean));
+		}
+		return trim($clean);
+	} elseif (preg_match('/^Factura de reparaci[oó]n\s+OT\s*#\d+/i', $notas_raw)) {
+		$clean = preg_replace('/^Factura de reparaci[oó]n\s+OT\s*#\d+[^\n]*\n?/i', '', $notas_raw);
+		return trim($clean);
+	}
+	return $notas_raw;
+}
+
+/**
+ * Crea o actualiza de forma idempotente un extrafield del módulo si falta o difiere su configuración.
+ *
+ * @param ExtraFields         $extrafields Instancia de ExtraFields
+ * @param string              $attrname    Código del campo extra
+ * @param string              $label       Etiqueta visible
+ * @param string              $type        Tipo de campo Dolibarr ('link', 'int', 'varchar', etc.)
+ * @param int                 $pos         Posición
+ * @param string              $size        Tamaño/longitud
+ * @param string              $elementtype Objeto destino ('facture' o 'propal')
+ * @param array|string        $param       Parámetros (con claves asociativas válidas para Dolibarr)
+ * @return void
+ */
+function tallerpro_sync_extrafield($extrafields, $attrname, $label, $type, $pos, $size, $elementtype, $param = '')
+{
+	$extrafields->fetch_name_optionals_label($elementtype);
+
+	if (empty($extrafields->attributes[$elementtype]['label'][$attrname])) {
+		$extrafields->addExtraField($attrname, $label, $type, $pos, $size, $elementtype, 0, 0, '', $param, 1, '', -1, 0, '', '', 'taller@taller', 'isModEnabled("taller")');
+		return;
+	}
+
+	$cur_type = $extrafields->attributes[$elementtype]['type'][$attrname] ?? '';
+	$cur_param = $extrafields->attributes[$elementtype]['param'][$attrname] ?? array();
+	$expected_keys = (is_array($param) && !empty($param['options']) && is_array($param['options'])) ? array_keys($param['options']) : array();
+	$cur_keys = (is_array($cur_param) && !empty($cur_param['options']) && is_array($cur_param['options'])) ? array_keys($cur_param['options']) : array();
+
+	if ($cur_type !== $type || ($expected_keys !== $cur_keys)) {
+		$extrafields->updateExtraField($attrname, $label, $type, $pos, $size, $elementtype, 0, 0, '', $param, 1, '', -1, 0, '', '', 'taller@taller', 'isModEnabled("taller")');
+	}
+}
+
+/**
+ * Registra o repara de forma idempotente los extrafields del módulo Taller en facturas y presupuestos (Propal).
+ * Debe invocarse desde modTaller::init().
+ *
+ * @param DoliDB $db Manejador de base de datos
+ * @return void
+ */
+function tallerpro_ensure_module_extrafields($db)
+{
+	include_once DOL_DOCUMENT_ROOT . '/core/class/extrafields.class.php';
+	$extrafields = new ExtraFields($db);
+	$vehiculo_link_param = array('options' => array('TallerVehiculo:/taller/class/taller_vehiculo.class.php:0:(t.status:=:1)' => null));
+
+	// Facturas (facture)
+	tallerpro_sync_extrafield($extrafields, 'fk_vehiculo', "Vehículo Taller", 'link', 1, '', 'facture', $vehiculo_link_param);
+	tallerpro_sync_extrafield($extrafields, 'fk_reparacion', "Reparación Taller", 'int', 2, '10', 'facture', '');
+	tallerpro_sync_extrafield($extrafields, 'tipo_doc', "Tipo de Documento", 'varchar', 3, '32', 'facture', '');
+
+	// Presupuestos (propal)
+	tallerpro_sync_extrafield($extrafields, 'fk_vehiculo', "Vehículo Taller", 'link', 1, '', 'propal', $vehiculo_link_param);
+	tallerpro_sync_extrafield($extrafields, 'fk_reparacion', "Reparación Taller", 'int', 2, '10', 'propal', '');
+}
+
+/**
+ * Registra o repara de forma idempotente los extrafields del módulo Taller en presupuestos nativos (Propal).
+ *
+ * @param DoliDB $db Manejador de base de datos
+ * @return void
+ */
+function tallerpro_ensure_propal_extrafields($db)
+{
+	tallerpro_ensure_module_extrafields($db);
+}
+
+/**
+ * Migra de forma idempotente los antiguos presupuestos guardados como Facture borrador
+ * (extrafields.tipo_doc = 'presupuesto') hacia el objeto nativo Propal de Dolibarr.
+ *
+ * @param DoliDB    $db    Manejador de base de datos
+ * @param User|null $user  Usuario que ejecuta la operación (fallback a admin si no disponible)
+ * @param bool      $force Si es true fuerza la comprobación aunque TALLER_PROPAL_MIGRATED esté en 1
+ * @return int Número de presupuestos migrados o -1 en caso de error
+ */
+function tallerpro_migrate_legacy_presupuestos_to_propal($db, $user = null, $force = false)
+{
+	global $conf;
+
+	if (!$force && getDolGlobalInt('TALLER_PROPAL_MIGRATED') === 1) {
+		return 0;
+	}
+
+	tallerpro_ensure_propal_extrafields($db);
+
+	require_once DOL_DOCUMENT_ROOT . '/core/lib/admin.lib.php';
+	require_once DOL_DOCUMENT_ROOT . '/compta/facture/class/facture.class.php';
+	require_once DOL_DOCUMENT_ROOT . '/comm/propal/class/propal.class.php';
+	require_once DOL_DOCUMENT_ROOT . '/user/class/user.class.php';
+
+	$mig_user = $user;
+	if (!($mig_user instanceof User) || $mig_user->id <= 0) {
+		$mig_user = new User($db);
+		if ($mig_user->fetch(1) <= 0) {
+			return -1;
+		}
+	}
+
+	$sql = "SELECT f.rowid, f.ref, f.entity ";
+	$sql .= "FROM " . MAIN_DB_PREFIX . "facture as f ";
+	$sql .= "INNER JOIN " . MAIN_DB_PREFIX . "facture_extrafields as fe ON fe.fk_object = f.rowid ";
+	$sql .= "WHERE fe.tipo_doc = 'presupuesto' AND f.fk_statut = 0 AND f.entity IN (" . getEntity('facture') . ") ";
+	$sql .= "ORDER BY f.rowid ASC";
+
+	$res = $db->query($sql);
+	if (!$res) {
+		dol_syslog("TallerPro - Error consultando presupuestos legacy para migrar a Propal: " . $db->lasterror(), LOG_ERR);
+		return -1;
+	}
+
+	$migrated_count = 0;
+	$had_error = false;
+
+	while ($obj = $db->fetch_object($res)) {
+		$fac = new Facture($db);
+		if ($fac->fetch((int) $obj->rowid) <= 0) {
+			continue;
+		}
+		$fac->fetch_lines();
+		$fac->fetch_optionals();
+
+		$old_ref = trim((string) $fac->ref);
+		$fk_vehiculo = !empty($fac->array_options['options_fk_vehiculo']) ? (int) $fac->array_options['options_fk_vehiculo'] : 0;
+		$fk_reparacion = !empty($fac->array_options['options_fk_reparacion']) ? (int) $fac->array_options['options_fk_reparacion'] : 0;
+
+		// Evitar duplicados si ya se migró anteriormente este registro
+		$sql_dup = "SELECT p.rowid FROM " . MAIN_DB_PREFIX . "propal as p ";
+		$sql_dup .= "LEFT JOIN " . MAIN_DB_PREFIX . "propal_extrafields as pe ON pe.fk_object = p.rowid ";
+		$sql_dup .= "WHERE p.entity = " . ((int) $fac->entity) . " AND (p.ref_ext = 'LEGACY_FAC_" . ((int) $fac->id) . "'";
+		if (!empty($old_ref)) {
+			$sql_dup .= " OR p.ref = '" . $db->escape($old_ref) . "'";
+		}
+		if ($fk_reparacion > 0) {
+			$sql_dup .= " OR pe.fk_reparacion = " . $fk_reparacion;
+		}
+		$sql_dup .= ") LIMIT 1";
+
+		$res_dup = $db->query($sql_dup);
+		$existing_propal_id = ($res_dup && ($dup_obj = $db->fetch_object($res_dup))) ? (int) $dup_obj->rowid : 0;
+
+		$db->begin();
+		$ok = true;
+
+		if ($existing_propal_id <= 0) {
+			$propal = new Propal($db);
+			$propal->socid = (int) $fac->socid;
+			$propal->date = !empty($fac->date) ? $fac->date : dol_now();
+			$propal->datep = $propal->date;
+			$propal->duree_validite = 30;
+			$propal->note_public = (string) $fac->note_public;
+			$propal->note_private = (string) $fac->note_private;
+			$propal->ref_ext = 'LEGACY_FAC_' . (int) $fac->id;
+			$propal->entity = (int) $fac->entity;
+			$propal->array_options['options_fk_vehiculo'] = ($fk_vehiculo > 0 ? $fk_vehiculo : null);
+			$propal->array_options['options_fk_reparacion'] = ($fk_reparacion > 0 ? $fk_reparacion : null);
+
+			$propal_id = $propal->create($mig_user);
+			if ($propal_id <= 0) {
+				$ok = false;
+				dol_syslog("TallerPro - Error creando Propal desde factura legacy ID " . $fac->id . ": " . $propal->error, LOG_ERR);
+			} else {
+				$propal->insertExtraFields();
+				$target_ref = !empty($old_ref) ? $old_ref : ('PRE' . date('ym', (int) $propal->date) . '-' . str_pad($propal_id, 4, '0', STR_PAD_LEFT));
+				if (Propal::isExistingObject('propal', 0, $target_ref) > 0) {
+					$target_ref = 'PRE' . date('ym', (int) $propal->date) . '-' . str_pad($propal_id, 4, '0', STR_PAD_LEFT);
+				}
+				if ($propal->setValueFrom('ref', $target_ref, '', '', 'text', '', $mig_user) < 0) {
+					$ok = false;
+				}
+
+				if ($ok && !empty($fac->lines)) {
+					foreach ($fac->lines as $l) {
+						$l_fk_prod = (int) $l->fk_product;
+						if ($l_fk_prod > 0) {
+							$res_pchk = $db->query("SELECT rowid FROM " . MAIN_DB_PREFIX . "product WHERE rowid = " . $l_fk_prod . " LIMIT 1");
+							if (!$res_pchk || $db->num_rows($res_pchk) <= 0) {
+								$l_fk_prod = 0;
+							}
+						}
+						$l_desc = !empty($l->desc) ? $l->desc : (!empty($l->description) ? $l->description : (!empty($l->label) ? $l->label : 'Concepto'));
+						$l_label = !empty($l->ref_ext) ? $l->ref_ext : (!empty($l->label) ? $l->label : '');
+						$res_l = $propal->addline(
+							$l_desc,
+							(float) $l->subprice,
+							(float) $l->qty,
+							(float) $l->tva_tx,
+							(float) $l->localtax1_tx,
+							(float) $l->localtax2_tx,
+							$l_fk_prod,
+							(float) $l->remise_percent,
+							'HT',
+							0,
+							(int) $l->info_bits,
+							(int) $l->product_type,
+							(int) $l->rang,
+							(int) $l->special_code,
+							0,
+							0,
+							(float) $l->pa_ht,
+							$l_label
+						);
+						if ($res_l < 0) {
+							$ok = false;
+							dol_syslog("TallerPro - Error copiando línea a Propal ID " . $propal_id . ": " . $propal->error, LOG_ERR);
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		if ($ok) {
+			// Restaurar referencia provisional (PROV...) si el borrador legacy tenía prefijo PRE...
+			// para que CommonInvoice::is_erasable() autorice el borrado estándar sin devolver -2.
+			if ((int) $fac->statut === Facture::STATUS_DRAFT && substr((string) $fac->ref, 1, 4) !== 'PROV') {
+				$prov_ref = '(PROV' . ((int) $fac->id) . ')';
+				if ($fac->setValueFrom('ref', $prov_ref, '', '', 'text', '', $mig_user) < 0) {
+					$ok = false;
+					dol_syslog("TallerPro - Error restaurando referencia provisional en factura legacy ID " . $fac->id . ": " . $fac->error, LOG_ERR);
+				} else {
+					$fac->ref = $prov_ref;
+				}
+			}
+		}
+
+		if ($ok) {
+			$res_del = $fac->delete($mig_user, 1);
+			if ($res_del <= 0) {
+				$ok = false;
+				dol_syslog("TallerPro - Error eliminando factura borrador legacy ID " . $fac->id . " tras migrar a Propal: " . $fac->error, LOG_ERR);
+			}
+		}
+
+		if ($ok) {
+			$db->commit();
+			$migrated_count++;
+		} else {
+			$db->rollback();
+			$had_error = true;
+		}
+	}
+
+	if (!$had_error) {
+		dolibarr_set_const($db, 'TALLER_PROPAL_MIGRATED', 1, 'chaine', 0, '', $conf->entity);
+	}
+
+	return $had_error ? -1 : $migrated_count;
+}
+
+/**
+ * Devuelve el diccionario de traducciones consumido por js/tallerpro.js.
+ *
+ * @param Translate $langs Objeto de traducciones activo
+ * @return array<string,string>
+ */
+function tallerpro_get_js_i18n($langs)
+{
+	$keys = array(
+		'CloseMenu',
+		'Eliminar',
+		'Editar',
+		'Ver',
+		'PDF',
+		'NuevoRegistro',
+		'EditarRegistro',
+		'NuevoRegistroCliente',
+		'EditarCliente',
+		'SelectOption',
+		'ErrTotalPositiveForPayment',
+		'ErrSelectPaymentMethod',
+		'ErrSelectBankAccount',
+		'EditarPresupuesto',
+		'EditarFactura',
+		'EditQuoteNoticeTitle',
+		'EditQuoteNoticeDesc',
+		'EditInvoiceNoticeTitle',
+		'EditInvoiceNoticeDesc',
+		'ToastRepairSaved',
+		'ToastRepairDeleted',
+		'ToastRepairStatusUpdated',
+		'OrdenDeReparacion',
+		'NuevaOrdenReparacion',
+		'EditarOrdenReparacion',
+		'ErrNoDeleteRepairPerm',
+		'ConfirmInvoiceRepair',
+		'OrdersRegisteredSuffix',
+		'StateUpdatedTo',
+		'Finalizada',
+		'EnCurso',
+		'ErrNoUpdateStatusPerm',
+		'ErrPaidToDraftForbidden',
+		'ErrInvoiceTotalPositive',
+		'ValidateDraftDescPrefix',
+		'ValidateDraftDescSuffix',
+		'MarkPendingDescPrefix',
+		'MarkPendingDescSuffix',
+		'MarkPaidDraftDescPrefix',
+		'MarkPaidDraftDescMid',
+		'MarkPaidDescPrefix',
+		'MarkPaidDescMid',
+		'MarkPaidDescSuffix',
+		'ErrSpecifyPaymentDate',
+		'OnlyDraftCanEdit',
+		'OnlyDraftCanDelete',
+		'InvoiceStatusUpdatedTo',
+		'ErrUpdateInvoiceStatus',
+		'ErrConnectionUpdateStatus',
+		'StockOutWarehouse',
+		'StockRequestedExceeds',
+		'StockLowInWarehouse',
+		'StockAvailableInWarehouse',
+		'ColCodigo',
+		'ColDescripcion',
+		'ColCantShort',
+		'ColPrecioUnit',
+		'ColDtoShort',
+		'ColTotal',
+		'DeleteMaterialTitle',
+		'ColDescIntervencion',
+		'ColPrecio',
+		'DeleteLaborTitle',
+		'IVA',
+		'ErrIndicateMaterialDesc',
+		'ConfirmOutOfStockMaterial',
+		'ConfirmOverStockMaterial',
+		'ErrIndicateLaborDesc',
+		'CrearAlbaran',
+		'VerAlbaran',
+		'ViewLinkedQuoteTitle',
+		'CreateLinkedQuoteTitle',
+		'InvoicedPrefix',
+		'DefaultLaborDesc',
+		'ErrSelectVehicleForRepair',
+		'ErrIndicateFaultOrWork',
+		'SearchNoMatches',
+		'Vehiculos',
+		'Clientes',
+		'Materiales',
+		'Facturas',
+		'IbanStatusEnabled',
+		'IbanStatusDisabled',
+		'EditLabelPrefix',
+		'TypeOtro',
+		'EmitirFacturaTitle',
+		'Facturar',
+		'Borrador',
+		'Pendiente',
+		'Pagada',
+	);
+
+	$dict = array();
+	foreach ($keys as $k) {
+		$dict[$k] = $langs->transnoentitiesnoconv($k);
+	}
+	return $dict;
+}
+
+/**
+ * Genera el bloque HTML <head> estándar de las vistas TallerPro (CSS + JS + diccionario i18n).
+ *
+ * @param Translate $langs        Objeto de traducciones activo
+ * @param bool      $include_i18n Si es true inserta window.TALLERPRO_I18N antes del JS
+ * @return string
+ */
+function tallerpro_build_morehead($langs, $include_i18n = true)
+{
+	$root_dir = dirname(__DIR__);
+	$css_file = $root_dir . '/css/tallerpro.css';
+	$js_file = $root_dir . '/js/tallerpro.js';
+
+	$css_version = file_exists($css_file) ? filemtime($css_file) : dol_now();
+	$js_version = file_exists($js_file) ? filemtime($js_file) : dol_now();
+
+	$css_url = dol_buildpath('/taller/css/tallerpro.css', 1) . '?v=' . $css_version;
+	$js_url = dol_buildpath('/taller/js/tallerpro.js', 1) . '?v=' . $js_version;
+
+	$morehead = '<link rel="stylesheet" type="text/css" href="' . $css_url . '">' . "\n";
+	if ($include_i18n && $langs) {
+		$i18n_json = json_encode(tallerpro_get_js_i18n($langs), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+		$morehead .= '<script>window.TALLERPRO_I18N = ' . $i18n_json . ';</script>' . "\n";
+	}
+	$morehead .= '<script src="' . $js_url . '"></script>' . "\n";
+
+	return $morehead;
+}
+

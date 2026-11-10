@@ -87,7 +87,7 @@ if ($action == 'create_material' || $action == 'add_material') {
 	$notas     = trim(GETPOST('notas', 'restricthtml'));
 
 	if (empty($nombre)) {
-		setEventMessages($langs->trans("ErrorFieldRequired", "Nombre"), null, 'errors');
+		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("FieldNombre")), null, 'errors');
 	} else {
 		$db->begin();
 		$ok = true;
@@ -135,7 +135,7 @@ if ($action == 'create_material' || $action == 'add_material') {
 		} else {
 			$db->rollback();
 			dol_syslog("TallerPro - Error al guardar material: " . $mat_obj->error . " " . $db->lasterror(), LOG_ERR);
-			setEventMessages("Error al guardar el material", null, 'errors');
+			setEventMessages($langs->trans("ErrSaveMaterial"), null, 'errors');
 		}
 	}
 }
@@ -154,9 +154,9 @@ if ($action == 'update_material' || $action == 'edit_material') {
 	$notas     = trim(GETPOST('notas', 'restricthtml'));
 
 	if (empty($nombre)) {
-		setEventMessages($langs->trans("ErrorFieldRequired", "Nombre"), null, 'errors');
+		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("FieldNombre")), null, 'errors');
 	} elseif ($rowid <= 0) {
-		setEventMessages("Identificador de material no válido", null, 'errors');
+		setEventMessages($langs->trans("ErrInvalidMaterialId"), null, 'errors');
 	} else {
 		$db->begin();
 		$ok = true;
@@ -238,7 +238,7 @@ if ($action == 'update_material' || $action == 'edit_material') {
 		} else {
 			$db->rollback();
 			dol_syslog("TallerPro - Error al actualizar material ID " . $rowid . ": " . $mat_obj->error . " " . $db->lasterror(), LOG_ERR);
-			setEventMessages("Error al actualizar el material", null, 'errors');
+			setEventMessages($langs->trans("ErrUpdateMaterial"), null, 'errors');
 		}
 	}
 }
@@ -260,7 +260,7 @@ if ($action == 'delete_material' || $action == 'delete') {
 		} else {
 			$db->rollback();
 			dol_syslog("TallerPro - Error al eliminar material ID " . $rowid . ": " . $mat_obj->error, LOG_ERR);
-			setEventMessages("Error al eliminar el material", null, 'errors');
+			setEventMessages($langs->trans("ErrDeleteMaterial"), null, 'errors');
 		}
 	}
 }
@@ -294,19 +294,10 @@ if ($res_m) {
 }
 $total_materials = count($materials_list);
 
-$css_file = __DIR__ . '/css/tallerpro.css';
-$js_file = __DIR__ . '/js/tallerpro.js';
-$css_version = file_exists($css_file) ? filemtime($css_file) : dol_now();
-$js_version = file_exists($js_file) ? filemtime($js_file) : dol_now();
-
-$css_url = dol_buildpath('/taller/css/tallerpro.css', 1) . '?v=' . $css_version;
-$js_url = dol_buildpath('/taller/js/tallerpro.js', 1) . '?v=' . $js_version;
-
-$morehead = '<link rel="stylesheet" type="text/css" href="'.$css_url.'">'."\n";
-$morehead .= '<script src="'.$js_url.'"></script>'."\n";
+$morehead = tallerpro_build_morehead($langs);
 
 // Page Header
-llxHeader($morehead, 'Materiales - TallerPro', '', '', 0, 0, array(), array(), '', 'mod-taller page-tallerpro');
+llxHeader($morehead, $langs->trans("Materiales") . ' - ' . $langs->trans("TallerPro"), '', '', 0, 0, array(), array(), '', 'mod-taller page-tallerpro');
 
 $dolibarr_root_url = DOL_URL_ROOT . '/index.php';
 $setup_url = dol_buildpath('/taller/configuracion.php', 1);
@@ -455,7 +446,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 
 		<!-- Collapse Button -->
 		<div class="tallerpro-sidebar-bottom">
-			<button type="button" class="tallerpro-collapse-btn" id="tallerCollapseBtn" title="Colapsar menú">
+			<button type="button" class="tallerpro-collapse-btn" id="tallerCollapseBtn" title="<?php echo dol_escape_htmltag($langs->trans("ColapsarMenu")); ?>">
 				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
 					<polyline points="15 18 9 12 15 6"></polyline>
 				</svg>
@@ -467,7 +458,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 	<div class="tallerpro-main">
 		<!-- Top Bar -->
 		<header class="tallerpro-topbar">
-			<button type="button" class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="Alternar menú" aria-label="Alternar menú">
+			<button type="button" class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="<?php echo dol_escape_htmltag($langs->trans("AlternarMenu")); ?>" aria-label="<?php echo dol_escape_htmltag($langs->trans("AlternarMenu")); ?>">
 				<svg class="tallerpro-toggle-icon-desktop" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 					<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
 					<line x1="9" y1="3" x2="9" y2="21"></line>
@@ -497,14 +488,14 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<div class="tallerpro-content-header" style="margin-bottom: 0;">
 						<h1 class="tallerpro-page-title"><?php echo $langs->trans("Materiales"); ?></h1>
 						<div style="display: flex; align-items: center; gap: 10px; margin-top: 4px; flex-wrap: wrap;">
-							<p class="tallerpro-page-subtitle" style="margin: 0;"><?php echo $total_materials; ?> registro(s)</p>
-							<span class="tallerpro-warehouse-pill" title="Módulo nativo de Existencias de Dolibarr activado">
+							<p class="tallerpro-page-subtitle" style="margin: 0;"><?php echo $langs->trans("RegistrosCount", $total_materials); ?></p>
+							<span class="tallerpro-warehouse-pill" title="<?php echo dol_escape_htmltag($langs->trans("WarehouseActiveTooltip")); ?>">
 								<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
 									<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
 									<polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
 									<line x1="12" y1="22.08" x2="12" y2="12"></line>
 								</svg>
-								Almacén: Almacén Principal Taller (ALM-TALLER)
+								<?php echo $langs->trans("WarehousePillLabel"); ?>
 							</span>
 						</div>
 					</div>
@@ -515,7 +506,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<line x1="12" y1="5" x2="12" y2="19"></line>
 								<line x1="5" y1="12" x2="19" y2="12"></line>
 							</svg>
-							<span>Añadir</span>
+							<span><?php echo $langs->trans("Anadir"); ?></span>
 						</button>
 					</div>
 					<?php endif; ?>
@@ -526,11 +517,11 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<table class="tallerpro-table">
 						<thead>
 							<tr>
-								<th>Nombre</th>
-								<th>Referencia</th>
-								<th>Proveedor</th>
-								<th>Stock</th>
-								<th>Precio/ud.</th>
+								<th><?php echo $langs->trans("Nombre"); ?></th>
+								<th><?php echo $langs->trans("Referencia"); ?></th>
+								<th><?php echo $langs->trans("Proveedor"); ?></th>
+								<th><?php echo $langs->trans("Stock"); ?></th>
+								<th><?php echo $langs->trans("PrecioPorUd"); ?></th>
 								<th style="width: 80px; text-align: right;"></th>
 							</tr>
 						</thead>
@@ -538,7 +529,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<?php if (empty($materials_list)): ?>
 								<tr>
 									<td colspan="6" style="text-align: center; color: #64748b; padding: 32px 16px;">
-										No hay materiales registrados aún. Haz clic en <strong>«Añadir»</strong> para registrar uno nuevo.
+										<?php echo $langs->trans("MaterialsEmptyTable"); ?>
 									</td>
 								</tr>
 							<?php else: ?>
@@ -549,21 +540,21 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<td style="color: #64748b;"><?php echo !empty($mat->proveedor) ? dol_escape_htmltag($mat->proveedor) : '—'; ?></td>
 										<td style="color: #1e293b;">
 											<div style="display: flex; flex-direction: column; gap: 4px; align-items: flex-start;">
-												<span style="font-weight: 600; color: #0f172a; font-size: 13.5px;"><?php echo (float) $mat->real_stock; ?> <span style="font-size: 12px; font-weight: 400; color: #64748b;">uds</span></span>
+												<span style="font-weight: 600; color: #0f172a; font-size: 13.5px;"><?php echo (float) $mat->real_stock; ?> <span style="font-size: 12px; font-weight: 400; color: #64748b;"><?php echo $langs->trans("UdsShort"); ?></span></span>
 												<?php if ($mat->real_stock > 5): ?>
 													<span class="tallerpro-stock-badge in-stock">
 														<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-														En stock
+														<?php echo $langs->trans("EnStock"); ?>
 													</span>
 												<?php elseif ($mat->real_stock > 0): ?>
 													<span class="tallerpro-stock-badge low-stock">
 														<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-														Stock bajo
+														<?php echo $langs->trans("StockBajo"); ?>
 													</span>
 												<?php else: ?>
 													<span class="tallerpro-stock-badge out-stock">
 														<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-														Sin stock
+														<?php echo $langs->trans("SinStock"); ?>
 													</span>
 												<?php endif; ?>
 											</div>
@@ -572,7 +563,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<td>
 											<div class="tallerpro-actions">
 												<?php if ($can_write): ?>
-												<button type="button" class="tallerpro-action-btn btn-edit-material" title="Editar"
+												<button type="button" class="tallerpro-action-btn btn-edit-material" title="<?php echo dol_escape_htmltag($langs->trans("Editar")); ?>"
 													data-id="<?php echo (int) $mat->rowid; ?>"
 													data-nombre="<?php echo dol_escape_htmltag($mat->nombre); ?>"
 													data-ref="<?php echo dol_escape_htmltag($mat->ref); ?>"
@@ -588,7 +579,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 												<?php if ($can_delete): ?>
 												<button type="button"
 													class="tallerpro-action-btn btn-delete-action"
-													title="Eliminar"
+													title="<?php echo dol_escape_htmltag($langs->trans("Eliminar")); ?>"
 													data-id="<?php echo (int) $mat->rowid; ?>"
 													data-action="delete_material">
 													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -613,8 +604,8 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 	<div class="tallerpro-modal-backdrop" id="tallerMaterialModal">
 		<div class="tallerpro-modal-card">
 			<div class="tallerpro-modal-header">
-				<h2 class="tallerpro-modal-title" id="tallerMaterialModalTitle">Nuevo registro</h2>
-				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="Cerrar">
+				<h2 class="tallerpro-modal-title" id="tallerMaterialModalTitle"><?php echo $langs->trans("NuevoRegistro"); ?></h2>
+				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="<?php echo dol_escape_htmltag($langs->trans("Cerrar")); ?>">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<line x1="18" y1="6" x2="6" y2="18"></line>
 						<line x1="6" y1="6" x2="18" y2="18"></line>
@@ -623,24 +614,24 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 			</div>
 			
 
-			<form class="tallerpro-modal-form" id="tallerMaterialForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
+			<form class="tallerpro-modal-form" id="tallerMaterialForm" method="POST" action="<?php echo dol_escape_htmltag($_SERVER['PHP_SELF']); ?>">
 				<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
 				<input type="hidden" name="action" id="materialFormAction" value="create_material">
 				<input type="hidden" name="rowid" id="materialFormRowid" value="0">
 
 								<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Nombre <span class="tallerpro-required">*</span></label>
-					<input type="text" name="nombre" id="mat_nombre" class="tallerpro-form-input" placeholder="Ej: Filtro de aceite 5W30, Pastillas de freno..." required autocomplete="off" />
+					<label class="tallerpro-form-label"><?php echo $langs->trans("Nombre"); ?> <span class="tallerpro-required">*</span></label>
+					<input type="text" name="nombre" id="mat_nombre" class="tallerpro-form-input" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderMatNombre")); ?>" required autocomplete="off" />
 				</div>
 
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Referencia</label>
-					<input type="text" name="ref" id="mat_ref" class="tallerpro-form-input" placeholder="Ej: BOSCH-0986, VAL-82634, FL-2026..." autocomplete="off" />
+					<label class="tallerpro-form-label"><?php echo $langs->trans("Referencia"); ?></label>
+					<input type="text" name="ref" id="mat_ref" class="tallerpro-form-input" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderMatRef")); ?>" autocomplete="off" />
 				</div>
 
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Proveedor</label>
-					<input type="text" name="proveedor" id="mat_proveedor" list="proveedores_datalist" class="tallerpro-form-input" placeholder="Ej: Valeo, Bosch, Recambios García..." autocomplete="off" />
+					<label class="tallerpro-form-label"><?php echo $langs->trans("Proveedor"); ?></label>
+					<input type="text" name="proveedor" id="mat_proveedor" list="proveedores_datalist" class="tallerpro-form-input" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderMatProveedor")); ?>" autocomplete="off" />
 					<?php if (!empty($suppliers_list)): ?>
 						<datalist id="proveedores_datalist">
 							<?php foreach ($suppliers_list as $sup_name): ?>
@@ -651,22 +642,22 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				</div>
 
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Stock</label>
-					<input type="number" step="any" name="stock" id="mat_stock" class="tallerpro-form-input" placeholder="Ej: 10" value="0" />
+					<label class="tallerpro-form-label"><?php echo $langs->trans("Stock"); ?></label>
+					<input type="number" step="any" name="stock" id="mat_stock" class="tallerpro-form-input" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderMatStock")); ?>" value="0" />
 				</div>
 
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Precio (€)</label>
-					<input type="number" step="0.01" name="precio" id="mat_precio" class="tallerpro-form-input" placeholder="Ej: 28.50" value="0.00" />
+					<label class="tallerpro-form-label"><?php echo $langs->trans("PrecioEur"); ?></label>
+					<input type="number" step="0.01" name="precio" id="mat_precio" class="tallerpro-form-input" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderMatPrecio")); ?>" value="0.00" />
 				</div>
 
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Notas</label>
-					<textarea name="notas" id="mat_notas" class="tallerpro-form-textarea" rows="3" placeholder="Ej: Válido para motores 1.9 TDI y 2.0 HDI, ubicación estante B-3..."></textarea>
+					<label class="tallerpro-form-label"><?php echo $langs->trans("Notas"); ?></label>
+					<textarea name="notas" id="mat_notas" class="tallerpro-form-textarea" rows="3" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderMatNotas")); ?>"></textarea>
 				</div>
 				<div class="tallerpro-modal-footer">
-					<button type="button" class="tallerpro-btn-cancel" id="tallerCancelModalBtn">Cancelar</button>
-					<button type="submit" class="tallerpro-btn-save" id="btnGuardarMaterial">Guardar</button>
+					<button type="button" class="tallerpro-btn-cancel" id="tallerCancelModalBtn"><?php echo $langs->trans("Cancelar"); ?></button>
+					<button type="submit" class="tallerpro-btn-save" id="btnGuardarMaterial"><?php echo $langs->trans("Guardar"); ?></button>
 				</div>
 			</form>
 		</div>
@@ -683,22 +674,22 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<line x1="14" y1="11" x2="14" y2="17"></line>
 				</svg>
 			</div>
-			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">¿Estás seguro de que deseas borrar?</h3>
-			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;">Este material dejará de mostrarse en la lista activa, pero sus datos se conservarán en el sistema.</p>
+			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;"><?php echo $langs->trans("ConfirmDeleteTitle"); ?></h3>
+			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;"><?php echo $langs->trans("ConfirmDeleteBodyMaterial"); ?></p>
 
 			<div style="display: flex; gap: 12px; justify-content: center;">
 				<button type="button" id="btnCancelDelete" style="flex: 1; padding: 10px 16px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px;">
-					Rechazar
+					<?php echo $langs->trans("Rechazar"); ?>
 				</button>
 				<button type="button" id="btnConfirmDelete" style="flex: 1; padding: 10px 16px; border: none; background: #ef4444; color: #ffffff; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);">
-					Confirmar
+					<?php echo $langs->trans("Confirmar"); ?>
 				</button>
 			</div>
 		</div>
 	</div>
 
 	<!-- Formulario oculto para borrado seguro POST con CSRF Token -->
-	<form id="tallerGlobalDeleteForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: none;">
+	<form id="tallerGlobalDeleteForm" method="POST" action="<?php echo dol_escape_htmltag($_SERVER['PHP_SELF']); ?>" style="display: none;">
 		<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
 		<input type="hidden" name="action" id="globalDeleteAction" value="">
 		<input type="hidden" name="rowid" id="globalDeleteRowid" value="">

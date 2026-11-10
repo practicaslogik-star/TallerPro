@@ -57,6 +57,7 @@ $langs->loadLangs(array("taller@taller"));
 
 require_once __DIR__ . '/lib/taller.lib.php';
 require_once __DIR__ . '/class/taller_reparacion.class.php';
+require_once __DIR__ . '/class/taller_material.class.php';
 
 // Security check
 $is_ajax_req_top = (bool) (GETPOSTINT('ajax') || !empty($_SERVER['HTTP_X_REQUESTED_WITH']));
@@ -85,6 +86,7 @@ $table_stock_mvt = MAIN_DB_PREFIX . "taller_stock_mvt";
  */
 if (!function_exists('tallerpro_create_facture_from_reparacion')) {
 	function tallerpro_create_facture_from_reparacion($db, $rep_id, $user, $conf) {
+		global $langs;
 		require_once DOL_DOCUMENT_ROOT . '/compta/facture/class/facture.class.php';
 
 		$table_reparacion = MAIN_DB_PREFIX . "taller_reparacion";
@@ -92,24 +94,24 @@ if (!function_exists('tallerpro_create_facture_from_reparacion')) {
 
 		$sql_r = "SELECT r.*, v.fk_soc, v.matricula, v.marca, v.modelo ";
 		$sql_r .= "FROM " . $table_reparacion . " as r ";
-		$sql_r .= "LEFT JOIN " . $table_vehiculo . " as v ON r.fk_vehiculo = v.rowid ";
+		$sql_r .= "LEFT JOIN " . $table_vehiculo . " as v ON r.fk_vehiculo = v.rowid AND v.entity IN (" . getEntity('taller_vehiculo') . ") ";
 		$sql_r .= "WHERE r.rowid = " . ((int) $rep_id) . " AND r.entity IN (" . getEntity('taller_reparacion') . ")";
 		$res_r = $db->query($sql_r);
 
 		if (!$res_r || !($rep = $db->fetch_object($res_r))) {
-			return array('status' => 'error', 'message' => "No se encontró la reparación indicada");
+			return array('status' => 'error', 'message' => $langs->trans("ErrRepairNotFound"));
 		}
 
 		if (!empty($rep->ref_factura)) {
 			$sql_f_check = "SELECT rowid FROM " . MAIN_DB_PREFIX . "facture WHERE ref = '" . $db->escape($rep->ref_factura) . "' AND entity IN (" . getEntity('facture') . ")";
 			$res_f_check = $db->query($sql_f_check);
 			if ($res_f_check && ($f_exist = $db->fetch_object($res_f_check))) {
-				return array('status' => 'already_exists', 'fac_id' => (int) $f_exist->rowid, 'ref' => $rep->ref_factura, 'message' => "Esta reparación ya tiene emitida la Factura " . $rep->ref_factura);
+				return array('status' => 'already_exists', 'fac_id' => (int) $f_exist->rowid, 'ref' => $rep->ref_factura, 'message' => $langs->trans("RepairAlreadyInvoiced", $rep->ref_factura));
 			}
 		}
 
 		if (empty($rep->fk_soc)) {
-			return array('status' => 'error', 'message' => "El vehículo asociado a esta reparación no tiene ningún cliente asignado");
+			return array('status' => 'error', 'message' => $langs->trans("ErrRepairVehicleNoClient"));
 		}
 
 		$fac = new Facture($db);
@@ -137,7 +139,7 @@ if (!function_exists('tallerpro_create_facture_from_reparacion')) {
 		$fac_id = $fac->create($user);
 		if ($fac_id <= 0) {
 			dol_syslog("TallerPro - Error al generar factura desde reparación: " . $fac->error . " " . implode(' ', $fac->errors), LOG_ERR);
-			return array('status' => 'error', 'message' => "Error al generar la factura en Dolibarr: " . $fac->error);
+			return array('status' => 'error', 'message' => $langs->trans("ErrGenerateInvoiceDolibarr", $fac->error));
 		}
 
 		$lineas = !empty($rep->notas) ? json_decode($rep->notas, true) : null;
@@ -152,9 +154,9 @@ if (!function_exists('tallerpro_create_facture_from_reparacion')) {
 
 					$p_fk_product = 0;
 					if (!empty($m['fk_material'])) {
-						$res_pm = $db->query("SELECT fk_product FROM " . MAIN_DB_PREFIX . "taller_material WHERE rowid = " . ((int) $m['fk_material']) . " AND entity IN (" . getEntity('taller_material') . ")");
-						if ($res_pm && ($pm_obj = $db->fetch_object($res_pm))) {
-							$p_fk_product = (int) $pm_obj->fk_product;
+						$mat_dao = new TallerMaterial($db);
+						if ($mat_dao->fetch((int) $m['fk_material']) > 0) {
+							$p_fk_product = (int) $mat_dao->fk_product;
 						}
 					}
 					if ($p_fk_product <= 0) {
@@ -163,7 +165,7 @@ if (!function_exists('tallerpro_create_facture_from_reparacion')) {
 
 					$res_al = $fac->addline($p_desc_txt, $p_precio, $p_cant, 21.0, 0, 0, $p_fk_product, $p_desc, '', '', 0, 0, 0, 'HT', 0, 0, -1, 0, '', 0, 0, null, 0, '', array(), 100, 0, null, 0, $p_code, 0);
 					if ($res_al <= 0) {
-						return array('status' => 'error', 'message' => "Error al añadir línea de material a la factura: " . $fac->error);
+						return array('status' => 'error', 'message' => $langs->trans("ErrAddMaterialLine", $fac->error));
 					}
 				}
 			}
@@ -171,29 +173,34 @@ if (!function_exists('tallerpro_create_facture_from_reparacion')) {
 				foreach ($lineas['reparaciones'] as $r) {
 					$r_precio = (float) (!empty($r['precio']) ? $r['precio'] : 0);
 					$r_desc = (float) (!empty($r['descuento']) ? $r['descuento'] : 0);
-					$r_desc_txt = !empty($r['descripcion']) ? $r['descripcion'] : 'Mano de obra';
+					$r_desc_txt = !empty($r['descripcion']) ? $r['descripcion'] : $langs->transnoentitiesnoconv("ManoDeObraDefault");
 					$res_al = $fac->addline($r_desc_txt, $r_precio, 1, 21.0, 0, 0, 0, $r_desc, '', '', 0, 0, 0, 'HT', 0, 1);
 					if ($res_al <= 0) {
-						return array('status' => 'error', 'message' => "Error al añadir línea de mano de obra a la factura: " . $fac->error);
+						return array('status' => 'error', 'message' => $langs->trans("ErrAddLaborLine", $fac->error));
 					}
 				}
 			}
 		} else {
-			$desc_mo = !empty($rep->descripcion) ? $rep->descripcion : ("Mano de obra reparación " . $ot_num);
+			$desc_mo = !empty($rep->descripcion) ? $rep->descripcion : (trim($langs->transnoentitiesnoconv("ManoDeObraRepPrefix")) . ' ' . $ot_num);
 			$coste_mo = (float) $rep->coste_mo;
 			if ($coste_mo <= 0) $coste_mo = 50.0;
 			$res_al = $fac->addline($desc_mo, $coste_mo, 1, 21.0, 0, 0, 0, 0, '', '', 0, 0, 0, 'HT', 0, 1);
 			if ($res_al <= 0) {
-				return array('status' => 'error', 'message' => "Error al añadir línea de mano de obra a la factura: " . $fac->error);
+				return array('status' => 'error', 'message' => $langs->trans("ErrAddLaborLine", $fac->error));
 			}
 		}
 
-		$res_upd = $db->query("UPDATE " . $table_reparacion . " SET ref_factura = '" . $db->escape($fac->ref) . "', estado = 'finalizada' WHERE rowid = " . ((int) $rep_id) . " AND entity IN (" . getEntity('taller_reparacion') . ")");
-		if (!$res_upd) {
-			return array('status' => 'error', 'message' => "Error al asociar la factura a la reparación");
+		$rep_dao = new TallerReparacion($db);
+		if ($rep_dao->fetch((int) $rep_id) <= 0) {
+			return array('status' => 'error', 'message' => $langs->trans("ErrAssociateInvoiceRepair"));
+		}
+		$rep_dao->ref_factura = $fac->ref;
+		$rep_dao->estado = 'finalizada';
+		if ($rep_dao->update($user) <= 0) {
+			return array('status' => 'error', 'message' => $langs->trans("ErrAssociateInvoiceRepair"));
 		}
 
-		return array('status' => 'ok', 'fac_id' => $fac_id, 'ref' => $fac->ref, 'message' => "Factura borrador " . $fac->ref . " creada con éxito");
+		return array('status' => 'ok', 'fac_id' => $fac_id, 'ref' => $fac->ref, 'message' => $langs->trans("MsgDraftInvoiceCreated", $fac->ref));
 	}
 }
 
@@ -287,12 +294,87 @@ if (!function_exists('tallerpro_extract_reparacion_notas')) {
 }
 
 /**
- * Aplicar consumo o ajuste de stock para los materiales de una reparación
+ * Resuelve un objeto User válido para operaciones DAO y movimientos de stock.
+ *
+ * @param DoliDB $db      Manejador de base de datos
+ * @param int    $user_id ID de usuario por defecto
+ * @return User
+ */
+if (!function_exists('tallerpro_resolve_stock_user')) {
+	function tallerpro_resolve_stock_user($db, $user_id = 1) {
+		global $user;
+		if (is_object($user) && !empty($user->id)) {
+			return $user;
+		}
+		$u = new User($db);
+		$u->fetch((int) $user_id > 0 ? (int) $user_id : 1);
+		return $u;
+	}
+}
+
+/**
+ * Aplica un delta de stock (entrada o salida) sobre el almacén Dolibarr y TallerMaterial DAO,
+ * registrando además el histórico en llx_taller_stock_mvt.
+ *
+ * @return bool True si todo se aplicó sin errores
+ */
+if (!function_exists('tallerpro_apply_material_stock_delta')) {
+	function tallerpro_apply_material_stock_delta($db, $rep_id, $fk_mat, $fk_prod, $qty_delta, $tipo, $desc_mvt, $act_user, $entity = 1) {
+		$table_mvt = MAIN_DB_PREFIX . "taller_stock_mvt";
+
+		if ((int) $fk_prod > 0 && abs((float) $qty_delta) >= 0.0001) {
+			$move_delta = (float) $qty_delta;
+			if ($move_delta < 0 && getDolGlobalInt('STOCK_DISALLOW_NEGATIVE_TRANSFER')) {
+				// Evitar abortar órdenes de trabajo con materiales en stock 0 si Dolibarr prohíbe stock negativo
+				$wh_avail = tallerpro_get_product_stock((int) $fk_prod);
+				if ($wh_avail <= 0) {
+					$move_delta = 0.0;
+					dol_syslog("TallerPro - Sin stock disponible en almacén para producto ID " . ((int) $fk_prod) . " (" . $desc_mvt . ")", LOG_WARNING);
+				} elseif ($wh_avail < abs($move_delta)) {
+					$move_delta = -$wh_avail;
+					dol_syslog("TallerPro - Stock parcial descontado en almacén para producto ID " . ((int) $fk_prod) . " (" . $desc_mvt . ")", LOG_WARNING);
+				}
+			}
+			if (abs($move_delta) >= 0.0001) {
+				if (!tallerpro_record_stock_movement((int) $fk_prod, $move_delta, $desc_mvt, 'reparacion', (int) $rep_id, $act_user)) {
+					return false;
+				}
+			}
+		}
+
+		if ((int) $fk_mat > 0) {
+			$mat_dao = new TallerMaterial($db);
+			if ($mat_dao->fetch((int) $fk_mat) <= 0) {
+				return false;
+			}
+			$cur_stock = (float) $mat_dao->stock;
+			$new_stock = $cur_stock + (float) $qty_delta;
+			$mat_dao->stock = $new_stock;
+			if ($mat_dao->update($act_user) <= 0) {
+				return false;
+			}
+
+			$sql_mvt = "INSERT INTO " . $table_mvt . " (fk_material, cantidad, tipo, fk_reparacion, stock_anterior, stock_posterior, fecha, fk_user, descripcion, entity) VALUES (";
+			$sql_mvt .= ((int) $fk_mat) . ", " . ((float) $qty_delta) . ", '" . $db->escape($tipo) . "', " . ((int) $rep_id) . ", " . $cur_stock . ", " . $new_stock . ", '" . $db->idate(dol_now()) . "', " . ((int) ($act_user->id ?: 1)) . ", '" . $db->escape($desc_mvt) . "', " . ((int) $entity) . ")";
+			if (!$db->query($sql_mvt)) {
+				return false;
+			}
+		}
+
+		return true;
+	}
+}
+
+/**
+ * Aplicar consumo o ajuste de stock para los materiales de una reparación.
+ *
+ * @return bool
  */
 if (!function_exists('aplicarStockReparacion')) {
 	function aplicarStockReparacion($db, $rep_id, $nuevas_lineas_json, $prev_notas_json = null, $user_id = 1, $entity = 1) {
 		$table_material = MAIN_DB_PREFIX . "taller_material";
-		$table_mvt = MAIN_DB_PREFIX . "taller_stock_mvt";
+		$act_user = tallerpro_resolve_stock_user($db, $user_id);
+		$ot_label = 'OT #' . str_pad($rep_id, 4, '0', STR_PAD_LEFT);
 
 		// 1. Revertir stock de materiales previos si se está editando
 		if (!empty($prev_notas_json)) {
@@ -300,40 +382,27 @@ if (!function_exists('aplicarStockReparacion')) {
 			foreach ($prev_mats as $pm) {
 				$fk_mat = !empty($pm['fk_material']) ? (int) $pm['fk_material'] : 0;
 				$cant = (float) (!empty($pm['cantidad']) ? $pm['cantidad'] : 0);
-				if ($cant > 0) {
-					$fk_prod = 0;
-					if ($fk_mat > 0) {
-						$res_cur = $db->query("SELECT stock, fk_product FROM " . $table_material . " WHERE rowid = " . $fk_mat . " AND entity IN (" . getEntity('taller_material') . ")");
-						if ($res_cur && ($obj_cur = $db->fetch_object($res_cur))) {
-							$fk_prod = (int) $obj_cur->fk_product;
-						}
+				if ($cant <= 0) {
+					continue;
+				}
+				$fk_prod = 0;
+				if ($fk_mat > 0) {
+					$mat_prev = new TallerMaterial($db);
+					if ($mat_prev->fetch($fk_mat) > 0) {
+						$fk_prod = (int) $mat_prev->fk_product;
+					} else {
+						$fk_mat = 0;
 					}
-					if ($fk_prod <= 0 && !empty($pm['codigo'])) {
-						$res_p = $db->query("SELECT fk_product, rowid FROM " . $table_material . " WHERE ref = '" . $db->escape(trim($pm['codigo'])) . "' AND entity IN (" . getEntity('taller_material') . ") LIMIT 1");
-						if ($res_p && ($p_obj = $db->fetch_object($res_p))) {
-							$fk_prod = (int) $p_obj->fk_product;
-							if ($fk_mat <= 0) $fk_mat = (int) $p_obj->rowid;
-						}
+				}
+				if ($fk_prod <= 0 && !empty($pm['codigo'])) {
+					$res_p = $db->query("SELECT fk_product, rowid FROM " . $table_material . " WHERE ref = '" . $db->escape(trim($pm['codigo'])) . "' AND entity IN (" . getEntity('taller_material') . ") LIMIT 1");
+					if ($res_p && ($p_obj = $db->fetch_object($res_p))) {
+						$fk_prod = (int) $p_obj->fk_product;
+						if ($fk_mat <= 0) $fk_mat = (int) $p_obj->rowid;
 					}
-
-					// Reintegrar en Almacén nativo Dolibarr
-					if ($fk_prod > 0) {
-						tallerpro_record_stock_movement($fk_prod, $cant, 'Ajuste previo por edición en OT #' . str_pad($rep_id, 4, '0', STR_PAD_LEFT), 'reparacion', $rep_id, null);
-					}
-
-					if ($fk_mat > 0) {
-						$res_cur = $db->query("SELECT stock FROM " . $table_material . " WHERE rowid = " . $fk_mat . " AND entity IN (" . getEntity('taller_material') . ")");
-						$cur_stock = 0.0;
-						if ($res_cur && ($obj_cur = $db->fetch_object($res_cur))) {
-							$cur_stock = (float) $obj_cur->stock;
-						}
-						$new_stock = $cur_stock + $cant;
-						$db->query("UPDATE " . $table_material . " SET stock = " . $new_stock . " WHERE rowid = " . $fk_mat . " AND entity IN (" . getEntity('taller_material') . ")");
-
-						$sql_mvt = "INSERT INTO " . $table_mvt . " (fk_material, cantidad, tipo, fk_reparacion, stock_anterior, stock_posterior, fecha, fk_user, descripcion, entity) VALUES (";
-						$sql_mvt .= $fk_mat . ", " . $cant . ", 'reparacion_ajuste_dev', " . ((int) $rep_id) . ", " . $cur_stock . ", " . $new_stock . ", '" . $db->idate(dol_now()) . "', " . ((int) $user_id) . ", 'Ajuste previo por edición en OT #" . str_pad($rep_id, 4, '0', STR_PAD_LEFT) . "', " . ((int) $entity) . ")";
-						$db->query($sql_mvt);
-					}
+				}
+				if (!tallerpro_apply_material_stock_delta($db, $rep_id, $fk_mat, $fk_prod, $cant, 'reparacion_ajuste_dev', 'Ajuste previo por edición en ' . $ot_label, $act_user, $entity)) {
+					return false;
 				}
 			}
 		}
@@ -350,100 +419,96 @@ if (!function_exists('aplicarStockReparacion')) {
 				$res_search = $db->query("SELECT rowid, stock, fk_product FROM " . $table_material . " WHERE status = 1 AND entity IN (" . getEntity('taller_material') . ") AND ((ref = '" . $db->escape($code_clean) . "' AND ref != '') OR nombre = '" . $db->escape($desc_clean) . "') LIMIT 1");
 				if ($res_search && ($s_obj = $db->fetch_object($res_search))) {
 					$fk_mat = (int) $s_obj->rowid;
-					$fk_prod = (int) $s_obj->fk_product;
 				} elseif (!empty($nm['guardar_catalogo'])) {
-					$fk_prod = tallerpro_get_or_create_product($code_clean, $desc_clean, (float) ($nm['precio'] ?? 0), 0, null);
-					$sql_new_m = "INSERT INTO " . $table_material . " (nombre, ref, fk_product, stock, precio, date_creation, fk_user_creat, entity, status) VALUES (";
-					$sql_new_m .= "'" . $db->escape($desc_clean) . "', '" . $db->escape($code_clean) . "', " . ($fk_prod > 0 ? (int)$fk_prod : "NULL") . ", 0, " . ((float) ($nm['precio'] ?? 0)) . ", '" . $db->idate(dol_now()) . "', " . ((int) $user_id) . ", " . ((int) $entity) . ", 1)";
-					if ($db->query($sql_new_m)) {
-						$fk_mat = (int) $db->last_insert_id($table_material);
+					$fk_prod_new = tallerpro_get_or_create_product($code_clean, $desc_clean, (float) ($nm['precio'] ?? 0), 0, $act_user);
+					if ($fk_prod_new <= 0) {
+						return false;
+					}
+					$mat_new = new TallerMaterial($db);
+					$mat_new->nombre     = $desc_clean;
+					$mat_new->ref        = $code_clean;
+					$mat_new->fk_product = $fk_prod_new;
+					$mat_new->stock      = 0.0;
+					$mat_new->precio     = (float) ($nm['precio'] ?? 0);
+					$mat_new->entity     = (int) $entity;
+					$fk_mat = (int) $mat_new->create($act_user);
+					if ($fk_mat <= 0) {
+						return false;
 					}
 				}
 			}
 
 			if ($fk_mat > 0 && $cant > 0) {
-				$res_cur = $db->query("SELECT stock, fk_product FROM " . $table_material . " WHERE rowid = " . $fk_mat . " AND entity IN (" . getEntity('taller_material') . ")");
-				$cur_stock = 0.0;
-				$fk_prod = 0;
-				if ($res_cur && ($obj_cur = $db->fetch_object($res_cur))) {
-					$cur_stock = (float) $obj_cur->stock;
-					$fk_prod = (int) $obj_cur->fk_product;
+				$mat_cur = new TallerMaterial($db);
+				if ($mat_cur->fetch($fk_mat) <= 0) {
+					return false;
 				}
+				$fk_prod = (int) $mat_cur->fk_product;
 				if ($fk_prod <= 0) {
-					$fk_prod = tallerpro_get_or_create_product($code_clean, $desc_clean, (float) ($nm['precio'] ?? 0), 0, null);
-					if ($fk_prod > 0) {
-						$db->query("UPDATE " . $table_material . " SET fk_product = " . $fk_prod . " WHERE rowid = " . $fk_mat . " AND entity IN (" . getEntity('taller_material') . ")");
+					$fk_prod = tallerpro_get_or_create_product($code_clean, $desc_clean, (float) ($nm['precio'] ?? 0), 0, $act_user);
+					if ($fk_prod <= 0) {
+						return false;
+					}
+					$mat_cur->fk_product = $fk_prod;
+					if ($mat_cur->update($act_user) <= 0) {
+						return false;
 					}
 				}
-
-				// Descontar en Almacén nativo Dolibarr
-				if ($fk_prod > 0) {
-					tallerpro_record_stock_movement($fk_prod, -$cant, 'Consumo en OT #' . str_pad($rep_id, 4, '0', STR_PAD_LEFT), 'reparacion', $rep_id, null);
+				if (!tallerpro_apply_material_stock_delta($db, $rep_id, $fk_mat, $fk_prod, -$cant, 'reparacion_consumo', 'Consumo en ' . $ot_label, $act_user, $entity)) {
+					return false;
 				}
-
-				$new_stock = $cur_stock - $cant;
-				$db->query("UPDATE " . $table_material . " SET stock = " . $new_stock . " WHERE rowid = " . $fk_mat . " AND entity IN (" . getEntity('taller_material') . ")");
-
-				$sql_mvt = "INSERT INTO " . $table_mvt . " (fk_material, cantidad, tipo, fk_reparacion, stock_anterior, stock_posterior, fecha, fk_user, descripcion, entity) VALUES (";
-				$sql_mvt .= $fk_mat . ", -" . $cant . ", 'reparacion_consumo', " . ((int) $rep_id) . ", " . $cur_stock . ", " . $new_stock . ", '" . $db->idate(dol_now()) . "', " . ((int) $user_id) . ", 'Consumo en OT #" . str_pad($rep_id, 4, '0', STR_PAD_LEFT) . "', " . ((int) $entity) . ")";
-				$db->query($sql_mvt);
 			}
 		}
+
+		return true;
 	}
 }
 
 /**
- * Revertir totalmente el stock al eliminar una reparación
+ * Revertir totalmente el stock al eliminar una reparación.
+ *
+ * @return bool
  */
 if (!function_exists('revertirStockReparacion')) {
 	function revertirStockReparacion($db, $rep_id, $user_id = 1, $entity = 1) {
 		$table_material = MAIN_DB_PREFIX . "taller_material";
-		$table_reparacion = MAIN_DB_PREFIX . "taller_reparacion";
-		$table_mvt = MAIN_DB_PREFIX . "taller_stock_mvt";
+		$act_user = tallerpro_resolve_stock_user($db, $user_id);
+		$ot_label = 'OT #' . str_pad($rep_id, 4, '0', STR_PAD_LEFT);
 
-		$res_rep = $db->query("SELECT notas FROM " . $table_reparacion . " WHERE rowid = " . ((int) $rep_id) . " AND entity IN (" . getEntity('taller_reparacion') . ")");
-		if ($res_rep && ($rep_obj = $db->fetch_object($res_rep))) {
-			$mats = getMaterialesFromReparacionNotas($rep_obj->notas);
-			foreach ($mats as $m) {
-				$fk_mat = !empty($m['fk_material']) ? (int) $m['fk_material'] : 0;
-				$cant = (float) (!empty($m['cantidad']) ? $m['cantidad'] : 0);
-				if ($cant > 0) {
-					$fk_prod = 0;
-					if ($fk_mat > 0) {
-						$res_cur = $db->query("SELECT stock, fk_product FROM " . $table_material . " WHERE rowid = " . $fk_mat . " AND entity IN (" . getEntity('taller_material') . ")");
-						if ($res_cur && ($obj_cur = $db->fetch_object($res_cur))) {
-							$fk_prod = (int) $obj_cur->fk_product;
-						}
-					}
-					if ($fk_prod <= 0 && !empty($m['codigo'])) {
-						$res_p = $db->query("SELECT fk_product, rowid FROM " . $table_material . " WHERE ref = '" . $db->escape(trim($m['codigo'])) . "' AND entity IN (" . getEntity('taller_material') . ") LIMIT 1");
-						if ($res_p && ($p_obj = $db->fetch_object($res_p))) {
-							$fk_prod = (int) $p_obj->fk_product;
-							if ($fk_mat <= 0) $fk_mat = (int) $p_obj->rowid;
-						}
-					}
+		$rep_dao = new TallerReparacion($db);
+		if ($rep_dao->fetch((int) $rep_id) <= 0) {
+			return false;
+		}
 
-					// Reintegrar en Almacén nativo Dolibarr
-					if ($fk_prod > 0) {
-						tallerpro_record_stock_movement($fk_prod, $cant, 'Devolución por eliminación de OT #' . str_pad($rep_id, 4, '0', STR_PAD_LEFT), 'reparacion', $rep_id, null);
-					}
-
-					if ($fk_mat > 0) {
-						$res_cur = $db->query("SELECT stock FROM " . $table_material . " WHERE rowid = " . $fk_mat . " AND entity IN (" . getEntity('taller_material') . ")");
-						$cur_stock = 0.0;
-						if ($res_cur && ($obj_cur = $db->fetch_object($res_cur))) {
-							$cur_stock = (float) $obj_cur->stock;
-						}
-						$new_stock = $cur_stock + $cant;
-						$db->query("UPDATE " . $table_material . " SET stock = " . $new_stock . " WHERE rowid = " . $fk_mat . " AND entity IN (" . getEntity('taller_material') . ")");
-
-						$sql_mvt = "INSERT INTO " . $table_mvt . " (fk_material, cantidad, tipo, fk_reparacion, stock_anterior, stock_posterior, fecha, fk_user, descripcion, entity) VALUES (";
-						$sql_mvt .= $fk_mat . ", " . $cant . ", 'reparacion_devolucion', " . ((int) $rep_id) . ", " . $cur_stock . ", " . $new_stock . ", '" . $db->idate(dol_now()) . "', " . ((int) $user_id) . ", 'Devolución por eliminación de OT #" . str_pad($rep_id, 4, '0', STR_PAD_LEFT) . "', " . ((int) $entity) . ")";
-						$db->query($sql_mvt);
-					}
+		$mats = getMaterialesFromReparacionNotas((string) $rep_dao->notas);
+		foreach ($mats as $m) {
+			$fk_mat = !empty($m['fk_material']) ? (int) $m['fk_material'] : 0;
+			$cant = (float) (!empty($m['cantidad']) ? $m['cantidad'] : 0);
+			if ($cant <= 0) {
+				continue;
+			}
+			$fk_prod = 0;
+			if ($fk_mat > 0) {
+				$mat_prev = new TallerMaterial($db);
+				if ($mat_prev->fetch($fk_mat) > 0) {
+					$fk_prod = (int) $mat_prev->fk_product;
+				} else {
+					$fk_mat = 0;
 				}
 			}
+			if ($fk_prod <= 0 && !empty($m['codigo'])) {
+				$res_p = $db->query("SELECT fk_product, rowid FROM " . $table_material . " WHERE ref = '" . $db->escape(trim($m['codigo'])) . "' AND entity IN (" . getEntity('taller_material') . ") LIMIT 1");
+				if ($res_p && ($p_obj = $db->fetch_object($res_p))) {
+					$fk_prod = (int) $p_obj->fk_product;
+					if ($fk_mat <= 0) $fk_mat = (int) $p_obj->rowid;
+				}
+			}
+			if (!tallerpro_apply_material_stock_delta($db, $rep_id, $fk_mat, $fk_prod, $cant, 'reparacion_devolucion', 'Devolución por eliminación de ' . $ot_label, $act_user, $entity)) {
+				return false;
+			}
 		}
+
+		return true;
 	}
 }
 
@@ -472,9 +537,9 @@ if ($action == 'create_reparacion' || $action == 'add_reparacion') {
 	}
 
 	if ($fk_vehiculo <= 0) {
-		setEventMessages($langs->trans("ErrorFieldRequired", "Vehículo"), null, 'errors');
+		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("Vehiculo")), null, 'errors');
 	} elseif (!tallerpro_record_in_entity($db, 'taller_vehiculo', $fk_vehiculo, 'taller_vehiculo', 'status = 1')) {
-		setEventMessages("El vehículo seleccionado no existe o no pertenece a la empresa activa", null, 'errors');
+		setEventMessages($langs->trans("ErrVehicleInvalidEntity"), null, 'errors');
 	} else {
 		$db->begin();
 		$new_rep_id = tallerpro_save_reparacion_record($db, $user, $conf, 0, $fk_vehiculo, $fecha, $descripcion, $coste_mo, $notas, $estado);
@@ -486,7 +551,7 @@ if ($action == 'create_reparacion' || $action == 'add_reparacion') {
 		} else {
 			$db->rollback();
 			dol_syslog("TallerPro - Error al guardar reparación: " . $db->lasterror(), LOG_ERR);
-			setEventMessages("Error al guardar la reparación", null, 'errors');
+			setEventMessages($langs->trans("ErrSaveRepair"), null, 'errors');
 		}
 	}
 }
@@ -511,7 +576,9 @@ if (!function_exists('tallerpro_save_reparacion_record')) {
 			if ($rep_obj->update($user) <= 0) {
 				return 0;
 			}
-			aplicarStockReparacion($db, (int) $rowid, $notas, $prev_notas, $user->id, $conf->entity);
+			if (!aplicarStockReparacion($db, (int) $rowid, $notas, $prev_notas, $user->id, $conf->entity)) {
+				return 0;
+			}
 			return (int) $rowid;
 		} else {
 			$rep_obj->fk_vehiculo = (int) $fk_vehiculo;
@@ -522,7 +589,9 @@ if (!function_exists('tallerpro_save_reparacion_record')) {
 			$rep_obj->estado      = !empty($estado_force) ? $estado_force : 'en_curso';
 			$new_id = (int) $rep_obj->create($user);
 			if ($new_id > 0 && !empty($notas)) {
-				aplicarStockReparacion($db, $new_id, $notas, null, $user->id, $conf->entity);
+				if (!aplicarStockReparacion($db, $new_id, $notas, null, $user->id, $conf->entity)) {
+					return 0;
+				}
 			}
 			return $new_id;
 		}
@@ -553,11 +622,11 @@ if ($action == 'update_reparacion' || $action == 'edit_reparacion') {
 	}
 
 	if ($fk_vehiculo <= 0) {
-		setEventMessages($langs->trans("ErrorFieldRequired", "Vehículo"), null, 'errors');
+		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("Vehiculo")), null, 'errors');
 	} elseif ($rowid <= 0) {
-		setEventMessages("Identificador de reparación no válido", null, 'errors');
+		setEventMessages($langs->trans("ErrRepairNotFound"), null, 'errors');
 	} elseif (!tallerpro_record_in_entity($db, 'taller_vehiculo', $fk_vehiculo, 'taller_vehiculo', 'status = 1')) {
-		setEventMessages("El vehículo seleccionado no existe o no pertenece a la empresa activa", null, 'errors');
+		setEventMessages($langs->trans("ErrVehicleInvalidEntity"), null, 'errors');
 	} else {
 		$db->begin();
 		$updated_id = tallerpro_save_reparacion_record($db, $user, $conf, $rowid, $fk_vehiculo, $fecha, $descripcion, $coste_mo, $notas, $estado);
@@ -569,7 +638,7 @@ if ($action == 'update_reparacion' || $action == 'edit_reparacion') {
 		} else {
 			$db->rollback();
 			dol_syslog("TallerPro - Error al actualizar reparación ID " . $rowid . ": " . $db->lasterror(), LOG_ERR);
-			setEventMessages("Reparación no encontrada o error al actualizar", null, 'errors');
+			setEventMessages($langs->trans("ErrUpdateRepair"), null, 'errors');
 		}
 	}
 }
@@ -643,9 +712,9 @@ if ($action == 'save_and_facturar') {
 	$notas = tallerpro_extract_reparacion_notas($lineas_json, GETPOST('notas', 'restricthtml'));
 
 	if ($fk_vehiculo <= 0) {
-		setEventMessages("Debe seleccionar un vehículo para la reparación", null, 'errors');
+		setEventMessages($langs->trans("ErrSelectVehicleRepair"), null, 'errors');
 	} elseif (!tallerpro_record_in_entity($db, 'taller_vehiculo', $fk_vehiculo, 'taller_vehiculo', 'status = 1')) {
-		setEventMessages("El vehículo seleccionado no existe o no pertenece a la empresa activa", null, 'errors');
+		setEventMessages($langs->trans("ErrVehicleInvalidEntity"), null, 'errors');
 	} else {
 		$db->begin();
 		$target_rep_id = tallerpro_save_reparacion_record($db, $user, $conf, $rowid, $fk_vehiculo, $fecha, $descripcion, $coste_mo, $notas, 'finalizada');
@@ -665,12 +734,12 @@ if ($action == 'save_and_facturar') {
 		} else {
 			$db->rollback();
 			dol_syslog("TallerPro - Error al guardar orden previa a facturar: " . $db->lasterror(), LOG_ERR);
-			setEventMessages("Error al guardar la orden de trabajo para facturación", null, 'errors');
+			setEventMessages($langs->trans("ErrSaveWorkOrderInvoicing"), null, 'errors');
 		}
 	}
 }
 
-// Acción: Guardar cambios y Crear Albarán / Presupuesto desde el modal
+// Acción: Guardar cambios y Crear Albarán / Presupuesto desde el modal (Propal nativo)
 if ($action == 'save_and_albaran' || $action == 'crear_albaran') {
 	tallerpro_require_post_csrf();
 	tallerpro_require_permission('write');
@@ -688,17 +757,29 @@ if ($action == 'save_and_albaran' || $action == 'crear_albaran') {
 	$notas = tallerpro_extract_reparacion_notas($lineas_json, GETPOST('notas', 'restricthtml'));
 
 	if ($fk_vehiculo <= 0) {
-		setEventMessages("Debe seleccionar un vehículo para la reparación", null, 'errors');
+		setEventMessages($langs->trans("ErrSelectVehicleRepair"), null, 'errors');
 	} elseif (!tallerpro_record_in_entity($db, 'taller_vehiculo', $fk_vehiculo, 'taller_vehiculo', 'status = 1')) {
-		setEventMessages("El vehículo seleccionado no existe o no pertenece a la empresa activa", null, 'errors');
+		setEventMessages($langs->trans("ErrVehicleInvalidEntity"), null, 'errors');
+	} elseif (!isModEnabled('propal')) {
+		setEventMessages($langs->trans("ErrModulePropalDisabled"), null, 'errors');
 	} else {
 		$db->begin();
 		$target_rep_id = tallerpro_save_reparacion_record($db, $user, $conf, $rowid, $fk_vehiculo, $fecha, $descripcion, $coste_mo, $notas, '');
 		$ok = ($target_rep_id > 0);
 
 		if ($ok && $target_rep_id > 0) {
-			// Crear el Albarán / Presupuesto enlazado a la reparación
-			require_once DOL_DOCUMENT_ROOT . '/compta/facture/class/facture.class.php';
+			require_once DOL_DOCUMENT_ROOT . '/comm/propal/class/propal.class.php';
+
+			// Si ya existe un presupuesto enlazado a esta reparación, abrirlo directamente
+			$sql_p_exist = "SELECT p.rowid FROM " . MAIN_DB_PREFIX . "propal p ";
+			$sql_p_exist .= "INNER JOIN " . MAIN_DB_PREFIX . "propal_extrafields pe ON pe.fk_object = p.rowid ";
+			$sql_p_exist .= "WHERE pe.fk_reparacion = " . ((int) $target_rep_id) . " AND p.entity IN (" . getEntity('propal') . ") ORDER BY p.rowid DESC LIMIT 1";
+			$res_p_exist = $db->query($sql_p_exist);
+			if ($res_p_exist && ($p_exist = $db->fetch_object($res_p_exist))) {
+				$db->commit();
+				header("Location: " . dol_buildpath('/taller/facturas.php', 1) . '?doc=propal&id=' . ((int) $p_exist->rowid));
+				exit;
+			}
 
 			$sql_r = "SELECT r.*, v.fk_soc, v.matricula, v.marca, v.modelo ";
 			$sql_r .= "FROM " . $table_reparacion . " as r ";
@@ -709,12 +790,14 @@ if ($action == 'save_and_albaran' || $action == 'crear_albaran') {
 			if ($res_r && ($rep = $db->fetch_object($res_r))) {
 				if (empty($rep->fk_soc)) {
 					$ok = false;
-					setEventMessages("El vehículo asociado no tiene ningún cliente asignado", null, 'errors');
+					setEventMessages($langs->trans("ErrRepairVehicleNoClient"), null, 'errors');
 				} else {
-					$fac = new Facture($db);
-					$fac->socid = (int) $rep->fk_soc;
-					$fac->date = dol_now();
-					$fac->type = Facture::TYPE_STANDARD;
+					$propal = new Propal($db);
+					$propal->socid = (int) $rep->fk_soc;
+					$now_ts = dol_now();
+					$propal->date = $now_ts;
+					$propal->datep = $now_ts;
+					$propal->duree_validite = 30;
 					$ot_num = 'OT #' . str_pad($rep->rowid, 4, '0', STR_PAD_LEFT);
 
 					$user_nota = '';
@@ -730,18 +813,17 @@ if ($action == 'save_and_albaran' || $action == 'crear_albaran') {
 							$user_nota = trim($rep->notas);
 						}
 					}
-					$fac->note_public = !empty($user_nota) ? $user_nota : '';
-					$fac->array_options['options_fk_vehiculo'] = (int) $rep->fk_vehiculo;
-					$fac->array_options['options_fk_reparacion'] = (int) $target_rep_id;
-					$fac->array_options['options_tipo_doc'] = 'presupuesto';
+					$propal->note_public = !empty($user_nota) ? $user_nota : '';
+					$propal->array_options['options_fk_vehiculo'] = (int) $rep->fk_vehiculo;
+					$propal->array_options['options_fk_reparacion'] = (int) $target_rep_id;
 
-					$fac_id = $fac->create($user);
-					if ($fac_id > 0) {
-						$fac->insertExtraFields();
+					$propal_id = $propal->create($user);
+					if ($propal_id > 0) {
+						$propal->insertExtraFields();
 
 						// Referencia formal de Presupuesto / Albarán
-						$alb_ref = 'PRE' . date('ym') . '-' . str_pad($fac_id, 4, '0', STR_PAD_LEFT);
-						if ($fac->setValueFrom('ref', $alb_ref, '', '', 'text', '', $user) < 0) {
+						$alb_ref = 'PRE' . date('ym') . '-' . str_pad($propal_id, 4, '0', STR_PAD_LEFT);
+						if ($propal->setValueFrom('ref', $alb_ref, '', '', 'text', '', $user) < 0) {
 							$ok = false;
 						}
 
@@ -757,46 +839,66 @@ if ($action == 'save_and_albaran' || $action == 'crear_albaran') {
 
 									$p_fk_product = 0;
 									if (!empty($m['fk_material'])) {
-										$res_pm = $db->query("SELECT fk_product FROM " . MAIN_DB_PREFIX . "taller_material WHERE rowid = " . ((int) $m['fk_material']) . " AND entity IN (" . getEntity('taller_material') . ")");
-										if ($res_pm && ($pm_obj = $db->fetch_object($res_pm))) {
-											$p_fk_product = (int) $pm_obj->fk_product;
+										$mat_dao = new TallerMaterial($db);
+										if ($mat_dao->fetch((int) $m['fk_material']) > 0) {
+											$p_fk_product = (int) $mat_dao->fk_product;
 										}
 									}
 									if ($p_fk_product <= 0) {
 										$p_fk_product = tallerpro_get_or_create_product($p_code, $p_desc_txt, $p_precio, 0, $user);
 									}
 
-									$fac->addline($p_desc_txt, $p_precio, $p_cant, 21.0, 0, 0, $p_fk_product, $p_desc, '', '', 0, 0, 0, 'HT', 0, 0, -1, 0, '', 0, 0, null, 0, '', array(), 100, 0, null, 0, $p_code, 0);
+									$res_pl = $propal->addline($p_desc_txt, $p_precio, $p_cant, 21.0, 0.0, 0.0, $p_fk_product, $p_desc, 'HT', 0.0, 0, 0, -1, 0, 0, 0, 0, $p_code);
+									if ($res_pl <= 0) {
+										$ok = false;
+										break;
+									}
 								}
 							}
-							if (!empty($lineas['reparaciones'])) {
+							if ($ok && !empty($lineas['reparaciones'])) {
 								foreach ($lineas['reparaciones'] as $r) {
 									$r_precio = (float) (!empty($r['precio']) ? $r['precio'] : 0);
 									$r_desc = (float) (!empty($r['descuento']) ? $r['descuento'] : 0);
-									$r_desc_txt = !empty($r['descripcion']) ? $r['descripcion'] : 'Mano de obra';
-									$fac->addline($r_desc_txt, $r_precio, 1, 21.0, 0, 0, 0, $r_desc, '', '', 0, 0, 0, 'HT', 0, 1);
+									$r_desc_txt = !empty($r['descripcion']) ? $r['descripcion'] : $langs->transnoentitiesnoconv("ManoDeObraDefault");
+									$res_pl = $propal->addline($r_desc_txt, $r_precio, 1, 21.0, 0.0, 0.0, 0, $r_desc, 'HT', 0.0, 0, 1, -1);
+									if ($res_pl <= 0) {
+										$ok = false;
+										break;
+									}
 								}
 							}
 						} else {
-							$desc_mo = !empty($rep->descripcion) ? $rep->descripcion : ("Mano de obra reparación " . $ot_num);
+							$desc_mo = !empty($rep->descripcion) ? $rep->descripcion : (trim($langs->transnoentitiesnoconv("ManoDeObraRepPrefix")) . ' ' . $ot_num);
 							$coste_mo_val = (float) $rep->coste_mo;
 							if ($coste_mo_val <= 0) $coste_mo_val = 50.0;
-							$fac->addline($desc_mo, $coste_mo_val, 1, 21.0, 0, 0, 0, 0, '', '', 0, 0, 0, 'HT', 0, 1);
+							$res_pl = $propal->addline($desc_mo, $coste_mo_val, 1, 21.0, 0.0, 0.0, 0, 0.0, 'HT', 0.0, 0, 1, -1);
+							if ($res_pl <= 0) {
+								$ok = false;
+							}
 						}
 
-						$db->commit();
-						setEventMessages("Albarán / Presupuesto " . $alb_ref . " creado con éxito para la " . $ot_num, null, 'mesgs');
-						header("Location: " . dol_buildpath('/taller/facturas.php', 1) . '?id=' . $fac_id);
-						exit;
+						if ($ok) {
+							$db->commit();
+							setEventMessages($langs->trans("MsgPropalCreatedSuccess", $alb_ref, $ot_num), null, 'mesgs');
+							header("Location: " . dol_buildpath('/taller/facturas.php', 1) . '?doc=propal&id=' . ((int) $propal_id));
+							exit;
+						} else {
+							dol_syslog("TallerPro - Error generando líneas/ref de Propal ID " . $propal_id . ": " . $propal->error, LOG_ERR);
+							setEventMessages($langs->trans("ErrCreatePropalDolibarr"), null, 'errors');
+						}
 					} else {
 						$ok = false;
-						setEventMessages("Error al generar el albarán en Dolibarr", null, 'errors');
+						dol_syslog("TallerPro - Error al generar presupuesto Propal: " . $propal->error . " " . implode(' ', $propal->errors), LOG_ERR);
+						setEventMessages($langs->trans("ErrCreatePropalDolibarr"), null, 'errors');
 					}
 				}
 			} else {
 				$ok = false;
-				setEventMessages("No se encontró la reparación indicada", null, 'errors');
+				setEventMessages($langs->trans("ErrRepairNotFound"), null, 'errors');
 			}
+		} else {
+			$ok = false;
+			setEventMessages($langs->trans("ErrSaveRepair"), null, 'errors');
 		}
 
 		if (!$ok) {
@@ -819,8 +921,7 @@ if ($action == 'delete_reparacion' || $action == 'delete') {
 		$db->begin();
 		$rep_obj = new TallerReparacion($db);
 		if ($rep_obj->fetch($rowid) > 0) {
-			revertirStockReparacion($db, $rowid, $user->id, $conf->entity);
-			if ($rep_obj->delete($user) > 0) {
+			if (revertirStockReparacion($db, $rowid, $user->id, $conf->entity) && $rep_obj->delete($user) > 0) {
 				$resql = true;
 			}
 		}
@@ -841,7 +942,7 @@ if ($action == 'delete_reparacion' || $action == 'delete') {
 		exit;
 	} else {
 		dol_syslog("TallerPro - Error al eliminar reparación ID " . $rowid . ": " . $db->lasterror(), LOG_ERR);
-		setEventMessages("Error al eliminar la reparación", null, 'errors');
+		setEventMessages($langs->trans("ErrDeleteRepair"), null, 'errors');
 	}
 }
 
@@ -878,8 +979,8 @@ $reparaciones_list = array();
 $sql_r = "SELECT r.rowid, r.fk_vehiculo, r.fecha, r.ref_factura, r.descripcion, r.coste_mo, r.notas, r.estado, ";
 $sql_r .= "v.matricula as vehiculo_matricula, v.marca as vehiculo_marca, v.modelo as vehiculo_modelo, ";
 $sql_r .= "s.nom as cliente_nombre, ";
-$sql_r .= "(SELECT f.rowid FROM " . MAIN_DB_PREFIX . "facture f JOIN " . MAIN_DB_PREFIX . "facture_extrafields fe ON fe.fk_object = f.rowid WHERE fe.fk_reparacion = r.rowid AND fe.tipo_doc = 'presupuesto' AND f.entity IN (" . getEntity('facture') . ") LIMIT 1) as albaran_id, ";
-$sql_r .= "(SELECT f.ref FROM " . MAIN_DB_PREFIX . "facture f JOIN " . MAIN_DB_PREFIX . "facture_extrafields fe ON fe.fk_object = f.rowid WHERE fe.fk_reparacion = r.rowid AND fe.tipo_doc = 'presupuesto' AND f.entity IN (" . getEntity('facture') . ") LIMIT 1) as albaran_ref ";
+$sql_r .= "(SELECT p.rowid FROM " . MAIN_DB_PREFIX . "propal p JOIN " . MAIN_DB_PREFIX . "propal_extrafields pe ON pe.fk_object = p.rowid WHERE pe.fk_reparacion = r.rowid AND p.entity IN (" . getEntity('propal') . ") ORDER BY p.rowid DESC LIMIT 1) as albaran_id, ";
+$sql_r .= "(SELECT p.ref FROM " . MAIN_DB_PREFIX . "propal p JOIN " . MAIN_DB_PREFIX . "propal_extrafields pe ON pe.fk_object = p.rowid WHERE pe.fk_reparacion = r.rowid AND p.entity IN (" . getEntity('propal') . ") ORDER BY p.rowid DESC LIMIT 1) as albaran_ref ";
 $sql_r .= "FROM " . $table_reparacion . " as r ";
 $sql_r .= "LEFT JOIN " . $table_vehiculo . " as v ON r.fk_vehiculo = v.rowid AND v.entity IN (" . getEntity('taller_vehiculo') . ") ";
 $sql_r .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON v.fk_soc = s.rowid AND s.entity IN (" . getEntity('societe') . ") ";
@@ -894,19 +995,10 @@ if ($res_r) {
 $total_reparaciones = count($reparaciones_list);
 $preselected_vehiculo = GETPOSTINT('new_vehiculo');
 
-$css_file = __DIR__ . '/css/tallerpro.css';
-$js_file = __DIR__ . '/js/tallerpro.js';
-$css_version = file_exists($css_file) ? filemtime($css_file) : dol_now();
-$js_version = file_exists($js_file) ? filemtime($js_file) : dol_now();
-
-$css_url = dol_buildpath('/taller/css/tallerpro.css', 1) . '?v=' . $css_version;
-$js_url = dol_buildpath('/taller/js/tallerpro.js', 1) . '?v=' . $js_version;
-
-$morehead = '<link rel="stylesheet" type="text/css" href="' . $css_url . '">' . "\n";
-$morehead .= '<script src="' . $js_url . '"></script>' . "\n";
+$morehead = tallerpro_build_morehead($langs);
 
 // Page Header
-llxHeader($morehead, 'Reparaciones - TallerPro', '', '', 0, 0, array(), array(), '', 'mod-taller page-tallerpro');
+llxHeader($morehead, $langs->trans("Reparaciones") . ' - TallerPro', '', '', 0, 0, array(), array(), '', 'mod-taller page-tallerpro');
 
 $dolibarr_root_url = DOL_URL_ROOT . '/index.php';
 $setup_url = dol_buildpath('/taller/configuracion.php', 1);
@@ -1055,7 +1147,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 
 		<!-- Collapse Button -->
 		<div class="tallerpro-sidebar-bottom">
-			<button type="button" class="tallerpro-collapse-btn" id="tallerCollapseBtn" title="Colapsar menú">
+			<button type="button" class="tallerpro-collapse-btn" id="tallerCollapseBtn" title="<?php echo dol_escape_htmltag($langs->trans("ColapsarMenu")); ?>">
 				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
 					<polyline points="15 18 9 12 15 6"></polyline>
 				</svg>
@@ -1067,7 +1159,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 	<div class="tallerpro-main">
 		<!-- Top Bar -->
 		<header class="tallerpro-topbar">
-			<button type="button" class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="Alternar menú" aria-label="Alternar menú">
+			<button type="button" class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="<?php echo dol_escape_htmltag($langs->trans("AlternarMenu")); ?>" aria-label="<?php echo dol_escape_htmltag($langs->trans("AlternarMenu")); ?>">
 				<svg class="tallerpro-toggle-icon-desktop" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 					<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
 					<line x1="9" y1="3" x2="9" y2="21"></line>
@@ -1096,7 +1188,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				<div class="tallerpro-header-actions" style="margin-bottom: 20px;">
 					<div class="tallerpro-content-header" style="margin-bottom: 0;">
 						<h1 class="tallerpro-page-title" style="font-size: 26px; font-weight: 700; color: #0f172a; margin: 0 0 4px 0;"><?php echo $langs->trans("Reparaciones"); ?></h1>
-						<p class="tallerpro-page-subtitle" id="reparacionesCountSubtitle" style="color: #64748b; font-size: 13.5px; margin: 0;"><?php echo !empty($reparaciones_list) ? count($reparaciones_list) : 4; ?> órdenes registradas</p>
+						<p class="tallerpro-page-subtitle" id="reparacionesCountSubtitle" style="color: #64748b; font-size: 13.5px; margin: 0;"><?php echo $langs->trans("OrdersRegisteredCount", (!empty($reparaciones_list) ? count($reparaciones_list) : 4)); ?></p>
 					</div>
 					<?php if ($can_write): ?>
 					<div>
@@ -1105,7 +1197,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<line x1="12" y1="5" x2="12" y2="19"></line>
 								<line x1="5" y1="12" x2="19" y2="12"></line>
 							</svg>
-							<span>Añadir</span>
+							<span><?php echo $langs->trans("Anadir"); ?></span>
 						</button>
 					</div>
 					<?php endif; ?>
@@ -1118,14 +1210,14 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<circle cx="11" cy="11" r="8"></circle>
 							<line x1="21" y1="21" x2="16.65" y2="16.65"></line>
 						</svg>
-						<input type="text" id="tallerSearchReparaciones" class="tallerpro-filter-search-input" placeholder="Buscar por matrícula o cliente...">
+						<input type="text" id="tallerSearchReparaciones" class="tallerpro-filter-search-input" placeholder="<?php echo dol_escape_htmltag($langs->trans("SearchRepairPlaceholder")); ?>">
 					</div>
 					<div class="tallerpro-filter-state-group">
-						<span class="tallerpro-filter-state-label">Filtrar estado:</span>
+						<span class="tallerpro-filter-state-label"><?php echo $langs->trans("FiltrarEstadoLabel"); ?></span>
 						<select id="tallerFilterEstado" class="tallerpro-filter-state-select">
-							<option value="all">Todos los estados</option>
-							<option value="en_curso">En curso</option>
-							<option value="finalizada">Finalizada</option>
+							<option value="all"><?php echo $langs->trans("TodosLosEstados"); ?></option>
+							<option value="en_curso"><?php echo $langs->trans("EnCurso"); ?></option>
+							<option value="finalizada"><?php echo $langs->trans("Finalizada"); ?></option>
 						</select>
 					</div>
 				</div>
@@ -1135,12 +1227,12 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<table class="tallerpro-table" id="tallerReparacionesTable">
 						<thead>
 							<tr>
-								<th style="width: 14%;">FECHA / REF</th>
-								<th style="width: 20%;">VEHÍCULO &amp; CLIENTE</th>
-								<th style="width: 15%;">INTERVENCIÓN PRINCIPAL</th>
-								<th style="width: 12%;">ESTADO</th>
-								<th style="width: 10%;">COSTE EST.</th>
-								<th style="width: 19%; text-align: right;">ACCIONES</th>
+								<th style="width: 14%;"><?php echo $langs->trans("ColFechaRef"); ?></th>
+								<th style="width: 20%;"><?php echo $langs->trans("ColVehiculoCliente"); ?></th>
+								<th style="width: 15%;"><?php echo $langs->trans("ColIntervencionPrincipal"); ?></th>
+								<th style="width: 12%;"><?php echo $langs->trans("ColEstadoUpper"); ?></th>
+								<th style="width: 10%;"><?php echo $langs->trans("ColCosteEst"); ?></th>
+								<th style="width: 19%; text-align: right;"><?php echo $langs->trans("ColAccionesUpper"); ?></th>
 							</tr>
 						</thead>
 
@@ -1200,9 +1292,9 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										</td>
 
 										<td>
-											<select class="tallerpro-status-select status-<?php echo $is_finalizada ? 'finalizada' : 'en_curso'; ?>" data-id="<?php echo (int) $rep->rowid; ?>" <?php if (!$can_write) echo 'disabled'; ?> title="Cambiar estado de reparación">
-												<option value="en_curso" <?php echo !$is_finalizada ? 'selected' : ''; ?>>En curso</option>
-												<option value="finalizada" <?php echo $is_finalizada ? 'selected' : ''; ?>>Finalizada</option>
+											<select class="tallerpro-status-select status-<?php echo $is_finalizada ? 'finalizada' : 'en_curso'; ?>" data-id="<?php echo (int) $rep->rowid; ?>" <?php if (!$can_write) echo 'disabled'; ?> title="<?php echo dol_escape_htmltag($langs->trans("CambiarEstadoReparacion")); ?>">
+												<option value="en_curso" <?php echo !$is_finalizada ? 'selected' : ''; ?>><?php echo $langs->trans("EnCurso"); ?></option>
+												<option value="finalizada" <?php echo $is_finalizada ? 'selected' : ''; ?>><?php echo $langs->trans("Finalizada"); ?></option>
 											</select>
 										</td>
 										<td style="font-weight: 600; color: #1e293b;"><?php echo number_format($rep_total_display, 2, '.', '') . ' €'; ?></td>
@@ -1211,7 +1303,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 
 											<div class="tallerpro-actions">
 												<?php if (!empty($rep->ref_factura)): ?>
-													<a href="<?php echo dol_buildpath('/taller/facturas.php', 1) . '?search_q=' . urlencode($rep->ref_factura); ?>" class="tallerpro-btn-facturada-link" title="Ver factura <?php echo dol_escape_htmltag($rep->ref_factura); ?>">
+													<a href="<?php echo dol_buildpath('/taller/facturas.php', 1) . '?search_q=' . urlencode($rep->ref_factura); ?>" class="tallerpro-btn-facturada-link" title="<?php echo dol_escape_htmltag($langs->trans("VerFacturaRef", $rep->ref_factura)); ?>">
 														<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 															<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
 															<polyline points="14 2 14 8 20 8"></polyline>
@@ -1219,7 +1311,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 														<span><?php echo dol_escape_htmltag($rep->ref_factura); ?></span>
 													</a>
 												<?php elseif (!empty($rep->albaran_id)): ?>
-													<a href="<?php echo dol_buildpath('/taller/facturas.php', 1) . '?id=' . ((int) $rep->albaran_id); ?>" class="tallerpro-btn-presupuesto-link" title="Ver presupuesto <?php echo dol_escape_htmltag($rep->albaran_ref); ?>">
+													<a href="<?php echo dol_buildpath('/taller/facturas.php', 1) . '?doc=propal&id=' . ((int) $rep->albaran_id); ?>" class="tallerpro-btn-presupuesto-link" title="<?php echo dol_escape_htmltag($langs->trans("VerPresupuestoRef", $rep->albaran_ref)); ?>">
 														<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 															<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
 															<polyline points="14 2 14 8 20 8"></polyline>
@@ -1233,7 +1325,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 														class="tallerpro-btn-facturar-action"
 														data-id="<?php echo (int) $rep->rowid; ?>"
 														onclick="if(typeof window.openFacturarModal === 'function') { window.openFacturarModal(this); } else { const m = document.getElementById('facturarConfirmModal'); if (m) m.classList.add('active'); }"
-														title="Emitir Factura oficial de esta reparación">
+														title="<?php echo dol_escape_htmltag($langs->trans("EmitirFacturaTitle")); ?>">
 														<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 															<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
 															<polyline points="14 2 14 8 20 8"></polyline>
@@ -1241,11 +1333,11 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															<line x1="16" y1="17" x2="8" y2="17"></line>
 															<polyline points="10 9 9 9 8 9"></polyline>
 														</svg>
-														<span>Facturar</span>
+														<span><?php echo $langs->trans("Facturar"); ?></span>
 													</button>
 												<?php endif; ?>
 												<?php if ($can_write): ?>
-												<button type="button" class="tallerpro-action-btn btn-edit-reparacion" title="Editar reparación"
+												<button type="button" class="tallerpro-action-btn btn-edit-reparacion" title="<?php echo dol_escape_htmltag($langs->trans("EditarReparacion")); ?>"
 													data-id="<?php echo (int) $rep->rowid; ?>"
 													data-vehiculo="<?php echo (int) $rep->fk_vehiculo; ?>"
 													data-fecha="<?php echo dol_escape_htmltag($rep->fecha); ?>"
@@ -1263,7 +1355,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 												</button>
 												<?php endif; ?>
 												<?php if ($can_delete): ?>
-												<button type="button" class="tallerpro-action-btn btn-delete-reparacion" data-id="<?php echo (int) $rep->rowid; ?>" title="Eliminar reparación">
+												<button type="button" class="tallerpro-action-btn btn-delete-reparacion" data-id="<?php echo (int) $rep->rowid; ?>" title="<?php echo dol_escape_htmltag($langs->trans("EliminarReparacion")); ?>">
 													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 														<polyline points="3 6 5 6 21 6"></polyline>
 														<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -1287,15 +1379,15 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									</td>
 									<td style="color: #334155; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Cambio de embrague y valvulina de caja</td>
 									<td>
-										<select class="tallerpro-status-select status-finalizada" data-id="mock-1" title="Cambiar estado de reparación">
-											<option value="en_curso">En curso</option>
-											<option value="finalizada" selected>Finalizada</option>
+										<select class="tallerpro-status-select status-finalizada" data-id="mock-1" title="<?php echo dol_escape_htmltag($langs->trans("CambiarEstadoReparacion")); ?>">
+											<option value="en_curso"><?php echo $langs->trans("EnCurso"); ?></option>
+											<option value="finalizada" selected><?php echo $langs->trans("Finalizada"); ?></option>
 										</select>
 									</td>
 									<td style="font-weight: 600; color: #1e293b;">128.55 €</td>
 									<td>
 										<div class="tallerpro-actions">
-											<button type="button" class="tallerpro-btn-facturar-action" title="Emitir Factura (sin funcionalidad)">
+											<button type="button" class="tallerpro-btn-facturar-action" title="<?php echo dol_escape_htmltag($langs->trans("EmitirFacturaTitle")); ?>">
 												<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 													<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
 													<polyline points="14 2 14 8 20 8"></polyline>
@@ -1303,9 +1395,9 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 													<line x1="16" y1="17" x2="8" y2="17"></line>
 													<polyline points="10 9 9 9 8 9"></polyline>
 												</svg>
-												<span>Facturar</span>
+												<span><?php echo $langs->trans("Facturar"); ?></span>
 											</button>
-											<button type="button" class="tallerpro-action-btn btn-edit-reparacion" title="Editar reparación"
+											<button type="button" class="tallerpro-action-btn btn-edit-reparacion" title="<?php echo dol_escape_htmltag($langs->trans("EditarReparacion")); ?>"
 												data-id="mock-1"
 												data-vehiculo="1"
 												data-fecha="2026-10-27"
@@ -1317,7 +1409,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 													<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
 												</svg>
 											</button>
-											<button type="button" class="tallerpro-action-btn btn-delete-reparacion" data-id="mock-1" title="Eliminar reparación">
+											<button type="button" class="tallerpro-action-btn btn-delete-reparacion" data-id="mock-1" title="<?php echo dol_escape_htmltag($langs->trans("EliminarReparacion")); ?>">
 												<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 													<polyline points="3 6 5 6 21 6"></polyline>
 													<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -1339,15 +1431,15 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									</td>
 									<td style="color: #334155; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Revisión de caja de cambios que rasca al reducir</td>
 									<td>
-										<select class="tallerpro-status-select status-en_curso" data-id="mock-2" title="Cambiar estado de reparación">
-											<option value="en_curso" selected>En curso</option>
-											<option value="finalizada">Finalizada</option>
+										<select class="tallerpro-status-select status-en_curso" data-id="mock-2" title="<?php echo dol_escape_htmltag($langs->trans("CambiarEstadoReparacion")); ?>">
+											<option value="en_curso" selected><?php echo $langs->trans("EnCurso"); ?></option>
+											<option value="finalizada"><?php echo $langs->trans("Finalizada"); ?></option>
 										</select>
 									</td>
 									<td style="font-weight: 600; color: #1e293b;">200.00 €</td>
 									<td>
 										<div class="tallerpro-actions">
-											<button type="button" class="tallerpro-action-btn btn-edit-reparacion" title="Editar reparación"
+											<button type="button" class="tallerpro-action-btn btn-edit-reparacion" title="<?php echo dol_escape_htmltag($langs->trans("EditarReparacion")); ?>"
 												data-id="mock-2"
 												data-vehiculo="2"
 												data-fecha="2026-10-28"
@@ -1359,7 +1451,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 													<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
 												</svg>
 											</button>
-											<button type="button" class="tallerpro-action-btn btn-delete-reparacion" data-id="mock-2" title="Eliminar reparación">
+											<button type="button" class="tallerpro-action-btn btn-delete-reparacion" data-id="mock-2" title="<?php echo dol_escape_htmltag($langs->trans("EliminarReparacion")); ?>">
 												<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 													<polyline points="3 6 5 6 21 6"></polyline>
 													<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -1381,15 +1473,15 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									</td>
 									<td style="color: #334155; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Pulir carrocería lateral y sustitución de moldura</td>
 									<td>
-										<select class="tallerpro-status-select status-finalizada" data-id="mock-3" title="Cambiar estado de reparación">
-											<option value="en_curso">En curso</option>
-											<option value="finalizada" selected>Finalizada</option>
+										<select class="tallerpro-status-select status-finalizada" data-id="mock-3" title="<?php echo dol_escape_htmltag($langs->trans("CambiarEstadoReparacion")); ?>">
+											<option value="en_curso"><?php echo $langs->trans("EnCurso"); ?></option>
+											<option value="finalizada" selected><?php echo $langs->trans("Finalizada"); ?></option>
 										</select>
 									</td>
 									<td style="font-weight: 600; color: #1e293b;">773.44 €</td>
 									<td>
 										<div class="tallerpro-actions">
-											<button type="button" class="tallerpro-btn-facturar-action" title="Emitir Factura (sin funcionalidad)">
+											<button type="button" class="tallerpro-btn-facturar-action" title="<?php echo dol_escape_htmltag($langs->trans("EmitirFacturaTitle")); ?>">
 												<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 													<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
 													<polyline points="14 2 14 8 20 8"></polyline>
@@ -1397,9 +1489,9 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 													<line x1="16" y1="17" x2="8" y2="17"></line>
 													<polyline points="10 9 9 9 8 9"></polyline>
 												</svg>
-												<span>Facturar</span>
+												<span><?php echo $langs->trans("Facturar"); ?></span>
 											</button>
-											<button type="button" class="tallerpro-action-btn btn-edit-reparacion" title="Editar reparación"
+											<button type="button" class="tallerpro-action-btn btn-edit-reparacion" title="<?php echo dol_escape_htmltag($langs->trans("EditarReparacion")); ?>"
 												data-id="mock-3"
 												data-vehiculo="3"
 												data-fecha="2026-10-24"
@@ -1411,7 +1503,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 													<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
 												</svg>
 											</button>
-											<button type="button" class="tallerpro-action-btn btn-delete-reparacion" data-id="mock-3" title="Eliminar reparación">
+											<button type="button" class="tallerpro-action-btn btn-delete-reparacion" data-id="mock-3" title="<?php echo dol_escape_htmltag($langs->trans("EliminarReparacion")); ?>">
 												<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 													<polyline points="3 6 5 6 21 6"></polyline>
 													<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -1433,15 +1525,15 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									</td>
 									<td style="color: #334155; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Diagnóstico luz de avería motor en cuadro</td>
 									<td>
-										<select class="tallerpro-status-select status-en_curso" data-id="mock-4" title="Cambiar estado de reparación">
-											<option value="en_curso" selected>En curso</option>
-											<option value="finalizada">Finalizada</option>
+										<select class="tallerpro-status-select status-en_curso" data-id="mock-4" title="<?php echo dol_escape_htmltag($langs->trans("CambiarEstadoReparacion")); ?>">
+											<option value="en_curso" selected><?php echo $langs->trans("EnCurso"); ?></option>
+											<option value="finalizada"><?php echo $langs->trans("Finalizada"); ?></option>
 										</select>
 									</td>
 									<td style="font-weight: 600; color: #1e293b;">45.00 €</td>
 									<td>
 										<div class="tallerpro-actions">
-											<button type="button" class="tallerpro-action-btn btn-edit-reparacion" title="Editar reparación"
+											<button type="button" class="tallerpro-action-btn btn-edit-reparacion" title="<?php echo dol_escape_htmltag($langs->trans("EditarReparacion")); ?>"
 												data-id="mock-4"
 												data-vehiculo="4"
 												data-fecha="2026-10-29"
@@ -1453,7 +1545,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 													<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
 												</svg>
 											</button>
-											<button type="button" class="tallerpro-action-btn btn-delete-reparacion" data-id="mock-4" title="Eliminar reparación">
+											<button type="button" class="tallerpro-action-btn btn-delete-reparacion" data-id="mock-4" title="<?php echo dol_escape_htmltag($langs->trans("EliminarReparacion")); ?>">
 												<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 													<polyline points="3 6 5 6 21 6"></polyline>
 													<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -1472,10 +1564,10 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 
 	<!-- Modal Orden de Reparación (Diseño idéntico a Detalle de Factura) -->
 	<div class="tallerpro-modal-backdrop" id="tallerReparacionModal">
-		<form class="tallerpro-modal-card tallerpro-modal-card-lg" id="tallerReparacionForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
+		<form class="tallerpro-modal-card tallerpro-modal-card-lg" id="tallerReparacionForm" method="POST" action="<?php echo dol_escape_htmltag($_SERVER['PHP_SELF']); ?>">
 			<div class="tallerpro-modal-header">
-				<h2 class="tallerpro-modal-title" id="orderModalTitle">Detalle de la reparación</h2>
-				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="Cerrar">
+				<h2 class="tallerpro-modal-title" id="orderModalTitle"><?php echo $langs->trans("DetalleDeLaReparacion"); ?></h2>
+				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="<?php echo dol_escape_htmltag($langs->trans("Cerrar")); ?>">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<line x1="18" y1="6" x2="6" y2="18"></line>
 						<line x1="6" y1="6" x2="18" y2="18"></line>
@@ -1500,16 +1592,16 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									<circle cx="5.5" cy="18.5" r="2.5"></circle>
 									<circle cx="18.5" cy="18.5" r="2.5"></circle>
 								</svg>
-								<span>Datos del Vehículo y Recepción</span>
+								<span><?php echo $langs->trans("DatosVehiculoRecepcion"); ?></span>
 							</h3>
 							<div id="repFacturaBadgeContainer" style="display: none;"></div>
 						</div>
 
 						<div style="display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 14px;">
 							<div class="tallerpro-form-group">
-								<label class="tallerpro-form-label">Vehículo &amp; Cliente <span class="tallerpro-required" style="color: #ef4444;">*</span></label>
+								<label class="tallerpro-form-label"><?php echo $langs->trans("VehiculoYCliente"); ?> <span class="tallerpro-required" style="color: #ef4444;">*</span></label>
 								<select class="tallerpro-form-select" id="orderVehiculoSelect" name="fk_vehiculo" required style="font-weight: 500;" <?php if ($preselected_vehiculo > 0) echo 'data-preselected="' . $preselected_vehiculo . '"'; ?>>
-									<option value="">— Seleccionar vehículo —</option>
+									<option value=""><?php echo $langs->trans("SelectVehicleOption"); ?></option>
 									<?php foreach ($vehicles_list as $veh): ?>
 										<option value="<?php echo (int) $veh->rowid; ?>">
 											<?php 
@@ -1525,27 +1617,27 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							</div>
 
 							<div class="tallerpro-form-group">
-								<label class="tallerpro-form-label">Fecha de Entrada <span class="tallerpro-required" style="color: #ef4444;">*</span></label>
+								<label class="tallerpro-form-label"><?php echo $langs->trans("FechaDeEntrada"); ?> <span class="tallerpro-required" style="color: #ef4444;">*</span></label>
 								<input type="date" class="tallerpro-form-input" id="orderFecha" name="fecha" value="<?php echo date('Y-m-d'); ?>" required />
 							</div>
 
 							<div class="tallerpro-form-group">
-								<label class="tallerpro-form-label">Estado</label>
+								<label class="tallerpro-form-label"><?php echo $langs->trans("Estado"); ?></label>
 								<select class="tallerpro-form-select" id="orderEstadoSelect" name="estado">
-									<option value="en_curso" selected>En curso</option>
-									<option value="finalizada">Finalizada</option>
+									<option value="en_curso" selected><?php echo $langs->trans("EnCurso"); ?></option>
+									<option value="finalizada"><?php echo $langs->trans("Finalizada"); ?></option>
 								</select>
 							</div>
 						</div>
 
 						<div class="tallerpro-form-group" style="margin-top: 10px;">
-							<label class="tallerpro-form-label">Avería reportada / Trabajo solicitado <span class="tallerpro-required" style="color: #ef4444;">*</span></label>
-							<input type="text" class="tallerpro-form-input" id="orderAveria" name="descripcion" placeholder="Ej: Revisión 60.000 km, ruido en frenos al frenar, cambio de aceite y filtros..." required />
+							<label class="tallerpro-form-label"><?php echo $langs->trans("AveriaSolicitada"); ?> <span class="tallerpro-required" style="color: #ef4444;">*</span></label>
+							<input type="text" class="tallerpro-form-input" id="orderAveria" name="descripcion" placeholder="<?php echo dol_escape_htmltag($langs->trans("AveriaPlaceholder")); ?>" required />
 						</div>
 
 						<div class="tallerpro-form-group" style="margin-top: 10px;">
-							<label class="tallerpro-form-label">Notas</label>
-							<textarea class="tallerpro-form-textarea" id="orderNotas" name="notas_texto" rows="2" placeholder="Notas u observaciones..."></textarea>
+							<label class="tallerpro-form-label"><?php echo $langs->trans("Notas"); ?></label>
+							<textarea class="tallerpro-form-textarea" id="orderNotas" name="notas_texto" rows="2" placeholder="<?php echo dol_escape_htmltag($langs->trans("NotasPlaceholder")); ?>"></textarea>
 						</div>
 					</div>
 					<!-- Sección 1: Materiales (Diseño Idéntico a Factura) -->
@@ -1556,16 +1648,16 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
 								<line x1="12" y1="22.08" x2="12" y2="12"></line>
 							</svg>
-							<span>Materiales</span>
+							<span><?php echo $langs->trans("Materiales"); ?></span>
 						</h3>
 						<div class="tallerpro-grid-mat-row1" style="margin-top: 12px;">
 							<div class="tallerpro-form-group">
-								<label class="tallerpro-form-label">Material del catálogo</label>
+								<label class="tallerpro-form-label"><?php echo $langs->trans("MaterialDelCatalogo"); ?></label>
 								<select id="rep_mat_catalogo" class="tallerpro-form-select">
-									<option value="">— Nuevo / escribir manualmente —</option>
+									<option value=""><?php echo $langs->trans("SelectCatalogNewManual"); ?></option>
 									<?php foreach ($materials_list as $mcat): 
 										$stk = (float) $mcat->stock;
-										$stk_label = $stk <= 0 ? 'Sin stock (0 uds)' : ('Stock: ' . (int)$stk . ' uds');
+										$stk_label = $stk <= 0 ? $langs->trans("SinStockZeroUds") : $langs->trans("StockPrefixUds", (int)$stk);
 									?>
 										<option value="<?php echo (int) $mcat->rowid; ?>"
 											data-codigo="<?php echo dol_escape_htmltag($mcat->ref); ?>"
@@ -1579,42 +1671,42 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<div id="rep_mat_stock_pill" style="display: none; margin-top: 6px;"></div>
 							</div>
 							<div class="tallerpro-form-group">
-								<label class="tallerpro-form-label">Código</label>
+								<label class="tallerpro-form-label"><?php echo $langs->trans("Codigo"); ?></label>
 								<input type="text" id="rep_mat_codigo" class="tallerpro-form-input" />
 							</div>
 							<div class="tallerpro-form-group">
-								<label class="tallerpro-form-label">Descripción</label>
+								<label class="tallerpro-form-label"><?php echo $langs->trans("Descripcion"); ?></label>
 								<input type="text" id="rep_mat_descripcion" class="tallerpro-form-input" />
 							</div>
 						</div>
 
 						<div class="tallerpro-grid-mat-row2" style="margin-top: 10px;">
 							<div class="tallerpro-form-group">
-								<label class="tallerpro-form-label">Cantidad</label>
+								<label class="tallerpro-form-label"><?php echo $langs->trans("Cantidad"); ?></label>
 								<input type="number" step="1" min="1" id="rep_mat_cantidad" class="tallerpro-form-input" value="1" />
 							</div>
 							<div class="tallerpro-form-group">
-								<label class="tallerpro-form-label">Precio unit. (€)</label>
+								<label class="tallerpro-form-label"><?php echo $langs->trans("PrecioUnitEur"); ?></label>
 								<input type="number" step="0.01" min="0" id="rep_mat_precio" class="tallerpro-form-input" value="0" />
 							</div>
 							<div class="tallerpro-form-group">
-								<label class="tallerpro-form-label">Descuento (%)</label>
+								<label class="tallerpro-form-label"><?php echo $langs->trans("DescuentoPct"); ?></label>
 								<input type="number" step="1" min="0" max="100" id="rep_mat_descuento" class="tallerpro-form-input" value="0" />
 							</div>
 							<div class="tallerpro-form-group">
-								<label class="tallerpro-form-label">Total neto</label>
+								<label class="tallerpro-form-label"><?php echo $langs->trans("TotalNeto"); ?></label>
 								<input type="text" id="rep_mat_total_neto" class="tallerpro-form-input" value="0.00 €" readonly />
 							</div>
 							<div class="tallerpro-form-group" style="justify-content: flex-end;">
 								<button type="button" class="tallerpro-btn-add-line" id="btnAddRepMaterialLine">
-									<span>+ Añadir</span>
+									<span><?php echo $langs->trans("BtnMasAnadir"); ?></span>
 								</button>
 							</div>
 						</div>
 
 						<!-- Listado de Materiales o estado vacío -->
 						<div id="rep_mat_empty" class="tallerpro-invoice-empty-box" style="margin-top: 12px;">
-							Sin materiales todavía.
+							<?php echo $langs->trans("SinMaterialesTodavia"); ?>
 						</div>
 						<div id="rep_mat_list" class="tallerpro-invoice-lines-list" style="display: none; margin-top: 12px;"></div>
 					</div>
@@ -1625,42 +1717,42 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
 								<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
 							</svg>
-							<span>Reparaciones / Mano de obra</span>
+							<span><?php echo $langs->trans("ReparacionesManoDeObra"); ?></span>
 						</h3>
 						<div class="tallerpro-grid-rep-row1" style="margin-top: 12px;">
 							<div class="tallerpro-form-group">
-								<label class="tallerpro-form-label">Descripción de la reparación</label>
-								<input type="text" id="rep_mo_descripcion" class="tallerpro-form-input" placeholder="Ej: Cambio de embrague" />
+								<label class="tallerpro-form-label"><?php echo $langs->trans("DescripcionReparacion"); ?></label>
+								<input type="text" id="rep_mo_descripcion" class="tallerpro-form-input" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderDescReparacion")); ?>" />
 							</div>
 							<div class="tallerpro-form-group">
-								<label class="tallerpro-form-label">Precio (€)</label>
+								<label class="tallerpro-form-label"><?php echo $langs->trans("PrecioEur"); ?></label>
 								<input type="number" step="0.01" min="0" id="rep_mo_precio" class="tallerpro-form-input" value="0" />
 							</div>
 							<div class="tallerpro-form-group">
-								<label class="tallerpro-form-label">Descuento (%)</label>
+								<label class="tallerpro-form-label"><?php echo $langs->trans("DescuentoPct"); ?></label>
 								<input type="number" step="1" min="0" max="100" id="rep_mo_descuento" class="tallerpro-form-input" value="0" />
 							</div>
 							<div class="tallerpro-form-group">
-								<label class="tallerpro-form-label">Total neto</label>
+								<label class="tallerpro-form-label"><?php echo $langs->trans("TotalNeto"); ?></label>
 								<input type="text" id="rep_mo_total_neto" class="tallerpro-form-input" value="0.00 €" readonly />
 							</div>
 						</div>
 
 						<div class="tallerpro-grid-rep-row2" style="margin-top: 10px;">
 							<div class="tallerpro-form-group">
-								<label class="tallerpro-form-label">Notas</label>
+								<label class="tallerpro-form-label"><?php echo $langs->trans("Notas"); ?></label>
 								<textarea id="rep_mo_notas" class="tallerpro-form-textarea" rows="2"></textarea>
 							</div>
 							<div class="tallerpro-form-group" style="justify-content: flex-end;">
 								<button type="button" class="tallerpro-btn-add-line" id="btnAddRepMoLine">
-									<span>+ Añadir</span>
+									<span><?php echo $langs->trans("BtnMasAnadir"); ?></span>
 								</button>
 							</div>
 						</div>
 
 						<!-- Listado de Reparaciones o estado vacío -->
 						<div id="rep_mo_empty" class="tallerpro-invoice-empty-box" style="margin-top: 12px;">
-							Sin reparaciones todavía.
+							<?php echo $langs->trans("SinReparacionesTodavia"); ?>
 						</div>
 						<div id="rep_mo_list" class="tallerpro-invoice-lines-list" style="display: none; margin-top: 12px;"></div>
 					</div>
@@ -1671,11 +1763,11 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<!-- Lado izquierdo: Descuento global e IVA -->
 							<div class="tallerpro-totals-inputs">
 								<div class="tallerpro-form-group">
-									<label class="tallerpro-form-label">Descuento global (€)</label>
+									<label class="tallerpro-form-label"><?php echo $langs->trans("DescuentoGlobalEur"); ?></label>
 									<input type="number" step="0.01" min="0" id="rep_tot_descuento_global" class="tallerpro-form-input" value="0" />
 								</div>
 								<div class="tallerpro-form-group">
-									<label class="tallerpro-form-label">IVA (%)</label>
+									<label class="tallerpro-form-label"><?php echo $langs->trans("IvaPctLabel"); ?></label>
 									<input type="number" step="0.01" min="0" id="rep_tot_iva" class="tallerpro-form-input" value="21" />
 								</div>
 							</div>
@@ -1683,48 +1775,48 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<!-- Lado derecho: Desglose dinámico -->
 							<div class="tallerpro-totals-summary">
 								<div class="tallerpro-totals-row">
-									<span>Materiales</span>
+									<span><?php echo $langs->trans("Materiales"); ?></span>
 									<span id="rep_sum_materiales">0.00 €</span>
 								</div>
 								<div class="tallerpro-totals-row">
-									<span>Reparaciones</span>
+									<span><?php echo $langs->trans("Reparaciones"); ?></span>
 									<span id="rep_sum_reparaciones">0.00 €</span>
 								</div>
 								<div class="tallerpro-totals-divider"></div>
 								<div class="tallerpro-totals-row">
-									<span>Subtotal</span>
+									<span><?php echo $langs->trans("Subtotal"); ?></span>
 									<span id="rep_sum_subtotal">0.00 €</span>
 								</div>
 								<div class="tallerpro-totals-row">
-									<span>Descuento</span>
+									<span><?php echo $langs->trans("Descuento"); ?></span>
 									<span id="rep_sum_descuento">- 0.00 €</span>
 								</div>
 								<div class="tallerpro-totals-divider"></div>
 								<div class="tallerpro-totals-row">
-									<span>Base imponible</span>
+									<span><?php echo $langs->trans("BaseImponible"); ?></span>
 									<span id="rep_sum_base_imponible">0.00 €</span>
 								</div>
 								<div class="tallerpro-totals-row">
-									<span id="rep_lbl_iva">IVA (21%)</span>
+									<span id="rep_lbl_iva"><?php echo $langs->trans("IVA"); ?> (21%)</span>
 									<span id="rep_sum_iva">0.00 €</span>
 								</div>
 								<div class="tallerpro-totals-divider"></div>
 								<div class="tallerpro-totals-row tallerpro-totals-final">
-									<span>TOTAL</span>
+									<span><?php echo $langs->trans("TotalUpper"); ?></span>
 									<span id="rep_sum_total">0.00 €</span>
 								</div>
 
-								<button type="submit" class="tallerpro-btn-save-totals" id="tallerSaveOrderBtn" title="Guardar orden de reparación">
+								<button type="submit" class="tallerpro-btn-save-totals" id="tallerSaveOrderBtn" title="<?php echo dol_escape_htmltag($langs->trans("GuardarOrdenTitle")); ?>">
 									<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 										<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
 										<polyline points="17 21 17 13 7 13 7 21"></polyline>
 										<polyline points="7 3 7 8 15 8"></polyline>
 									</svg>
-									<span>Guardar reparación</span>
+									<span><?php echo $langs->trans("GuardarReparacion"); ?></span>
 								</button>
 
 								<?php if ($can_write && $can_facturar): ?>
-								<button type="button" class="tallerpro-btn-crear-albaran" id="btnModalCrearAlbaran" style="display: none;" title="Crear albarán / presupuesto enlazado a esta reparación">
+								<button type="button" class="tallerpro-btn-crear-albaran" id="btnModalCrearAlbaran" style="display: none;" title="<?php echo dol_escape_htmltag($langs->trans("BtnCrearAlbaranTitle")); ?>">
 									<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 										<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
 										<polyline points="14 2 14 8 20 8"></polyline>
@@ -1732,7 +1824,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<line x1="16" y1="17" x2="8" y2="17"></line>
 										<polyline points="10 9 9 9 8 9"></polyline>
 									</svg>
-									<span id="btnModalCrearAlbaranText">Crear albarán</span>
+									<span id="btnModalCrearAlbaranText"><?php echo $langs->trans("CrearAlbaran"); ?></span>
 								</button>
 								<?php endif; ?>
 							</div>
@@ -1755,15 +1847,15 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<line x1="14" y1="11" x2="14" y2="17"></line>
 				</svg>
 			</div>
-			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">¿Estás seguro de que deseas borrar?</h3>
-			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;">Esta reparación dejará de mostrarse en la lista activa, pero sus datos se conservarán en el sistema.</p>
+			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;"><?php echo $langs->trans("ConfirmDeleteTitle"); ?></h3>
+			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;"><?php echo $langs->trans("ConfirmDeleteBodyRepair"); ?></p>
 
 			<div style="display: flex; gap: 12px; justify-content: center;">
 				<button type="button" id="btnCancelDelete" style="flex: 1; padding: 10px 16px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px;">
-					Rechazar
+					<?php echo $langs->trans("Rechazar"); ?>
 				</button>
 				<button type="button" id="btnConfirmDelete" style="flex: 1; padding: 10px 16px; border: none; background: #ef4444; color: #ffffff; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);">
-					Confirmar
+					<?php echo $langs->trans("Confirmar"); ?>
 				</button>
 			</div>
 		</div>
@@ -1781,29 +1873,29 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<polyline points="10 9 9 9 8 9"></polyline>
 				</svg>
 			</div>
-			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">¿Deseas facturar esta reparación?</h3>
-			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;">Se generará la factura en estado borrador en Dolibarr con los materiales y la mano de obra registrados.</p>
+			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;"><?php echo $langs->trans("ConfirmFacturarTitle"); ?></h3>
+			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;"><?php echo $langs->trans("ConfirmFacturarBody"); ?></p>
 
 			<div style="display: flex; gap: 12px; justify-content: center;">
 				<button type="button" id="btnCancelFacturar" onclick="const m=document.getElementById('facturarConfirmModal');if(m)m.classList.remove('active');window.__tallerPendingFacturarId=null;" style="flex: 1; padding: 10px 16px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px;">
-					Rechazar
+					<?php echo $langs->trans("Rechazar"); ?>
 				</button>
 				<button type="button" id="btnConfirmFacturar" onclick="const m=document.getElementById('facturarConfirmModal');if(m)m.classList.remove('active');if(window.__tallerPendingFacturarId){const f=document.getElementById('tallerFacturarForm');const r=document.getElementById('facturarFormRowid');if(f&&r){r.value=window.__tallerPendingFacturarId;window.__tallerPendingFacturarId=null;f.submit();}}" style="flex: 1; padding: 10px 16px; border: none; background: #059669; color: #ffffff; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(5, 150, 105, 0.25);">
-					Confirmar
+					<?php echo $langs->trans("Confirmar"); ?>
 				</button>
 			</div>
 		</div>
 	</div>
 
 	<!-- Formulario oculto para facturación segura POST con CSRF Token -->
-	<form id="tallerFacturarForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: none;">
+	<form id="tallerFacturarForm" method="POST" action="<?php echo dol_escape_htmltag($_SERVER['PHP_SELF']); ?>" style="display: none;">
 		<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : (function_exists('newToken') ? newToken() : ''))); ?>">
 		<input type="hidden" name="action" value="facturar_reparacion">
 		<input type="hidden" name="rowid" id="facturarFormRowid" value="">
 	</form>
 
 	<!-- Formulario oculto para borrado seguro POST con CSRF Token -->
-	<form id="tallerGlobalDeleteForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: none;">
+	<form id="tallerGlobalDeleteForm" method="POST" action="<?php echo dol_escape_htmltag($_SERVER['PHP_SELF']); ?>" style="display: none;">
 		<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : (function_exists('newToken') ? newToken() : ''))); ?>">
 		<input type="hidden" name="action" id="globalDeleteAction" value="delete_reparacion">
 		<input type="hidden" name="rowid" id="globalDeleteRowid" value="">

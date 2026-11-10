@@ -26,6 +26,9 @@ class TallerVehiculo extends TallerBaseObject
 	/** @var string */
 	public $table_element = 'taller_vehiculo';
 
+	/** @var string */
+	public $picto = 'fa-car';
+
 	/** @var int */
 	public $fk_soc = 0;
 
@@ -57,9 +60,9 @@ class TallerVehiculo extends TallerBaseObject
 	public $fields = array(
 		'rowid'         => array('type' => 'integer',  'label' => 'TechnicalID', 'enabled' => 1, 'position' => 1,   'notnull' => 1, 'visible' => 0),
 		'fk_soc'        => array('type' => 'integer',  'label' => 'ThirdParty',  'enabled' => 1, 'position' => 10,  'notnull' => 1, 'visible' => 1),
-		'matricula'     => array('type' => 'varchar(32)',  'label' => 'Matricula', 'enabled' => 1, 'position' => 20, 'notnull' => 1, 'visible' => 1),
-		'marca'         => array('type' => 'varchar(64)',  'label' => 'Marca',     'enabled' => 1, 'position' => 30, 'notnull' => 0, 'visible' => 1),
-		'modelo'        => array('type' => 'varchar(64)',  'label' => 'Modelo',    'enabled' => 1, 'position' => 40, 'notnull' => 0, 'visible' => 1),
+		'matricula'     => array('type' => 'varchar(32)',  'label' => 'Matricula', 'enabled' => 1, 'position' => 20, 'notnull' => 1, 'visible' => 1, 'showoncombobox' => 1),
+		'marca'         => array('type' => 'varchar(64)',  'label' => 'Marca',     'enabled' => 1, 'position' => 30, 'notnull' => 0, 'visible' => 1, 'showoncombobox' => 2),
+		'modelo'        => array('type' => 'varchar(64)',  'label' => 'Modelo',    'enabled' => 1, 'position' => 40, 'notnull' => 0, 'visible' => 1, 'showoncombobox' => 2),
 		'anio'          => array('type' => 'varchar(10)',  'label' => 'Anio',      'enabled' => 1, 'position' => 50, 'notnull' => 0, 'visible' => 1),
 		'color'         => array('type' => 'varchar(32)',  'label' => 'Color',     'enabled' => 1, 'position' => 60, 'notnull' => 0, 'visible' => 1),
 		'vin'           => array('type' => 'varchar(64)',  'label' => 'VIN',       'enabled' => 1, 'position' => 70, 'notnull' => 0, 'visible' => 1),
@@ -70,4 +73,45 @@ class TallerVehiculo extends TallerBaseObject
 		'entity'        => array('type' => 'integer',  'label' => 'Entity',      'enabled' => 1, 'position' => 520, 'notnull' => 0, 'default' => 1, 'visible' => 0),
 		'status'        => array('type' => 'smallint', 'label' => 'Status',      'enabled' => 1, 'position' => 530, 'notnull' => 0, 'default' => 1, 'visible' => 1),
 	);
+
+	/**
+	 * Devuelve el enlace HTML estándar de Dolibarr hacia la ficha del vehículo.
+	 * Requerido por los extrafields de tipo 'link' (ExtraFields::showOutputField / CommonObject::showOptionals).
+	 *
+	 * @param int    $withpicto             0=Sin icono, 1=Icono+texto, 2=Solo icono, 3=Icono+texto
+	 * @param string $option                Opción adicional de enlace
+	 * @param int    $notooltip             1=Ocultar tooltip
+	 * @param string $morecss               Clases CSS adicionales
+	 * @param int    $save_lastsearch_value Reservado por compatibilidad Dolibarr
+	 * @return string
+	 */
+	public function getNomUrl($withpicto = 0, $option = '', $notooltip = 0, $morecss = '', $save_lastsearch_value = -1)
+	{
+		if ((int) $this->id <= 0) {
+			return '';
+		}
+
+		$url = dol_buildpath('/taller/vehiculos.php', 1) . '?id=' . ((int) $this->id);
+		$model_str = trim(((string) $this->marca) . ' ' . ((string) $this->modelo));
+		$display = !empty($this->matricula) ? (string) $this->matricula : ('#' . ((int) $this->id));
+		$tooltip = !empty($model_str) ? ($display . ' · ' . $model_str) : $display;
+
+		$title_attr = $notooltip ? '' : ' title="' . dol_escape_htmltag($tooltip) . '"';
+		$class_attr = !empty($morecss) ? ' class="' . dol_escape_htmltag($morecss) . '"' : '';
+
+		$out = '<a href="' . $url . '"' . $title_attr . $class_attr . '>';
+		if ($withpicto) {
+			$out .= img_picto(($notooltip ? '' : $tooltip), $this->picto ?: 'fa-car', 'class="pictofixedwidth"');
+			if ($withpicto != 2) {
+				$out .= ' ';
+			}
+		}
+		if ($withpicto != 2) {
+			$out .= dol_escape_htmltag($display);
+		}
+		$out .= '</a>';
+
+		return $out;
+	}
 }
+

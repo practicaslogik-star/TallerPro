@@ -86,9 +86,9 @@ if ($action == 'create_seguro' || $action == 'add_seguro') {
 	$vehiculo_valido = ($fk_vehiculo <= 0 || tallerpro_record_in_entity($db, 'taller_vehiculo', $fk_vehiculo, 'taller_vehiculo', 'status = 1'));
 
 	if (empty($compania)) {
-		setEventMessages($langs->trans("ErrorFieldRequired", "Compañía"), null, 'errors');
+		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("FieldCompania")), null, 'errors');
 	} elseif (!$vehiculo_valido) {
-		setEventMessages("El vehículo seleccionado no pertenece a la empresa activa", null, 'errors');
+		setEventMessages($langs->trans("ErrVehicleNotInEntity"), null, 'errors');
 	} else {
 		$seg_obj = new TallerSeguro($db);
 		$seg_obj->fk_vehiculo  = ($fk_vehiculo > 0 ? $fk_vehiculo : null);
@@ -107,7 +107,7 @@ if ($action == 'create_seguro' || $action == 'add_seguro') {
 			exit;
 		} else {
 			dol_syslog("TallerPro - Error al guardar seguro: " . $seg_obj->error . " " . implode(' ', $seg_obj->errors), LOG_ERR);
-			setEventMessages("Error al guardar el seguro", null, 'errors');
+			setEventMessages($langs->trans("ErrSaveInsurance"), null, 'errors');
 		}
 	}
 }
@@ -130,11 +130,11 @@ if ($action == 'update_seguro' || $action == 'edit_seguro') {
 	$vehiculo_valido = ($fk_vehiculo <= 0 || tallerpro_record_in_entity($db, 'taller_vehiculo', $fk_vehiculo, 'taller_vehiculo', 'status = 1'));
 
 	if (empty($compania)) {
-		setEventMessages($langs->trans("ErrorFieldRequired", "Compañía"), null, 'errors');
+		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("FieldCompania")), null, 'errors');
 	} elseif ($rowid <= 0) {
-		setEventMessages("Identificador de seguro no válido", null, 'errors');
+		setEventMessages($langs->trans("ErrInvalidInsuranceId"), null, 'errors');
 	} elseif (!$vehiculo_valido) {
-		setEventMessages("El vehículo seleccionado no pertenece a la empresa activa", null, 'errors');
+		setEventMessages($langs->trans("ErrVehicleNotInEntity"), null, 'errors');
 	} else {
 		$seg_obj = new TallerSeguro($db);
 		if ($seg_obj->fetch($rowid) > 0) {
@@ -153,10 +153,10 @@ if ($action == 'update_seguro' || $action == 'edit_seguro') {
 				exit;
 			} else {
 				dol_syslog("TallerPro - Error al actualizar seguro ID " . $rowid . ": " . $seg_obj->error . " " . implode(' ', $seg_obj->errors), LOG_ERR);
-				setEventMessages("Error al actualizar el seguro", null, 'errors');
+				setEventMessages($langs->trans("ErrUpdateInsurance"), null, 'errors');
 			}
 		} else {
-			setEventMessages("Seguro no encontrado en la empresa activa", null, 'errors');
+			setEventMessages($langs->trans("ErrInsuranceNotFound"), null, 'errors');
 		}
 	}
 }
@@ -175,7 +175,7 @@ if ($action == 'delete_seguro' || $action == 'delete') {
 			exit;
 		} else {
 			dol_syslog("TallerPro - Error al eliminar seguro ID " . $rowid . ": " . $seg_obj->error, LOG_ERR);
-			setEventMessages("Error al eliminar el seguro", null, 'errors');
+			setEventMessages($langs->trans("ErrDeleteInsurance"), null, 'errors');
 		}
 	}
 }
@@ -209,19 +209,10 @@ if ($res_s) {
 }
 $total_seguros = count($seguros_list);
 
-$css_file = __DIR__ . '/css/tallerpro.css';
-$js_file = __DIR__ . '/js/tallerpro.js';
-$css_version = file_exists($css_file) ? filemtime($css_file) : dol_now();
-$js_version = file_exists($js_file) ? filemtime($js_file) : dol_now();
-
-$css_url = dol_buildpath('/taller/css/tallerpro.css', 1) . '?v=' . $css_version;
-$js_url = dol_buildpath('/taller/js/tallerpro.js', 1) . '?v=' . $js_version;
-
-$morehead = '<link rel="stylesheet" type="text/css" href="'.$css_url.'">'."\n";
-$morehead .= '<script src="'.$js_url.'"></script>'."\n";
+$morehead = tallerpro_build_morehead($langs);
 
 // Page Header
-llxHeader($morehead, 'Seguros - TallerPro', '', '', 0, 0, array(), array(), '', 'mod-taller page-tallerpro');
+llxHeader($morehead, $langs->trans("Seguros") . ' - ' . $langs->trans("TallerPro"), '', '', 0, 0, array(), array(), '', 'mod-taller page-tallerpro');
 
 $dolibarr_root_url = DOL_URL_ROOT . '/index.php';
 $setup_url = dol_buildpath('/taller/configuracion.php', 1);
@@ -370,7 +361,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 
 		<!-- Collapse Button -->
 		<div class="tallerpro-sidebar-bottom">
-			<button type="button" class="tallerpro-collapse-btn" id="tallerCollapseBtn" title="Colapsar menú">
+			<button type="button" class="tallerpro-collapse-btn" id="tallerCollapseBtn" title="<?php echo dol_escape_htmltag($langs->trans("ColapsarMenu")); ?>">
 				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
 					<polyline points="15 18 9 12 15 6"></polyline>
 				</svg>
@@ -382,7 +373,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 	<div class="tallerpro-main">
 		<!-- Top Bar -->
 		<header class="tallerpro-topbar">
-			<button type="button" class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="Alternar menú" aria-label="Alternar menú">
+			<button type="button" class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="<?php echo dol_escape_htmltag($langs->trans("AlternarMenu")); ?>" aria-label="<?php echo dol_escape_htmltag($langs->trans("AlternarMenu")); ?>">
 				<svg class="tallerpro-toggle-icon-desktop" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 					<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
 					<line x1="9" y1="3" x2="9" y2="21"></line>
@@ -411,7 +402,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				<div class="tallerpro-header-actions">
 					<div class="tallerpro-content-header" style="margin-bottom: 0;">
 						<h1 class="tallerpro-page-title"><?php echo $langs->trans("Seguros"); ?></h1>
-						<p class="tallerpro-page-subtitle"><?php echo $total_seguros; ?> registro(s)</p>
+						<p class="tallerpro-page-subtitle"><?php echo $langs->trans("RegistrosCount", $total_seguros); ?></p>
 					</div>
 					<?php if ($can_write): ?>
 					<div>
@@ -420,7 +411,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<line x1="12" y1="5" x2="12" y2="19"></line>
 								<line x1="5" y1="12" x2="19" y2="12"></line>
 							</svg>
-							<span>Añadir</span>
+							<span><?php echo $langs->trans("Anadir"); ?></span>
 						</button>
 					</div>
 					<?php endif; ?>
@@ -431,7 +422,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				<?php if (empty($seguros_list)): ?>
 					<!-- Empty State Card -->
 					<div class="tallerpro-empty-card">
-						Aún no hay registros. Añade el primero.
+						<?php echo $langs->trans("SinRegistrosPrimer"); ?>
 					</div>
 				<?php else: ?>
 					<!-- Table Card -->
@@ -439,12 +430,12 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<table class="tallerpro-table">
 							<thead>
 								<tr>
-									<th>Vehículo</th>
-									<th>Compañía</th>
-									<th>Nº de póliza</th>
-									<th>Tipo</th>
-									<th>Vigencia</th>
-									<th>Teléfono</th>
+									<th><?php echo $langs->trans("Vehiculo"); ?></th>
+									<th><?php echo $langs->trans("Compania"); ?></th>
+									<th><?php echo $langs->trans("NumeroPoliza"); ?></th>
+									<th><?php echo $langs->trans("Tipo"); ?></th>
+									<th><?php echo $langs->trans("Vigencia"); ?></th>
+									<th><?php echo $langs->trans("Telefono"); ?></th>
 									<th style="width: 80px; text-align: right;"></th>
 								</tr>
 							</thead>
@@ -453,7 +444,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									<tr>
 										<td style="font-weight: 600; color: #1e293b;">
 											<?php if (!empty($seg->fk_vehiculo)): ?>
-												<a href="<?php echo $vehiculos_url . '?id=' . ((int) $seg->fk_vehiculo); ?>" style="color: inherit; text-decoration: none;" title="Ver vehículo">
+												<a href="<?php echo $vehiculos_url . '?id=' . ((int) $seg->fk_vehiculo); ?>" style="color: inherit; text-decoration: none;" title="<?php echo dol_escape_htmltag($langs->trans("VerVehiculo")); ?>">
 													<?php echo dol_escape_htmltag($seg->vehiculo_matricula ?: '—'); ?>
 													<?php if (!empty($seg->vehiculo_marca) || !empty($seg->vehiculo_modelo)): ?>
 														<span style="font-weight: normal; color: #64748b; font-size: 0.82rem; display: block;">
@@ -485,11 +476,11 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 											$has_ini = !empty($seg->fecha_inicio);
 											$has_fin = !empty($seg->fecha_fin);
 											if ($has_ini && $has_fin) {
-												echo dol_escape_htmltag($seg->fecha_inicio) . ' al ' . dol_escape_htmltag($seg->fecha_fin);
+												echo dol_escape_htmltag($seg->fecha_inicio) . ' ' . dol_escape_htmltag($langs->trans("ConectorAl")) . ' ' . dol_escape_htmltag($seg->fecha_fin);
 											} elseif ($has_ini) {
-												echo 'Desde ' . dol_escape_htmltag($seg->fecha_inicio);
+												echo dol_escape_htmltag($langs->trans("VigenciaDesde")) . ' ' . dol_escape_htmltag($seg->fecha_inicio);
 											} elseif ($has_fin) {
-												echo 'Hasta ' . dol_escape_htmltag($seg->fecha_fin);
+												echo dol_escape_htmltag($langs->trans("VigenciaHasta")) . ' ' . dol_escape_htmltag($seg->fecha_fin);
 											} else {
 												echo '—';
 											}
@@ -507,7 +498,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<td>
 											<div class="tallerpro-actions">
 												<?php if ($can_write): ?>
-												<button type="button" class="tallerpro-action-btn btn-edit-seguro" title="Editar"
+												<button type="button" class="tallerpro-action-btn btn-edit-seguro" title="<?php echo dol_escape_htmltag($langs->trans("Editar")); ?>"
 													data-id="<?php echo (int) $seg->rowid; ?>"
 													data-vehiculo="<?php echo (int) $seg->fk_vehiculo; ?>"
 													data-compania="<?php echo dol_escape_htmltag($seg->compania); ?>"
@@ -525,7 +516,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 												<?php if ($can_delete): ?>
 												<button type="button"
 													class="tallerpro-action-btn btn-delete-action"
-													title="Eliminar"
+													title="<?php echo dol_escape_htmltag($langs->trans("Eliminar")); ?>"
 													data-id="<?php echo (int) $seg->rowid; ?>"
 													data-action="delete_seguro">
 													<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -550,23 +541,23 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 	<div class="tallerpro-modal-backdrop" id="tallerSeguroModal">
 		<div class="tallerpro-modal-card" style="max-width: 540px;">
 			<div class="tallerpro-modal-header">
-				<h2 class="tallerpro-modal-title" id="tallerSeguroModalTitle">Nuevo registro</h2>
-				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="Cerrar">
+				<h2 class="tallerpro-modal-title" id="tallerSeguroModalTitle"><?php echo $langs->trans("NuevoRegistro"); ?></h2>
+				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="<?php echo dol_escape_htmltag($langs->trans("Cerrar")); ?>">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<line x1="18" y1="6" x2="6" y2="18"></line>
 						<line x1="6" y1="6" x2="18" y2="18"></line>
 					</svg>
 				</button>
 			</div>
-			<form class="tallerpro-modal-form" id="tallerSeguroForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
+			<form class="tallerpro-modal-form" id="tallerSeguroForm" method="POST" action="<?php echo dol_escape_htmltag($_SERVER['PHP_SELF']); ?>">
 				<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
 				<input type="hidden" name="action" id="seguroFormAction" value="create_seguro">
 				<input type="hidden" name="rowid" id="seguroFormRowid" value="0">
 
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Vehículo</label>
+					<label class="tallerpro-form-label"><?php echo $langs->trans("Vehiculo"); ?></label>
 					<select name="fk_vehiculo" id="seg_fk_vehiculo" class="tallerpro-form-select"<?php if ($preselected_veh > 0) echo ' data-preselected="' . $preselected_veh . '"'; ?>>
-						<option value="">— Seleccionar vehículo —</option>
+						<option value=""><?php echo $langs->trans("SelectVehicleOption"); ?></option>
 						<?php foreach ($vehicles_list as $veh): ?>
 							<option value="<?php echo (int) $veh->rowid; ?>"<?php if ($preselected_veh == (int) $veh->rowid) echo ' selected'; ?>>
 								<?php echo dol_escape_htmltag($veh->matricula . (!empty($veh->marca) ? ' - ' . $veh->marca : '') . (!empty($veh->modelo) ? ' ' . $veh->modelo : '')); ?>
@@ -575,44 +566,44 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					</select>
 				</div>
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Compañía <span class="tallerpro-required">*</span></label>
+					<label class="tallerpro-form-label"><?php echo $langs->trans("Compania"); ?> <span class="tallerpro-required">*</span></label>
 					<input type="text" name="compania" id="seg_compania" class="tallerpro-form-input" required />
 				</div>
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Nº de póliza</label>
+					<label class="tallerpro-form-label"><?php echo $langs->trans("NumeroPoliza"); ?></label>
 					<input type="text" name="poliza" id="seg_poliza" class="tallerpro-form-input" />
 				</div>
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Tipo de seguro</label>
+					<label class="tallerpro-form-label"><?php echo $langs->trans("TipoSeguroLabel"); ?></label>
 					<select name="tipo" id="seg_tipo" class="tallerpro-form-select">
-						<option value="Responsabilidad civil obligatoria">Responsabilidad civil obligatoria</option>
-						<option value="Terceros básico">Terceros básico</option>
-						<option value="Terceros ampliado">Terceros ampliado</option>
-						<option value="Todo riesgo con franquicia">Todo riesgo con franquicia</option>
-						<option value="Todo riesgo sin franquicia">Todo riesgo sin franquicia</option>
-						<option value="Otro / No especificado" selected>Otro / No especificado</option>
+						<option value="Responsabilidad civil obligatoria"><?php echo $langs->trans("InsTypeRC"); ?></option>
+						<option value="Terceros básico"><?php echo $langs->trans("InsTypeTercerosBasico"); ?></option>
+						<option value="Terceros ampliado"><?php echo $langs->trans("InsTypeTercerosAmpliado"); ?></option>
+						<option value="Todo riesgo con franquicia"><?php echo $langs->trans("InsTypeTodoRiesgoFranq"); ?></option>
+						<option value="Todo riesgo sin franquicia"><?php echo $langs->trans("InsTypeTodoRiesgoSinFranq"); ?></option>
+						<option value="Otro / No especificado" selected><?php echo $langs->trans("TypeOtro"); ?></option>
 					</select>
 				</div>
 				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
 					<div class="tallerpro-form-group">
-						<label class="tallerpro-form-label">Inicio</label>
+						<label class="tallerpro-form-label"><?php echo $langs->trans("FechaInicioLabel"); ?></label>
 						<input type="date" name="fecha_inicio" id="seg_fecha_inicio" class="tallerpro-form-input" />
 					</div>
 					<div class="tallerpro-form-group">
-						<label class="tallerpro-form-label">Fin</label>
+						<label class="tallerpro-form-label"><?php echo $langs->trans("FechaFinLabel"); ?></label>
 						<input type="date" name="fecha_fin" id="seg_fecha_fin" class="tallerpro-form-input" />
 					</div>
 				</div>
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Teléfono</label>
+					<label class="tallerpro-form-label"><?php echo $langs->trans("Telefono"); ?></label>
 					<input type="text" name="telefono" id="seg_telefono" class="tallerpro-form-input" />
 				</div>
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Notas</label>
+					<label class="tallerpro-form-label"><?php echo $langs->trans("Notas"); ?></label>
 					<textarea name="notas" id="seg_notas" class="tallerpro-form-textarea" rows="3"></textarea>
 				</div>
 				<div class="tallerpro-modal-footer">
-					<button type="submit" class="tallerpro-btn-submit" id="tallerSaveModalBtn">Guardar</button>
+					<button type="submit" class="tallerpro-btn-submit" id="tallerSaveModalBtn"><?php echo $langs->trans("Guardar"); ?></button>
 				</div>
 			</form>
 		</div>
@@ -629,22 +620,22 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<line x1="14" y1="11" x2="14" y2="17"></line>
 				</svg>
 			</div>
-			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">¿Estás seguro de que deseas borrar?</h3>
-			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;">Esta acción eliminará el registro de forma definitiva en el sistema.</p>
+			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;"><?php echo $langs->trans("ConfirmDeleteTitle"); ?></h3>
+			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;"><?php echo $langs->trans("ConfirmDeleteBodyGeneric"); ?></p>
 
 			<div style="display: flex; gap: 12px; justify-content: center;">
 				<button type="button" id="btnCancelDelete" style="flex: 1; padding: 10px 16px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px;">
-					Rechazar
+					<?php echo $langs->trans("Rechazar"); ?>
 				</button>
 				<button type="button" id="btnConfirmDelete" style="flex: 1; padding: 10px 16px; border: none; background: #ef4444; color: #ffffff; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);">
-					Confirmar
+					<?php echo $langs->trans("Confirmar"); ?>
 				</button>
 			</div>
 		</div>
 	</div>
 
 	<!-- Formulario oculto para borrado seguro POST con CSRF Token -->
-	<form id="tallerGlobalDeleteForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: none;">
+	<form id="tallerGlobalDeleteForm" method="POST" action="<?php echo dol_escape_htmltag($_SERVER['PHP_SELF']); ?>" style="display: none;">
 		<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
 		<input type="hidden" name="action" id="globalDeleteAction" value="">
 		<input type="hidden" name="rowid" id="globalDeleteRowid" value="">

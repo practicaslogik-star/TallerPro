@@ -75,12 +75,14 @@ if (GETPOST('action', 'aZ09') == 'search_all') {
 		'facturas' => array(),
 	);
 	if (strlen($q) >= 1) {
+		require_once __DIR__ . '/lib/taller_stock.lib.php';
+		$wh_idx = tallerpro_get_default_warehouse($user);
 		$q_esc = $db->escape($q);
 		// Reparaciones
 		$sql_r = "SELECT r.rowid, r.fecha, r.descripcion, r.ref_factura, v.matricula, s.nom as cliente ";
 		$sql_r .= "FROM " . MAIN_DB_PREFIX . "taller_reparacion as r ";
-		$sql_r .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON r.fk_vehiculo = v.rowid ";
-		$sql_r .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON v.fk_soc = s.rowid ";
+		$sql_r .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON r.fk_vehiculo = v.rowid AND v.entity IN (" . getEntity('taller_vehiculo') . ") ";
+		$sql_r .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON v.fk_soc = s.rowid AND s.entity IN (" . getEntity('societe') . ") ";
 		$sql_r .= "WHERE r.status = 1 AND r.entity IN (" . getEntity('taller_reparacion') . ") AND (r.descripcion LIKE '%" . $q_esc . "%' OR r.ref_factura LIKE '%" . $q_esc . "%' OR v.matricula LIKE '%" . $q_esc . "%' OR r.rowid = " . ((int) $q) . ") LIMIT 10";
 		$res_r = $db->query($sql_r);
 		if ($res_r) {
@@ -97,7 +99,7 @@ if (GETPOST('action', 'aZ09') == 'search_all') {
 		// Vehículos
 		$sql_v = "SELECT v.rowid, v.matricula, v.marca, v.modelo, s.nom as cliente ";
 		$sql_v .= "FROM " . MAIN_DB_PREFIX . "taller_vehiculo as v ";
-		$sql_v .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON v.fk_soc = s.rowid ";
+		$sql_v .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON v.fk_soc = s.rowid AND s.entity IN (" . getEntity('societe') . ") ";
 		$sql_v .= "WHERE v.status = 1 AND v.entity IN (" . getEntity('taller_vehiculo') . ") AND (v.matricula LIKE '%" . $q_esc . "%' OR v.marca LIKE '%" . $q_esc . "%' OR v.modelo LIKE '%" . $q_esc . "%') LIMIT 10";
 		$res_v = $db->query($sql_v);
 		if ($res_v) {
@@ -125,10 +127,10 @@ if (GETPOST('action', 'aZ09') == 'search_all') {
 				);
 			}
 		}
-		// Materiales con stock real
+		// Materiales con stock real en el almacén activo
 		$sql_m = "SELECT tm.rowid, tm.nombre, tm.ref, tm.precio, tm.stock, ps.reel as wh_stock ";
 		$sql_m .= "FROM " . MAIN_DB_PREFIX . "taller_material tm ";
-		$sql_m .= "LEFT JOIN " . MAIN_DB_PREFIX . "product_stock ps ON ps.fk_product = tm.fk_product ";
+		$sql_m .= "LEFT JOIN " . MAIN_DB_PREFIX . "product_stock ps ON ps.fk_product = tm.fk_product AND ps.fk_entrepot = " . ((int) $wh_idx) . " ";
 		$sql_m .= "WHERE tm.status = 1 AND tm.entity IN (" . getEntity('taller_material') . ") AND (tm.nombre LIKE '%" . $q_esc . "%' OR tm.ref LIKE '%" . $q_esc . "%') LIMIT 10";
 		$res_m = $db->query($sql_m);
 		if ($res_m) {
@@ -144,16 +146,30 @@ if (GETPOST('action', 'aZ09') == 'search_all') {
 		}
 		// Facturas
 		$sql_f = "SELECT f.rowid, f.ref as numero_factura, f.total_ttc as total, ";
-		$sql_f .= "(CASE WHEN (f.paye = 1 OR f.fk_statut = 2) THEN 'Pagada' ELSE 'Pendiente' END) as estado ";
+		$sql_f .= "(CASE WHEN (f.paye = 1 OR f.fk_statut = 2) THEN '" . $db->escape($langs->transnoentitiesnoconv("Pagada")) . "' ELSE '" . $db->escape($langs->transnoentitiesnoconv("Pendiente")) . "' END) as estado ";
 		$sql_f .= "FROM " . MAIN_DB_PREFIX . "facture as f WHERE f.ref LIKE '%" . $q_esc . "%' AND f.entity IN (" . getEntity('facture') . ") LIMIT 10";
 		$res_f = $db->query($sql_f);
 		if ($res_f) {
 			while ($o = $db->fetch_object($res_f)) {
 				$results['facturas'][] = array(
 					'id' => $o->rowid,
-					'title' => 'Factura ' . $o->numero_factura,
+					'title' => trim($langs->transnoentitiesnoconv("FacturaPrefix")) . ' ' . $o->numero_factura,
 					'subtitle' => number_format((float) $o->total, 2, ',', '.') . ' € · ' . $o->estado,
 					'url' => dol_buildpath('/taller/facturas.php', 1) . '?id=' . $o->rowid
+				);
+			}
+		}
+		// Presupuestos nativos (Propal)
+		$sql_p = "SELECT p.rowid, p.ref, p.total_ttc as total ";
+		$sql_p .= "FROM " . MAIN_DB_PREFIX . "propal as p WHERE p.ref LIKE '%" . $q_esc . "%' AND p.entity IN (" . getEntity('propal') . ") LIMIT 10";
+		$res_p = $db->query($sql_p);
+		if ($res_p) {
+			while ($op = $db->fetch_object($res_p)) {
+				$results['facturas'][] = array(
+					'id' => $op->rowid,
+					'title' => $langs->transnoentitiesnoconv("PresupuestoSingular") . ' ' . $op->ref,
+					'subtitle' => number_format((float) $op->total, 2, ',', '.') . ' € · ' . $langs->transnoentitiesnoconv("PresupuestoSingular"),
+					'url' => dol_buildpath('/taller/facturas.php', 1) . '?doc=propal&id=' . ((int) $op->rowid)
 				);
 			}
 		}
@@ -199,7 +215,7 @@ if ($resql_mat && ($obj_mat = $db->fetch_object($resql_mat))) {
 $ultimas_reparaciones = array();
 $sql_ult_rep = "SELECT r.rowid, r.fecha, r.descripcion, r.coste_mo, v.rowid as vehiculo_id, v.matricula, v.marca, v.modelo ";
 $sql_ult_rep .= "FROM " . MAIN_DB_PREFIX . "taller_reparacion as r ";
-$sql_ult_rep .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON r.fk_vehiculo = v.rowid ";
+$sql_ult_rep .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON r.fk_vehiculo = v.rowid AND v.entity IN (" . getEntity('taller_vehiculo') . ") ";
 $sql_ult_rep .= "WHERE r.status = 1 AND r.entity IN (" . getEntity('taller_reparacion') . ") ";
 $sql_ult_rep .= "ORDER BY r.fecha DESC, r.rowid DESC LIMIT 10";
 $res_ult_rep = $db->query($sql_ult_rep);
@@ -213,7 +229,7 @@ if ($res_ult_rep) {
 $vehiculos_recientes = array();
 $sql_rec_veh = "SELECT v.rowid, v.matricula, v.marca, v.modelo, v.anio, s.nom as cliente_nombre ";
 $sql_rec_veh .= "FROM " . MAIN_DB_PREFIX . "taller_vehiculo as v ";
-$sql_rec_veh .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON v.fk_soc = s.rowid ";
+$sql_rec_veh .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON v.fk_soc = s.rowid AND s.entity IN (" . getEntity('societe') . ") ";
 $sql_rec_veh .= "WHERE v.status = 1 AND v.entity IN (" . getEntity('taller_vehiculo') . ") ";
 $sql_rec_veh .= "ORDER BY v.rowid DESC LIMIT 10";
 $res_rec_veh = $db->query($sql_rec_veh);
@@ -223,19 +239,10 @@ if ($res_rec_veh) {
 	}
 }
 
-$css_file = __DIR__ . '/css/tallerpro.css';
-$js_file = __DIR__ . '/js/tallerpro.js';
-$css_version = file_exists($css_file) ? filemtime($css_file) : dol_now();
-$js_version = file_exists($js_file) ? filemtime($js_file) : dol_now();
-
-$css_url = dol_buildpath('/taller/css/tallerpro.css', 1) . '?v=' . $css_version;
-$js_url = dol_buildpath('/taller/js/tallerpro.js', 1) . '?v=' . $js_version;
-
-$morehead = '<link rel="stylesheet" type="text/css" href="'.$css_url.'">'."\n";
-$morehead .= '<script src="'.$js_url.'"></script>'."\n";
+$morehead = tallerpro_build_morehead($langs);
 
 // Page Header
-llxHeader($morehead, 'TallerPro', '', '', 0, 0, array(), array(), '', 'mod-taller page-tallerpro');
+llxHeader($morehead, $langs->trans("TallerPro"), '', '', 0, 0, array(), array(), '', 'mod-taller page-tallerpro');
 
 $dolibarr_root_url = DOL_URL_ROOT . '/index.php';
 $setup_url = dol_buildpath('/taller/configuracion.php', 1);
@@ -384,7 +391,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 
 		<!-- Collapse Button -->
 		<div class="tallerpro-sidebar-bottom">
-			<button type="button" class="tallerpro-collapse-btn" id="tallerCollapseBtn" title="Colapsar menú">
+			<button type="button" class="tallerpro-collapse-btn" id="tallerCollapseBtn" title="<?php echo dol_escape_htmltag($langs->trans("ColapsarMenu")); ?>">
 				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
 					<polyline points="15 18 9 12 15 6"></polyline>
 				</svg>
@@ -396,7 +403,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 	<div class="tallerpro-main">
 		<!-- Top Bar -->
 		<header class="tallerpro-topbar">
-			<button type="button" class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="Alternar menú" aria-label="Alternar menú">
+			<button type="button" class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="<?php echo dol_escape_htmltag($langs->trans("AlternarMenu")); ?>" aria-label="<?php echo dol_escape_htmltag($langs->trans("AlternarMenu")); ?>">
 				<svg class="tallerpro-toggle-icon-desktop" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 					<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
 					<line x1="9" y1="3" x2="9" y2="21"></line>
@@ -416,7 +423,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				</div>
 			</div>
 			<div class="tallerpro-topbar-right">
-				<a href="<?php echo $dolibarr_root_url; ?>" class="tallerpro-back-dolibarr" title="Volver al menú principal de Dolibarr">
+				<a href="<?php echo $dolibarr_root_url; ?>" class="tallerpro-back-dolibarr" title="<?php echo dol_escape_htmltag($langs->trans("VolverDolibarrTitle")); ?>">
 					<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<line x1="19" y1="12" x2="5" y2="12"></line>
 						<polyline points="12 19 5 12 12 5"></polyline>
@@ -559,13 +566,13 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<?php } else { ?>
 						<div class="tallerpro-activity-list">
 							<?php foreach ($ultimas_reparaciones as $ur) { ?>
-								<a href="<?php echo $reparaciones_url; ?>" class="tallerpro-activity-item" title="Ver reparaciones">
+								<a href="<?php echo $reparaciones_url; ?>" class="tallerpro-activity-item" title="<?php echo dol_escape_htmltag($langs->trans("VerReparaciones")); ?>">
 									<div class="tallerpro-activity-item-left">
 										<div class="tallerpro-activity-item-title">
 											<?php if (!empty($ur->matricula)) { ?>
 												<span class="tallerpro-activity-badge"><?php echo dol_escape_htmltag($ur->matricula); ?></span>
 											<?php } ?>
-											<span><?php echo dol_escape_htmltag($ur->descripcion ?: 'Reparación'); ?></span>
+											<span><?php echo dol_escape_htmltag($ur->descripcion ?: $langs->trans("ReparacionSingular")); ?></span>
 										</div>
 										<div class="tallerpro-activity-item-desc">
 											<?php echo !empty($ur->fecha) ? dol_print_date($db->jdate($ur->fecha), 'day') : ''; ?>
@@ -601,14 +608,14 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<?php } else { ?>
 						<div class="tallerpro-activity-list">
 							<?php foreach ($vehiculos_recientes as $vr) { ?>
-								<a href="<?php echo $vehiculos_url . '?id=' . ((int) $vr->rowid); ?>" class="tallerpro-activity-item" title="Ver detalles del vehículo">
+								<a href="<?php echo $vehiculos_url . '?id=' . ((int) $vr->rowid); ?>" class="tallerpro-activity-item" title="<?php echo dol_escape_htmltag($langs->trans("VerDetallesVehiculo")); ?>">
 									<div class="tallerpro-activity-item-left">
 										<div class="tallerpro-activity-item-title">
 											<span class="tallerpro-activity-badge"><?php echo dol_escape_htmltag($vr->matricula); ?></span>
-											<span><?php echo dol_escape_htmltag(trim($vr->marca . ' ' . $vr->modelo) ?: 'Vehículo'); ?></span>
+											<span><?php echo dol_escape_htmltag(trim($vr->marca . ' ' . $vr->modelo) ?: $langs->trans("VehiculoSingular")); ?></span>
 										</div>
 										<div class="tallerpro-activity-item-desc">
-											<?php echo !empty($vr->cliente_nombre) ? dol_escape_htmltag($vr->cliente_nombre) : 'Sin propietario'; ?>
+											<?php echo !empty($vr->cliente_nombre) ? dol_escape_htmltag($vr->cliente_nombre) : dol_escape_htmltag($langs->trans("SinPropietario")); ?>
 											<?php echo !empty($vr->anio) ? ' (' . dol_escape_htmltag($vr->anio) . ')' : ''; ?>
 										</div>
 									</div>

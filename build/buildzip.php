@@ -51,7 +51,6 @@ $listOfModuleContent = [
 	'*.md',
 	'*.json',
 	'*.php',
-	'modulebuilder.txt',
 ];
 
 /**
@@ -60,9 +59,15 @@ $listOfModuleContent = [
  * @var string[]
  */
 $exclude_list = [
-	'/^.git$/',
-	'/.*js.map/',
-	'/DEV.md/'
+	'/^\.git/',
+	'/^\.vscode/',
+	'/^\.tx/',
+	'/.*js\.map$/',
+	'/DEV\.md$/',
+	'/^ide_stubs\.php$/',
+	'/^modulebuilder\.txt$/',
+	'/\.pdf$/i',
+	'/\.zip$/i',
 ];
 
 // ============================================= end of configuration

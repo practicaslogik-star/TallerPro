@@ -26,41 +26,71 @@ if (!defined('NOTOKENRENEWAL')) define('NOTOKENRENEWAL', '1');
  * @param string $file_path   Ruta de archivo destino si $output_mode == 'F'
  * @return mixed
  */
-function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode = 'I', $file_path = '')
+function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode = 'I', $file_path = '', $doc_type = 'factura')
 {
+	global $langs;
+
+	require_once __DIR__ . '/taller.lib.php';
 	require_once DOL_DOCUMENT_ROOT . '/core/lib/pdf.lib.php';
 	require_once DOL_DOCUMENT_ROOT . '/societe/class/societe.class.php';
 
-	// 1. Obtener datos de la factura (Dolibarr nativa llx_facture con extrafield vehiculo)
-	$sql = "SELECT f.rowid, f.ref as numero_factura, f.datef as fecha, f.total_ht, f.total_tva, f.total_ttc as total, COALESCE(f.remise_percent, 0) as descuento_global, 21.0 as iva_porcentaje, f.note_public as notas, ";
-	$sql .= "COALESCE(fe.tipo_doc, 'factura') as tipo_doc, ";
-	$sql .= "s.nom as cliente_nombre, COALESCE(NULLIF(s.siren, ''), NULLIF(s.siret, ''), s.tva_intra) as cliente_cif, ";
-	$sql .= "s.address as cliente_direccion, s.zip as cliente_cp, s.town as cliente_ciudad, s.phone as cliente_telefono, s.email as cliente_email, ";
-	$sql .= "v.matricula as vehiculo_matricula, v.marca as vehiculo_marca, v.modelo as vehiculo_modelo, v.anio as vehiculo_anio, v.vin as vehiculo_vin, v.km as vehiculo_km ";
-	$sql .= "FROM " . MAIN_DB_PREFIX . "facture as f ";
-	$sql .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON f.fk_soc = s.rowid ";
-	$sql .= "LEFT JOIN " . MAIN_DB_PREFIX . "facture_extrafields as fe ON fe.fk_object = f.rowid ";
-	$sql .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON fe.fk_vehiculo = v.rowid ";
-	$sql .= "WHERE f.rowid = " . ((int) $fac_id) . " AND f.entity IN (" . getEntity('facture') . ")";
+	if (is_object($langs)) {
+		$langs->loadLangs(array("taller@taller"));
+	}
+
+	// 1. Obtener datos de la factura (llx_facture) o presupuesto (llx_propal)
+	if ($doc_type === 'propal') {
+		$sql = "SELECT p.rowid, p.ref as numero_factura, p.datep as fecha, p.total_ht, p.total_tva, p.total_ttc as total, COALESCE(p.remise_percent, 0) as descuento_global, 21.0 as iva_porcentaje, p.note_public as notas, ";
+		$sql .= "'presupuesto' as tipo_doc, ";
+		$sql .= "s.nom as cliente_nombre, COALESCE(NULLIF(s.siren, ''), NULLIF(s.siret, ''), s.tva_intra) as cliente_cif, ";
+		$sql .= "s.address as cliente_direccion, s.zip as cliente_cp, s.town as cliente_ciudad, s.phone as cliente_telefono, s.email as cliente_email, ";
+		$sql .= "v.matricula as vehiculo_matricula, v.marca as vehiculo_marca, v.modelo as vehiculo_modelo, v.anio as vehiculo_anio, v.vin as vehiculo_vin, v.km as vehiculo_km ";
+		$sql .= "FROM " . MAIN_DB_PREFIX . "propal as p ";
+		$sql .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON p.fk_soc = s.rowid ";
+		$sql .= "LEFT JOIN " . MAIN_DB_PREFIX . "propal_extrafields as pe ON pe.fk_object = p.rowid ";
+		$sql .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON pe.fk_vehiculo = v.rowid ";
+		$sql .= "WHERE p.rowid = " . ((int) $fac_id) . " AND p.entity IN (" . getEntity('propal') . ")";
+	} else {
+		$sql = "SELECT f.rowid, f.ref as numero_factura, f.datef as fecha, f.total_ht, f.total_tva, f.total_ttc as total, COALESCE(f.remise_percent, 0) as descuento_global, 21.0 as iva_porcentaje, f.note_public as notas, ";
+		$sql .= "COALESCE(fe.tipo_doc, 'factura') as tipo_doc, ";
+		$sql .= "s.nom as cliente_nombre, COALESCE(NULLIF(s.siren, ''), NULLIF(s.siret, ''), s.tva_intra) as cliente_cif, ";
+		$sql .= "s.address as cliente_direccion, s.zip as cliente_cp, s.town as cliente_ciudad, s.phone as cliente_telefono, s.email as cliente_email, ";
+		$sql .= "v.matricula as vehiculo_matricula, v.marca as vehiculo_marca, v.modelo as vehiculo_modelo, v.anio as vehiculo_anio, v.vin as vehiculo_vin, v.km as vehiculo_km ";
+		$sql .= "FROM " . MAIN_DB_PREFIX . "facture as f ";
+		$sql .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON f.fk_soc = s.rowid ";
+		$sql .= "LEFT JOIN " . MAIN_DB_PREFIX . "facture_extrafields as fe ON fe.fk_object = f.rowid ";
+		$sql .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON fe.fk_vehiculo = v.rowid ";
+		$sql .= "WHERE f.rowid = " . ((int) $fac_id) . " AND f.entity IN (" . getEntity('facture') . ")";
+	}
 
 	$res = $db->query($sql);
 	if (!$res || !($factura = $db->fetch_object($res))) {
 		return false;
 	}
 
-	// 2. Obtener líneas de la factura desde llx_facturedet
+	// 2. Obtener líneas del documento desde llx_propaldet o llx_facturedet
 	$lineas = array();
 	$tot_bruto = 0.0;
 	$tot_neto_lineas = 0.0;
 	$tot_descuento_lineas = 0.0;
 
-	$sql_lines = "SELECT fd.rowid, (CASE WHEN fd.product_type = 1 THEN 'reparacion' ELSE 'material' END) as tipo, ";
-	$sql_lines .= "COALESCE(NULLIF(fd.ref_ext, ''), p.ref) as codigo, ";
-	$sql_lines .= "(CASE WHEN fd.description IS NOT NULL AND fd.description != '' THEN fd.description ELSE fd.label END) as descripcion, ";
-	$sql_lines .= "fd.qty as cantidad, fd.subprice as precio, fd.remise_percent as descuento, fd.total_ht as total_neto ";
-	$sql_lines .= "FROM " . MAIN_DB_PREFIX . "facturedet as fd ";
-	$sql_lines .= "LEFT JOIN " . MAIN_DB_PREFIX . "product as p ON fd.fk_product = p.rowid ";
-	$sql_lines .= "WHERE fd.fk_facture = " . ((int) $fac_id) . " ORDER BY fd.rang ASC, fd.rowid ASC";
+	if ($doc_type === 'propal') {
+		$sql_lines = "SELECT pd.rowid, (CASE WHEN pd.product_type = 1 THEN 'reparacion' ELSE 'material' END) as tipo, ";
+		$sql_lines .= "COALESCE(NULLIF(pd.label, ''), p.ref) as codigo, ";
+		$sql_lines .= "(CASE WHEN pd.description IS NOT NULL AND pd.description != '' THEN pd.description ELSE pd.label END) as descripcion, ";
+		$sql_lines .= "pd.qty as cantidad, pd.subprice as precio, pd.remise_percent as descuento, pd.total_ht as total_neto ";
+		$sql_lines .= "FROM " . MAIN_DB_PREFIX . "propaldet as pd ";
+		$sql_lines .= "LEFT JOIN " . MAIN_DB_PREFIX . "product as p ON pd.fk_product = p.rowid ";
+		$sql_lines .= "WHERE pd.fk_propal = " . ((int) $fac_id) . " ORDER BY pd.rang ASC, pd.rowid ASC";
+	} else {
+		$sql_lines = "SELECT fd.rowid, (CASE WHEN fd.product_type = 1 THEN 'reparacion' ELSE 'material' END) as tipo, ";
+		$sql_lines .= "COALESCE(NULLIF(fd.ref_ext, ''), p.ref) as codigo, ";
+		$sql_lines .= "(CASE WHEN fd.description IS NOT NULL AND fd.description != '' THEN fd.description ELSE fd.label END) as descripcion, ";
+		$sql_lines .= "fd.qty as cantidad, fd.subprice as precio, fd.remise_percent as descuento, fd.total_ht as total_neto ";
+		$sql_lines .= "FROM " . MAIN_DB_PREFIX . "facturedet as fd ";
+		$sql_lines .= "LEFT JOIN " . MAIN_DB_PREFIX . "product as p ON fd.fk_product = p.rowid ";
+		$sql_lines .= "WHERE fd.fk_facture = " . ((int) $fac_id) . " ORDER BY fd.rang ASC, fd.rowid ASC";
+	}
 	$res_lines = $db->query($sql_lines);
 	if ($res_lines && $db->num_rows($res_lines) > 0) {
 		while ($l = $db->fetch_object($res_lines)) {
@@ -100,18 +130,19 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	}
 	require_once DOL_DOCUMENT_ROOT . '/core/lib/security.lib.php';
 
-	$taller_nombre = !empty($conf->global->TALLER_NOMBRE_COMERCIAL) ? $conf->global->TALLER_NOMBRE_COMERCIAL : (!empty($mysoc->name) ? $mysoc->name : 'TallerPro');
-	$taller_nif = !empty($conf->global->TALLER_CIF) ? $conf->global->TALLER_CIF : (!empty($mysoc->idprof1) ? $mysoc->idprof1 : (!empty($mysoc->tva_intra) ? $mysoc->tva_intra : ''));
-	$taller_dir = !empty($conf->global->TALLER_DIRECCION) ? $conf->global->TALLER_DIRECCION : (!empty($mysoc->address) ? $mysoc->address : '');
-	$taller_pob = !empty($conf->global->TALLER_POBLACION) ? $conf->global->TALLER_POBLACION : ((!empty($mysoc->zip) ? $mysoc->zip . ' ' : '') . (!empty($mysoc->town) ? $mysoc->town : ''));
-	$taller_tel = !empty($conf->global->TALLER_TELEFONO) ? $conf->global->TALLER_TELEFONO : (!empty($mysoc->phone) ? $mysoc->phone : '');
-	$taller_email = !empty($conf->global->TALLER_EMAIL) ? $conf->global->TALLER_EMAIL : (!empty($mysoc->email) ? $mysoc->email : '');
+	$taller_nombre = getDolGlobalString('TALLER_NOMBRE_COMERCIAL') ?: (!empty($mysoc->name) ? $mysoc->name : 'TallerPro');
+	$taller_nif = getDolGlobalString('TALLER_CIF') ?: (!empty($mysoc->idprof1) ? $mysoc->idprof1 : (!empty($mysoc->tva_intra) ? $mysoc->tva_intra : ''));
+	$taller_dir = getDolGlobalString('TALLER_DIRECCION') ?: (!empty($mysoc->address) ? $mysoc->address : '');
+	$taller_pob = getDolGlobalString('TALLER_POBLACION') ?: ((!empty($mysoc->zip) ? $mysoc->zip . ' ' : '') . (!empty($mysoc->town) ? $mysoc->town : ''));
+	$taller_tel = getDolGlobalString('TALLER_TELEFONO') ?: (!empty($mysoc->phone) ? $mysoc->phone : '');
+	$taller_email = getDolGlobalString('TALLER_EMAIL') ?: (!empty($mysoc->email) ? $mysoc->email : '');
 
 	// Descifrar IBAN bancario protegido si está habilitado en configuración
-	$mostrar_iban = isset($conf->global->TALLER_MOSTRAR_IBAN) ? ((int) $conf->global->TALLER_MOSTRAR_IBAN === 1) : true;
+	$mostrar_iban = (getDolGlobalInt('TALLER_MOSTRAR_IBAN', 1) === 1);
 	$taller_iban = '';
-	if ($mostrar_iban && !empty($conf->global->TALLER_IBAN)) {
-		$raw_iban = dolDecrypt($conf->global->TALLER_IBAN);
+	$enc_iban = getDolGlobalString('TALLER_IBAN');
+	if ($mostrar_iban && !empty($enc_iban)) {
+		$raw_iban = dolDecrypt($enc_iban);
 		if (!empty($raw_iban) && strtoupper(trim($raw_iban)) !== 'NONE') {
 			$taller_iban = trim(chunk_split($raw_iban, 4, ' '));
 		}
@@ -123,7 +154,7 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	$pdf->setPrintFooter(false);
 	$pdf->SetCreator('TallerPro');
 	$pdf->SetAuthor($taller_nombre);
-	$pdf->SetTitle('Factura ' . $factura->numero_factura);
+	$pdf->SetTitle(($doc_type === 'propal' ? $langs->transnoentitiesnoconv("PresupuestoSingular") : trim($langs->transnoentitiesnoconv("FacturaPrefix"))) . ' ' . $factura->numero_factura);
 	$pdf->SetMargins(14, 12, 14);
 	$pdf->SetAutoPageBreak(TRUE, 10);
 	$pdf->setPrintHeader(false);
@@ -131,6 +162,10 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	$pdf->AddPage();
 
 	// 6. Cabecera Visual: Logotipo
+	$tmp_dir = DOL_DATA_ROOT . '/temp';
+	if (!is_dir($tmp_dir)) {
+		dol_mkdir($tmp_dir);
+	}
 	$logo_rendered = false;
 	if (!empty($mysoc->logo)) {
 		$logo_path = $conf->mycompany->dir_output . '/logos/' . $mysoc->logo;
@@ -160,10 +195,6 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 		    </g>
 		  </g>
 		</svg>';
-		$tmp_dir = DOL_DATA_ROOT . '/temp';
-		if (!is_dir($tmp_dir)) {
-			dol_mkdir($tmp_dir);
-		}
 		$svg_file = $tmp_dir . '/tallerpro_logo_' . getmypid() . '_' . uniqid() . '.svg';
 		@file_put_contents($svg_file, $svg_logo);
 
@@ -195,7 +226,7 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 		$pdf->SetX(105);
 		$pdf->Cell(91, 3.8, $loc_line, 0, 1, 'R');
 	}
-	$contact_parts = array_filter(array(!empty($taller_tel) ? 'Tel: ' . $taller_tel : '', $taller_email));
+	$contact_parts = array_filter(array(!empty($taller_tel) ? $langs->transnoentitiesnoconv("LabelTelConDosPuntos") . ' ' . $taller_tel : '', $taller_email));
 	if (!empty($contact_parts)) {
 		$pdf->SetX(105);
 		$pdf->Cell(91, 3.8, implode(' · ', $contact_parts), 0, 1, 'R');
@@ -206,13 +237,13 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	$pdf->Line(14, 31, 196, 31);
 
 	// 7. Preparación de datos de Cliente y Vehículo
-	$cli_nom = !empty($factura->cliente_nombre) ? $factura->cliente_nombre : 'Sin cliente';
+	$cli_nom = !empty($factura->cliente_nombre) ? $factura->cliente_nombre : $langs->transnoentitiesnoconv("SinCliente");
 	$cli_cif = !empty($factura->cliente_cif) ? $factura->cliente_cif : '';
 	$cli_dir = !empty($factura->cliente_direccion) ? $factura->cliente_direccion : '';
 	$cli_pob = trim((!empty($factura->cliente_cp) ? $factura->cliente_cp . ' ' : '') . (!empty($factura->cliente_ciudad) ? $factura->cliente_ciudad : ''));
 	$cli_tel = !empty($factura->cliente_telefono) ? $factura->cliente_telefono : (!empty($factura->cliente_email) ? $factura->cliente_email : '');
 
-	$veh_mat = !empty($factura->vehiculo_matricula) ? $factura->vehiculo_matricula : 'Sin vehículo';
+	$veh_mat = !empty($factura->vehiculo_matricula) ? $factura->vehiculo_matricula : $langs->transnoentitiesnoconv("SinVehiculo");
 	$veh_desc = trim((!empty($factura->vehiculo_marca) ? $factura->vehiculo_marca . ' ' : '') . (!empty($factura->vehiculo_modelo) ? $factura->vehiculo_modelo : ''));
 	if (!empty($factura->vehiculo_anio)) {
 		$veh_desc .= ' (' . $factura->vehiculo_anio . ')';
@@ -220,12 +251,14 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	$veh_vin = !empty($factura->vehiculo_vin) ? $factura->vehiculo_vin : '';
 	$veh_km = !empty($factura->vehiculo_km) ? number_format((float) $factura->vehiculo_km, 0, ',', '.') . ' km' : '';
 
-	$estado_txt = !empty($factura->estado) ? $factura->estado : 'Pendiente';
-	$estado_bold = (strtolower(trim($estado_txt)) == 'pagada') ? '<b>Pagada</b>' : '<b>' . htmlspecialchars($estado_txt) . '</b>';
+	$estado_txt = !empty($factura->estado) ? $factura->estado : $langs->transnoentitiesnoconv("Pendiente");
+	$estado_bold = (strtolower(trim($estado_txt)) == 'pagada') ? '<b>' . htmlspecialchars($langs->transnoentitiesnoconv("Pagada")) . '</b>' : '<b>' . htmlspecialchars($estado_txt) . '</b>';
 
-	$is_presupuesto = (!empty($factura->tipo_doc) && $factura->tipo_doc === 'presupuesto');
-	$doc_to_label = $is_presupuesto ? 'PRESUPUESTO PARA' : 'FACTURADO A';
-	$doc_title_label = $is_presupuesto ? ('Presupuesto Nº ' . htmlspecialchars($factura->numero_factura)) : ('Factura Nº ' . htmlspecialchars($factura->numero_factura));
+	$is_presupuesto = ($doc_type === 'propal' || (!empty($factura->tipo_doc) && $factura->tipo_doc === 'presupuesto'));
+	$doc_to_label = $is_presupuesto ? $langs->transnoentitiesnoconv("PdfToPresupuesto") : $langs->transnoentitiesnoconv("PdfToFactura");
+	$doc_title_label = $is_presupuesto
+		? htmlspecialchars($langs->transnoentitiesnoconv("PdfPresupuestoNo", $factura->numero_factura))
+		: htmlspecialchars($langs->transnoentitiesnoconv("PdfFacturaNo", $factura->numero_factura));
 
 	// Contenido principal HTML con espaciado amplio y equilibrado
 	$pdf->SetXY(14, 36);
@@ -235,29 +268,29 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	<table width="100%" cellpadding="0" cellspacing="0" border="0">
 		<tr>
 			<td width="35%" valign="top">
-				<span style="font-size: 7.5pt; font-weight: bold; color: #94a3b8; letter-spacing: 0.05em;">' . $doc_to_label . '</span><br><br>
+				<span style="font-size: 7.5pt; font-weight: bold; color: #94a3b8; letter-spacing: 0.05em;">' . htmlspecialchars($doc_to_label) . '</span><br><br>
 				<span style="font-size: 10.5pt; font-weight: bold; color: #0f172a;">' . htmlspecialchars($cli_nom) . '</span><br><br>
 				<span style="color: #334155; font-size: 8.5pt; line-height: 1.5;">'
 					. (!empty($cli_cif) ? 'NIF/CIF: ' . htmlspecialchars($cli_cif) . '<br>' : '')
 					. (!empty($cli_dir) ? htmlspecialchars($cli_dir) . '<br>' : '')
 					. (!empty($cli_pob) ? htmlspecialchars($cli_pob) . '<br>' : '')
-					. (!empty($cli_tel) ? 'Tel: ' . htmlspecialchars($cli_tel) : '')
+					. (!empty($cli_tel) ? htmlspecialchars($langs->transnoentitiesnoconv("LabelTelConDosPuntos")) . ' ' . htmlspecialchars($cli_tel) : '')
 				. '</span>
 			</td>
 			<td width="37%" valign="top">
-				<span style="font-size: 7.5pt; font-weight: bold; color: #94a3b8; letter-spacing: 0.05em;">VEHÍCULO</span><br><br>
+				<span style="font-size: 7.5pt; font-weight: bold; color: #94a3b8; letter-spacing: 0.05em;">' . htmlspecialchars($langs->transnoentitiesnoconv("VehiculoUpper")) . '</span><br><br>
 				<span style="font-size: 10.5pt; font-weight: bold; color: #0f172a;">' . htmlspecialchars($veh_mat) . '</span>' . (!empty($veh_desc) ? ' <span style="font-size: 9.5pt; color: #334155;">· ' . htmlspecialchars($veh_desc) . '</span>' : '') . '<br><br>
 				<span style="color: #334155; font-size: 8.5pt; line-height: 1.5;">'
-					. (!empty($veh_vin) ? 'Bastidor (VIN): ' . htmlspecialchars($veh_vin) . '<br>' : '')
-					. (!empty($veh_km) ? 'Kilometraje: ' . htmlspecialchars($veh_km) . '<br>' : '')
-					. 'Fecha entrega: ' . $fecha_formateada . '
+					. (!empty($veh_vin) ? htmlspecialchars($langs->transnoentitiesnoconv("PdfBastidorVin")) . ' ' . htmlspecialchars($veh_vin) . '<br>' : '')
+					. (!empty($veh_km) ? htmlspecialchars($langs->transnoentitiesnoconv("PdfKilometraje")) . ' ' . htmlspecialchars($veh_km) . '<br>' : '')
+					. htmlspecialchars($langs->transnoentitiesnoconv("PdfFechaEntrega")) . ' ' . $fecha_formateada . '
 				</span>
 			</td>
 			<td width="28%" valign="top" align="right">
-				<span style="font-size: 7.5pt; font-weight: bold; color: #94a3b8; letter-spacing: 0.05em;">DOCUMENTO</span><br><br>
+				<span style="font-size: 7.5pt; font-weight: bold; color: #94a3b8; letter-spacing: 0.05em;">' . htmlspecialchars($langs->transnoentitiesnoconv("PdfDocumentoUpper")) . '</span><br><br>
 				<span style="font-size: 13pt; font-weight: bold; color: #0f172a;">' . $doc_title_label . '</span><br><br>
 				<span style="color: #334155; font-size: 8.5pt; line-height: 1.5;">
-					Fecha emisión: ' . $fecha_formateada . '
+					' . htmlspecialchars($langs->transnoentitiesnoconv("PdfFechaEmision")) . ' ' . $fecha_formateada . '
 				</span>
 			</td>
 		</tr>
@@ -268,10 +301,10 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	<table width="100%" cellpadding="8" cellspacing="0" border="0">
 		<thead>
 			<tr>
-				<th width="52%" align="left" style="font-size: 8pt; font-weight: bold; color: #475569; border-bottom: 1.5px solid #0f172a;">DESCRIPCIÓN</th>
-				<th width="16%" align="center" style="font-size: 8pt; font-weight: bold; color: #475569; border-bottom: 1.5px solid #0f172a;">CANTIDAD</th>
-				<th width="16%" align="right" style="font-size: 8pt; font-weight: bold; color: #475569; border-bottom: 1.5px solid #0f172a;">PRECIO UNIT.</th>
-				<th width="16%" align="right" style="font-size: 8pt; font-weight: bold; color: #475569; border-bottom: 1.5px solid #0f172a;">IMPORTE</th>
+				<th width="52%" align="left" style="font-size: 8pt; font-weight: bold; color: #475569; border-bottom: 1.5px solid #0f172a;">' . htmlspecialchars($langs->transnoentitiesnoconv("PdfThDescripcion")) . '</th>
+				<th width="16%" align="center" style="font-size: 8pt; font-weight: bold; color: #475569; border-bottom: 1.5px solid #0f172a;">' . htmlspecialchars($langs->transnoentitiesnoconv("PdfThCantidad")) . '</th>
+				<th width="16%" align="right" style="font-size: 8pt; font-weight: bold; color: #475569; border-bottom: 1.5px solid #0f172a;">' . htmlspecialchars($langs->transnoentitiesnoconv("PdfThPrecioUnit")) . '</th>
+				<th width="16%" align="right" style="font-size: 8pt; font-weight: bold; color: #475569; border-bottom: 1.5px solid #0f172a;">' . htmlspecialchars($langs->transnoentitiesnoconv("PdfThImporte")) . '</th>
 			</tr>
 		</thead>
 		<tbody>';
@@ -280,18 +313,18 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 		$html .= '
 			<tr>
 				<td colspan="4" align="center" style="color: #94a3b8; font-size: 9pt; padding: 22px 0;">
-					(Sin líneas de detalle registradas)
+					' . htmlspecialchars($langs->transnoentitiesnoconv("PdfNoDetailLines")) . '
 				</td>
 			</tr>';
 	} else {
 		foreach ($lineas as $l) {
 			$is_mat = ($l->tipo == 'material');
-			$tipo_label = $is_mat ? 'MATERIAL / RECAMBIO (NUEVO)' : 'MANO DE OBRA';
+			$tipo_label = $is_mat ? $langs->transnoentitiesnoconv("PdfTypeMaterialNew") : $langs->transnoentitiesnoconv("PdfTypeLabor");
 
 			$cant_str = '';
 			$precio_str = '';
 			if ($is_mat) {
-				$cant_str = number_format((float) $l->cantidad, 0, ',', '.') . ' ud.';
+				$cant_str = number_format((float) $l->cantidad, 0, ',', '.') . ' ' . $langs->transnoentitiesnoconv("UdShort");
 				$precio_str = number_format((float) $l->precio, 2, ',', '.') . ' €';
 			} else {
 				// Mano de obra: precio fijo por obra, sin horas
@@ -328,36 +361,15 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	<table width="100%" cellpadding="0" cellspacing="0" border="0">
 		<tr>';
 
-	$notas_raw = trim((string) $factura->notas);
-	$notas_txt = '';
-	if (!empty($notas_raw)) {
-		// Limpiar si contiene código JSON filtrado o prefijo técnico anterior
-		if (strpos($notas_raw, '{') !== false && strpos($notas_raw, '}') !== false) {
-			if ($notas_raw[0] === '{') {
-				$dec = json_decode($notas_raw, true);
-				$notas_txt = !empty($dec['notas_usuario']) ? trim($dec['notas_usuario']) : (!empty($dec['notas']) && is_string($dec['notas']) ? trim($dec['notas']) : '');
-			} else {
-				$clean = preg_replace('/\{.*?\}$/s', '', $notas_raw);
-				if (preg_match('/^Factura de reparaci[oó]n\s+OT\s*#\d+/i', trim($clean))) {
-					$clean = preg_replace('/^Factura de reparaci[oó]n\s+OT\s*#\d+[^\n]*\n?/i', '', trim($clean));
-				}
-				$notas_txt = trim($clean);
-			}
-		} elseif (preg_match('/^Factura de reparaci[oó]n\s+OT\s*#\d+/i', $notas_raw)) {
-			$clean = preg_replace('/^Factura de reparaci[oó]n\s+OT\s*#\d+[^\n]*\n?/i', '', $notas_raw);
-			$notas_txt = trim($clean);
-		} else {
-			$notas_txt = $notas_raw;
-		}
-	}
+	$notas_txt = tallerpro_clean_notas($factura->notas);
 	$notas_html = !empty($notas_txt)
 		? '<span style="font-size: 8.2pt; color: #334155; line-height: 1.5;">' . nl2br(htmlspecialchars($notas_txt)) . '</span>'
-		: '<span style="font-size: 8pt; color: #94a3b8; font-style: italic; line-height: 1.5;">Sin notas</span>';
+		: '<span style="font-size: 8pt; color: #94a3b8; font-style: italic; line-height: 1.5;">' . htmlspecialchars($langs->transnoentitiesnoconv("SinNotas")) . '</span>';
 
 	$iban_block = '';
 	if (!empty($taller_iban)) {
 		$iban_block = '<div>
-			<span style="font-size: 8.5pt; font-weight: bold; color: #0f172a;">Transferencia bancaria:</span><br>
+			<span style="font-size: 8.5pt; font-weight: bold; color: #0f172a;">' . htmlspecialchars($langs->transnoentitiesnoconv("PdfTransferenciaBancaria")) . '</span><br>
 			<span style="font-size: 8.5pt; color: #1e293b; font-family: monospace; font-weight: bold;">IBAN: ' . htmlspecialchars($taller_iban) . '</span>
 		</div>';
 	}
@@ -368,7 +380,7 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 				<table width="100%" cellpadding="8" cellspacing="0" border="1" style="border-color: #cbd5e1; background-color: #fafbfc;">
 					<tr>
 						<td height="52" valign="top" style="border: 0.8px solid #cbd5e1;">
-							<span style="font-size: 8.3pt; font-weight: bold; color: #0f172a;">Notas:</span><br>
+							<span style="font-size: 8.3pt; font-weight: bold; color: #0f172a;">' . htmlspecialchars($langs->transnoentitiesnoconv("PdfNotasConDosPuntos")) . '</span><br>
 							' . $notas_html . '
 						</td>
 					</tr>
@@ -386,26 +398,26 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 			<td width="42%" valign="top">
 				<table width="100%" cellpadding="4" cellspacing="0" border="0">
 					<tr>
-						<td width="58%" align="left" style="font-size: 8.5pt; color: #475569; font-weight: bold;">SUBTOTAL</td>
+						<td width="58%" align="left" style="font-size: 8.5pt; color: #475569; font-weight: bold;">' . htmlspecialchars($langs->transnoentitiesnoconv("SubtotalUpper")) . '</td>
 						<td width="42%" align="right" style="font-size: 8.5pt; font-weight: bold; color: #0f172a;">' . number_format($subtotal, 2, ',', '.') . ' €</td>
 					</tr>
 					<tr>
-						<td width="58%" align="left" style="font-size: 8.5pt; color: #475569; font-weight: bold;">DESCUENTO</td>
+						<td width="58%" align="left" style="font-size: 8.5pt; color: #475569; font-weight: bold;">' . htmlspecialchars($langs->transnoentitiesnoconv("DescuentoUpper")) . '</td>
 						<td width="42%" align="right" style="font-size: 8.5pt; font-weight: bold; color: #0f172a;">' . number_format($descuento, 2, ',', '.') . ' €</td>
 					</tr>
 					<tr>
-						<td width="58%" align="left" style="font-size: 8.5pt; color: #475569; font-weight: bold;">SUBTOTAL - DTO</td>
+						<td width="58%" align="left" style="font-size: 8.5pt; color: #475569; font-weight: bold;">' . htmlspecialchars($langs->transnoentitiesnoconv("SubtotalDtoUpper")) . '</td>
 						<td width="42%" align="right" style="font-size: 8.5pt; font-weight: bold; color: #0f172a;">' . number_format($base, 2, ',', '.') . ' €</td>
 					</tr>
 					<tr>
-						<td width="58%" align="left" style="font-size: 8.5pt; color: #475569; font-weight: bold;">IVA (' . (int) $iva_pct . '%)</td>
+						<td width="58%" align="left" style="font-size: 8.5pt; color: #475569; font-weight: bold;">' . htmlspecialchars($langs->transnoentitiesnoconv("IVA")) . ' (' . (int) $iva_pct . '%)</td>
 						<td width="42%" align="right" style="font-size: 8.5pt; font-weight: bold; color: #0f172a;">' . number_format($iva_amt, 2, ',', '.') . ' €</td>
 					</tr>
 					<tr>
 						<td colspan="2" style="border-bottom: 1.5px solid #0f172a; height: 6px;"></td>
 					</tr>
 					<tr>
-						<td width="58%" align="left" style="font-size: 11pt; font-weight: bold; color: #0f172a; padding-top: 5px;">Total</td>
+						<td width="58%" align="left" style="font-size: 11pt; font-weight: bold; color: #0f172a; padding-top: 5px;">' . htmlspecialchars($langs->transnoentitiesnoconv("Total")) . '</td>
 						<td width="42%" align="right" style="font-size: 12pt; font-weight: bold; color: #0f172a; padding-top: 5px;">' . number_format($total_final, 2, ',', '.') . ' €</td>
 					</tr>
 				</table>
@@ -441,9 +453,9 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 		<tr>
 			<td width="74%" valign="top">
 				<span style="font-size: 6.8pt; color: #475569; line-height: 1.35;">
-					' . (!empty($taller_iban) ? '<b>Pago por transferencia:</b> ' . htmlspecialchars($taller_iban) . '<br>' : '') . '
-					<b>Garantía legal:</b> De acuerdo con el R.D. 1457/1986, esta reparación tiene una garantía de 3 meses o 2.000 km recorridos (lo que antes suceda), cubriendo mano de obra y repuestos sustituidos. El cliente manifiesta renuncia expresa a la entrega de las piezas viejas retiradas para su correcto reciclaje.<br>
-					Datos tratados conforme al RGPD para la facturación y mantenimiento del vehículo.
+					' . (!empty($taller_iban) ? '<b>' . htmlspecialchars($langs->transnoentitiesnoconv("PdfPagoPorTransferencia")) . '</b> ' . htmlspecialchars($taller_iban) . '<br>' : '') . '
+					<b>' . htmlspecialchars($langs->transnoentitiesnoconv("PdfLegalWarranty")) . '</b> ' . htmlspecialchars($langs->transnoentitiesnoconv("PdfLegalWarrantyBody")) . '<br>
+					' . htmlspecialchars($langs->transnoentitiesnoconv("PdfGdprNotice")) . '
 				</span>
 			</td>
 			<td width="2%" style="border-right: 0.5px solid #cbd5e1;"></td>
@@ -453,7 +465,7 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 						<td width="28%"></td>
 						<td width="72%" align="left">
 							<span style="font-size: 7.8pt; font-weight: bold; color: #0f172a; letter-spacing: 0.04em;">VERI*FACTU</span><br>
-							<span style="font-size: 5.8pt; color: #64748b; line-height: 1.2;">Factura verificable<br>en la sede electrónica de la AEAT</span>
+							<span style="font-size: 5.8pt; color: #64748b; line-height: 1.2;">' . htmlspecialchars($langs->transnoentitiesnoconv("PdfVerifactuSub")) . '</span>
 						</td>
 					</tr>
 				</table>
@@ -464,7 +476,8 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	$pdf->SetXY(14, $y_footer + 2);
 	$pdf->writeHTML($footer_html, true, false, true, false, '');
 
-	$filename = 'Factura_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $factura->numero_factura) . '.pdf';
+	$file_prefix = $is_presupuesto ? 'Presupuesto_' : 'Factura_';
+	$filename = $file_prefix . preg_replace('/[^a-zA-Z0-9_-]/', '_', $factura->numero_factura) . '.pdf';
 
 	if ($output_mode == 'I' || $output_mode == 'D') {
 		// Encabezados HTTP

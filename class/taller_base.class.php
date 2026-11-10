@@ -142,3 +142,4 @@ abstract class TallerBaseObject extends CommonObject
 		return ($ts > 0) ? $ts : null;
 	}
 }
+

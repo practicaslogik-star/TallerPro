@@ -15,6 +15,8 @@
 
 require_once DOL_DOCUMENT_ROOT . '/product/class/product.class.php';
 require_once DOL_DOCUMENT_ROOT . '/product/stock/class/entrepot.class.php';
+require_once dirname(__DIR__) . '/class/taller_material.class.php';
+require_once dirname(__DIR__) . '/class/taller_reparacion.class.php';
 
 /**
  * Asegura y devuelve el Almacén principal de TallerPro en Dolibarr
@@ -209,10 +211,31 @@ function tallerpro_record_stock_movement($product_id, $qty_diff, $label = '', $o
 }
 
 /**
+ * Busca un material activo de taller por código o nombre dentro de la entidad actual.
+ *
+ * @param DoliDB $db       Manejador de base de datos
+ * @param string $mat_code Referencia / código del material
+ * @param string $mat_desc Nombre / descripción del material
+ * @return object|null
+ */
+function tallerpro_find_active_material_by_ref_or_name($db, $mat_code, $mat_desc)
+{
+	$table_mat = MAIN_DB_PREFIX . "taller_material";
+	$sql_m = "SELECT rowid, fk_product, stock FROM " . $table_mat . " WHERE status = 1 AND entity IN (" . getEntity('taller_material') . ") AND (";
+	if (!empty($mat_code)) {
+		$sql_m .= "ref = '" . $db->escape($mat_code) . "' OR ";
+	}
+	$sql_m .= "nombre = '" . $db->escape($mat_desc) . "') LIMIT 1";
+
+	$res_m = $db->query($sql_m);
+	return ($res_m && ($mat_obj = $db->fetch_object($res_m))) ? $mat_obj : null;
+}
+
+/**
  * Sincroniza todos los materiales de TallerPro con Dolibarr llx_product y asegura existencias
  *
  * @param User|null $user Usuario actual
- * @return int Total de materiales sincronizados
+ * @return int Total de materiales sincronizados (-1 si falla)
  */
 function tallerpro_sync_all_materials($user = null)
 {
@@ -225,18 +248,28 @@ function tallerpro_sync_all_materials($user = null)
 	$table_material = MAIN_DB_PREFIX . "taller_material";
 	$warehouse_id = tallerpro_get_default_warehouse($user);
 
+	$db->begin();
+	$ok = true;
+
 	// 2. Mapear cada material existente a llx_product
 	$sql = "SELECT rowid, ref, nombre, precio, stock, fk_product FROM " . $table_material . " WHERE status = 1 AND entity IN (" . getEntity('taller_material') . ")";
 	$res = $db->query($sql);
 
 	$count = 0;
-	if ($res) {
+	if (!$res) {
+		$ok = false;
+	} else {
 		while ($m = $db->fetch_object($res)) {
 			$pid = (int) $m->fk_product;
+			$mat_dao = new TallerMaterial($db);
+			$loaded = ($mat_dao->fetch((int) $m->rowid) > 0);
+			$needs_update = false;
+
 			if ($pid <= 0) {
 				$pid = tallerpro_get_or_create_product($m->ref, $m->nombre, (float) $m->precio, 0, $user);
-				if ($pid > 0) {
-					$db->query("UPDATE " . $table_material . " SET fk_product = " . $pid . " WHERE rowid = " . ((int) $m->rowid));
+				if ($pid > 0 && $loaded) {
+					$mat_dao->fk_product = $pid;
+					$needs_update = true;
 				}
 			}
 
@@ -246,37 +279,58 @@ function tallerpro_sync_all_materials($user = null)
 				$mat_stock = (float) $m->stock;
 
 				if ($current_doli_stock == 0 && $mat_stock > 0) {
-					tallerpro_record_stock_movement($pid, $mat_stock, 'Sincronización inicial con Almacén Taller', 'taller_material', $m->rowid, $user);
-				} elseif ($current_doli_stock > 0 && $mat_stock != $current_doli_stock) {
+					if (!tallerpro_record_stock_movement($pid, $mat_stock, 'Sincronización inicial con Almacén Taller', 'taller_material', $m->rowid, $user)) {
+						$ok = false;
+						break;
+					}
+				} elseif ($current_doli_stock > 0 && $mat_stock != $current_doli_stock && $loaded) {
 					// Actualizar tabla local con el stock real del almacén
-					$db->query("UPDATE " . $table_material . " SET stock = " . $current_doli_stock . " WHERE rowid = " . ((int) $m->rowid));
+					$mat_dao->stock = $current_doli_stock;
+					$needs_update = true;
 				}
+			}
+
+			if ($needs_update && $loaded && $mat_dao->update($user) <= 0) {
+				$ok = false;
+				break;
 			}
 			$count++;
 		}
 	}
 
 	// 3. Si en llx_product hay productos creados por Dolibarr que no están en llx_taller_material, importarlos
-	$sql_ext = "SELECT p.rowid, p.ref, p.label, p.price, p.stock FROM " . MAIN_DB_PREFIX . "product p ";
-	$sql_ext .= "LEFT JOIN " . $table_material . " tm ON (tm.fk_product = p.rowid AND tm.entity IN (" . getEntity('taller_material') . ")) ";
-	$sql_ext .= "WHERE p.tosell = 1 AND p.fk_product_type = 0 AND tm.rowid IS NULL AND p.entity IN (" . getEntity('product') . ")";
-	$res_ext = $db->query($sql_ext);
-	if ($res_ext) {
-		while ($ep = $db->fetch_object($res_ext)) {
-			$sql_in = "INSERT INTO " . $table_material . " (nombre, ref, fk_product, precio, stock, date_creation, fk_user_creat, entity, status) VALUES (";
-			$sql_in .= "'" . $db->escape($ep->label) . "', ";
-			$sql_in .= "'" . $db->escape($ep->ref) . "', ";
-			$sql_in .= (int) $ep->rowid . ", ";
-			$sql_in .= (float) $ep->price . ", ";
-			$sql_in .= (float) $ep->stock . ", ";
-			$sql_in .= "'" . $db->idate(dol_now()) . "', ";
-			$sql_in .= (int) ($user ? $user->id : 1) . ", ";
-			$sql_in .= (int) $conf->entity . ", 1)";
-			$db->query($sql_in);
+	if ($ok) {
+		$sql_ext = "SELECT p.rowid, p.ref, p.label, p.price, p.stock FROM " . MAIN_DB_PREFIX . "product p ";
+		$sql_ext .= "LEFT JOIN " . $table_material . " tm ON (tm.fk_product = p.rowid AND tm.entity IN (" . getEntity('taller_material') . ")) ";
+		$sql_ext .= "WHERE p.tosell = 1 AND p.fk_product_type = 0 AND tm.rowid IS NULL AND p.entity IN (" . getEntity('product') . ")";
+		$res_ext = $db->query($sql_ext);
+		if (!$res_ext) {
+			$ok = false;
+		} else {
+			while ($ep = $db->fetch_object($res_ext)) {
+				$new_mat = new TallerMaterial($db);
+				$new_mat->nombre     = (string) $ep->label;
+				$new_mat->ref        = (string) $ep->ref;
+				$new_mat->fk_product = (int) $ep->rowid;
+				$new_mat->precio     = (float) $ep->price;
+				$new_mat->stock      = (float) $ep->stock;
+				$new_mat->entity     = (int) $conf->entity;
+				if ($new_mat->create($user) <= 0) {
+					$ok = false;
+					break;
+				}
+			}
 		}
 	}
 
-	return $count;
+	if ($ok) {
+		$db->commit();
+		return $count;
+	}
+
+	$db->rollback();
+	dol_syslog("TallerPro - Error sincronizando materiales en tallerpro_sync_all_materials: " . $db->lasterror(), LOG_ERR);
+	return -1;
 }
 
 /**
@@ -298,39 +352,55 @@ function tallerpro_consume_repair_materials($reparacion_id, $user = null)
 	}
 
 	$table_rep = MAIN_DB_PREFIX . "taller_reparacion";
-	$table_mat = MAIN_DB_PREFIX . "taller_material";
 	$table_veh = MAIN_DB_PREFIX . "taller_vehiculo";
 
-	// Verificar si ya fue descontado
-	$sql = "SELECT r.rowid, r.notas, r.stock_descontado, v.matricula ";
-	$sql .= "FROM " . $table_rep . " r ";
-	$sql .= "LEFT JOIN " . $table_veh . " v ON r.fk_vehiculo = v.rowid ";
-	$sql .= "WHERE r.rowid = " . $reparacion_id . " AND r.entity IN (" . getEntity('taller_reparacion') . ")";
+	$db->begin();
 
-	$res = $db->query($sql);
-	if (!$res || !($rep = $db->fetch_object($res))) {
+	$rep_dao = new TallerReparacion($db);
+	if ($rep_dao->fetch($reparacion_id) <= 0) {
+		$db->rollback();
 		return false;
 	}
 
-	if (!empty($rep->stock_descontado)) {
+	if (!empty($rep_dao->stock_descontado)) {
+		$db->commit();
 		return true; // Ya descontado anteriormente
 	}
 
-	if (empty($rep->notas) || ($rep->notas[0] !== '{' && $rep->notas[0] !== '[')) {
-		// No tiene lista estructurada de materiales
-		$db->query("UPDATE " . $table_rep . " SET stock_descontado = 1 WHERE rowid = " . $reparacion_id);
-		return true;
+	$notas_str = (string) $rep_dao->notas;
+	if (empty($notas_str) || ($notas_str[0] !== '{' && $notas_str[0] !== '[')) {
+		$rep_dao->stock_descontado = 1;
+		$ok_flag = ($rep_dao->update($user) > 0);
+		if ($ok_flag) {
+			$db->commit();
+		} else {
+			$db->rollback();
+		}
+		return $ok_flag;
 	}
 
-	$data = json_decode($rep->notas, true);
+	$data = json_decode($notas_str, true);
 	if (empty($data['materiales']) || !is_array($data['materiales'])) {
-		$db->query("UPDATE " . $table_rep . " SET stock_descontado = 1 WHERE rowid = " . $reparacion_id);
-		return true;
+		$rep_dao->stock_descontado = 1;
+		$ok_flag = ($rep_dao->update($user) > 0);
+		if ($ok_flag) {
+			$db->commit();
+		} else {
+			$db->rollback();
+		}
+		return $ok_flag;
 	}
 
-	$matricula = !empty($rep->matricula) ? $rep->matricula : 'Vehículo';
+	$matricula = 'Vehículo';
+	$sql_v = "SELECT v.matricula FROM " . $table_veh . " v WHERE v.rowid = " . ((int) $rep_dao->fk_vehiculo) . " AND v.entity IN (" . getEntity('taller_vehiculo') . ") LIMIT 1";
+	$res_v = $db->query($sql_v);
+	if ($res_v && ($v_obj = $db->fetch_object($res_v)) && !empty($v_obj->matricula)) {
+		$matricula = $v_obj->matricula;
+	}
+
 	$ot_num = 'OT #' . str_pad($reparacion_id, 4, '0', STR_PAD_LEFT);
 	$label_mvt = "Consumo en reparación " . $ot_num . " (" . $matricula . ")";
+	$ok = true;
 
 	foreach ($data['materiales'] as $m) {
 		$cant = (float) (!empty($m['cantidad']) ? $m['cantidad'] : 1);
@@ -339,31 +409,57 @@ function tallerpro_consume_repair_materials($reparacion_id, $user = null)
 		$mat_code = !empty($m['codigo']) ? trim($m['codigo']) : '';
 		$mat_desc = !empty($m['descripcion']) ? trim($m['descripcion']) : '';
 
-		// Buscar material por código o nombre
-		$sql_m = "SELECT rowid, fk_product, stock FROM " . $table_mat . " WHERE status = 1 AND entity IN (" . getEntity('taller_material') . ") AND (";
-		if (!empty($mat_code)) {
-			$sql_m .= "ref = '" . $db->escape($mat_code) . "' OR ";
-		}
-		$sql_m .= "nombre = '" . $db->escape($mat_desc) . "') LIMIT 1";
+		$mat_obj = tallerpro_find_active_material_by_ref_or_name($db, $mat_code, $mat_desc);
+		if ($mat_obj) {
+			$mat_dao = new TallerMaterial($db);
+			if ($mat_dao->fetch((int) $mat_obj->rowid) <= 0) {
+				$ok = false;
+				break;
+			}
 
-		$res_m = $db->query($sql_m);
-		if ($res_m && ($mat_obj = $db->fetch_object($res_m))) {
-			$pid = (int) $mat_obj->fk_product;
+			$pid = (int) $mat_dao->fk_product;
+			$needs_upd = false;
 			if ($pid <= 0) {
-				$pid = tallerpro_get_or_create_product($mat_code, $mat_desc, (float)($m['precio'] ?? 0), 0, $user);
-				$db->query("UPDATE " . $table_mat . " SET fk_product = " . $pid . " WHERE rowid = " . ((int) $mat_obj->rowid));
+				$pid = tallerpro_get_or_create_product($mat_code, $mat_desc, (float) ($m['precio'] ?? 0), 0, $user);
+				if ($pid <= 0) {
+					$ok = false;
+					break;
+				}
+				$mat_dao->fk_product = $pid;
+				$needs_upd = true;
 			}
 
 			if ($pid > 0) {
-				tallerpro_record_stock_movement($pid, -$cant, $label_mvt, 'reparacion', $reparacion_id, $user);
-				$new_local_stock = tallerpro_get_product_stock($pid);
-				$db->query("UPDATE " . $table_mat . " SET stock = " . $new_local_stock . " WHERE rowid = " . ((int) $mat_obj->rowid));
+				if (!tallerpro_record_stock_movement($pid, -$cant, $label_mvt, 'reparacion', $reparacion_id, $user)) {
+					$ok = false;
+					break;
+				}
+				$mat_dao->stock = tallerpro_get_product_stock($pid);
+				$needs_upd = true;
+			}
+
+			if ($needs_upd && $mat_dao->update($user) <= 0) {
+				$ok = false;
+				break;
 			}
 		}
 	}
 
-	$db->query("UPDATE " . $table_rep . " SET stock_descontado = 1 WHERE rowid = " . $reparacion_id);
-	return true;
+	if ($ok) {
+		$rep_dao->stock_descontado = 1;
+		if ($rep_dao->update($user) <= 0) {
+			$ok = false;
+		}
+	}
+
+	if ($ok) {
+		$db->commit();
+		return true;
+	}
+
+	$db->rollback();
+	dol_syslog("TallerPro - Error descontando stock en reparación ID " . $reparacion_id . ": " . $db->lasterror(), LOG_ERR);
+	return false;
 }
 
 /**
@@ -384,36 +480,43 @@ function tallerpro_restore_repair_stock($reparacion_id, $user = null)
 		global $user;
 	}
 
-	$table_rep = MAIN_DB_PREFIX . "taller_reparacion";
-	$table_mat = MAIN_DB_PREFIX . "taller_material";
 	$table_veh = MAIN_DB_PREFIX . "taller_vehiculo";
 
-	$sql = "SELECT r.rowid, r.notas, r.stock_descontado, v.matricula ";
-	$sql .= "FROM " . $table_rep . " r ";
-	$sql .= "LEFT JOIN " . $table_veh . " v ON r.fk_vehiculo = v.rowid ";
-	$sql .= "WHERE r.rowid = " . $reparacion_id . " AND r.entity IN (" . getEntity('taller_reparacion') . ")";
+	$db->begin();
 
-	$res = $db->query($sql);
-	if (!$res || !($rep = $db->fetch_object($res))) {
+	$rep_dao = new TallerReparacion($db);
+	if ($rep_dao->fetch($reparacion_id) <= 0) {
+		$db->rollback();
 		return false;
 	}
 
-	if (empty($rep->stock_descontado)) {
+	if (empty($rep_dao->stock_descontado)) {
+		$db->commit();
 		return true; // No había sido descontado
 	}
 
-	if (empty($rep->notas) || ($rep->notas[0] !== '{' && $rep->notas[0] !== '[')) {
+	$notas_str = (string) $rep_dao->notas;
+	if (empty($notas_str) || ($notas_str[0] !== '{' && $notas_str[0] !== '[')) {
+		$db->commit();
 		return true;
 	}
 
-	$data = json_decode($rep->notas, true);
+	$data = json_decode($notas_str, true);
 	if (empty($data['materiales']) || !is_array($data['materiales'])) {
+		$db->commit();
 		return true;
 	}
 
-	$matricula = !empty($rep->matricula) ? $rep->matricula : 'Vehículo';
+	$matricula = 'Vehículo';
+	$sql_v = "SELECT v.matricula FROM " . $table_veh . " v WHERE v.rowid = " . ((int) $rep_dao->fk_vehiculo) . " AND v.entity IN (" . getEntity('taller_vehiculo') . ") LIMIT 1";
+	$res_v = $db->query($sql_v);
+	if ($res_v && ($v_obj = $db->fetch_object($res_v)) && !empty($v_obj->matricula)) {
+		$matricula = $v_obj->matricula;
+	}
+
 	$ot_num = 'OT #' . str_pad($reparacion_id, 4, '0', STR_PAD_LEFT);
 	$label_mvt = "Devolución por anulación de reparación " . $ot_num . " (" . $matricula . ")";
+	$ok = true;
 
 	foreach ($data['materiales'] as $m) {
 		$cant = (float) (!empty($m['cantidad']) ? $m['cantidad'] : 1);
@@ -422,24 +525,42 @@ function tallerpro_restore_repair_stock($reparacion_id, $user = null)
 		$mat_code = !empty($m['codigo']) ? trim($m['codigo']) : '';
 		$mat_desc = !empty($m['descripcion']) ? trim($m['descripcion']) : '';
 
-		$sql_m = "SELECT rowid, fk_product FROM " . $table_mat . " WHERE status = 1 AND entity IN (" . getEntity('taller_material') . ") AND (";
-		if (!empty($mat_code)) {
-			$sql_m .= "ref = '" . $db->escape($mat_code) . "' OR ";
-		}
-		$sql_m .= "nombre = '" . $db->escape($mat_desc) . "') LIMIT 1";
-
-		$res_m = $db->query($sql_m);
-		if ($res_m && ($mat_obj = $db->fetch_object($res_m))) {
-			$pid = (int) $mat_obj->fk_product;
+		$mat_obj = tallerpro_find_active_material_by_ref_or_name($db, $mat_code, $mat_desc);
+		if ($mat_obj) {
+			$mat_dao = new TallerMaterial($db);
+			if ($mat_dao->fetch((int) $mat_obj->rowid) <= 0) {
+				$ok = false;
+				break;
+			}
+			$pid = (int) $mat_dao->fk_product;
 			if ($pid > 0) {
-				tallerpro_record_stock_movement($pid, $cant, $label_mvt, 'reparacion', $reparacion_id, $user);
-				$new_local_stock = tallerpro_get_product_stock($pid);
-				$db->query("UPDATE " . $table_mat . " SET stock = " . $new_local_stock . " WHERE rowid = " . ((int) $mat_obj->rowid));
+				if (!tallerpro_record_stock_movement($pid, $cant, $label_mvt, 'reparacion', $reparacion_id, $user)) {
+					$ok = false;
+					break;
+				}
+				$mat_dao->stock = tallerpro_get_product_stock($pid);
+				if ($mat_dao->update($user) <= 0) {
+					$ok = false;
+					break;
+				}
 			}
 		}
 	}
 
-	$db->query("UPDATE " . $table_rep . " SET stock_descontado = 0 WHERE rowid = " . $reparacion_id);
-	return true;
+	if ($ok) {
+		$rep_dao->stock_descontado = 0;
+		if ($rep_dao->update($user) <= 0) {
+			$ok = false;
+		}
+	}
+
+	if ($ok) {
+		$db->commit();
+		return true;
+	}
+
+	$db->rollback();
+	dol_syslog("TallerPro - Error restaurando stock en reparación ID " . $reparacion_id . ": " . $db->lasterror(), LOG_ERR);
+	return false;
 }
 

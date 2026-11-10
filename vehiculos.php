@@ -146,7 +146,7 @@ if ($action == 'view_doc' || $action == 'download_doc') {
 			exit;
 		}
 	}
-	accessforbidden('Documento no encontrado o no disponible');
+	accessforbidden($langs->transnoentitiesnoconv("DocNotFoundOrForbidden"));
 }
 
 // Acción: Subir Documento de Vehículo
@@ -156,13 +156,13 @@ if ($action == 'upload_doc') {
 
 	$veh_id = GETPOSTINT('id');
 	if ($veh_id <= 0 || !tallerpro_vehicle_in_entity($db, $veh_id)) {
-		setEventMessages("ID de vehículo no válido o sin acceso en esta entidad", null, 'errors');
+		setEventMessages($langs->trans("ErrInvalidVehicleEntity"), null, 'errors');
 		header("Location: " . $_SERVER['PHP_SELF']);
 		exit;
 	}
 
 	if (empty($_FILES['doc_file']) || $_FILES['doc_file']['error'] !== UPLOAD_ERR_OK) {
-		setEventMessages("Error al subir el archivo o no se seleccionó ninguno.", null, 'errors');
+		setEventMessages($langs->trans("ErrUploadSelectFile"), null, 'errors');
 		header("Location: " . $_SERVER['PHP_SELF'] . "?id=" . $veh_id . "&tab=documentos");
 		exit;
 	}
@@ -171,7 +171,7 @@ if ($action == 'upload_doc') {
 	$ext = strtolower(pathinfo($orig_name, PATHINFO_EXTENSION));
 
 	if ($_FILES['doc_file']['size'] > 15 * 1024 * 1024) {
-		setEventMessages("El archivo supera el límite de 15 MB.", null, 'errors');
+		setEventMessages($langs->trans("ErrFileMaxSize15MB"), null, 'errors');
 		header("Location: " . $_SERVER['PHP_SELF'] . "?id=" . $veh_id . "&tab=documentos");
 		exit;
 	}
@@ -206,7 +206,7 @@ if ($action == 'upload_doc') {
 
 		$category = trim(GETPOST('doc_category', 'alphanohtml'));
 		if (empty($category)) {
-			$category = 'Documento general';
+			$category = $langs->transnoentitiesnoconv("DocGeneralCategory");
 		}
 		$title = trim(GETPOST('doc_title', 'alphanohtml'));
 		if (empty($title)) {
@@ -224,9 +224,9 @@ if ($action == 'upload_doc') {
 			'user'          => $user->login
 		);
 		file_put_contents($meta_file, json_encode($metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
-		setEventMessages("Documento adjuntado correctamente.", null, 'mesgs');
+		setEventMessages($langs->trans("MsgDocAttached"), null, 'mesgs');
 	} else {
-		setEventMessages("No se pudo guardar el archivo en el servidor.", null, 'errors');
+		setEventMessages($langs->trans("ErrSaveFileServer"), null, 'errors');
 	}
 
 	header("Location: " . $_SERVER['PHP_SELF'] . "?id=" . $veh_id . "&tab=documentos");
@@ -259,9 +259,9 @@ if ($action == 'delete_doc') {
 					file_put_contents($meta_file, json_encode($metadata, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE));
 				}
 			}
-			setEventMessages("Documento eliminado correctamente.", null, 'mesgs');
+			setEventMessages($langs->trans("MsgDocDeleted"), null, 'mesgs');
 		} else {
-			setEventMessages("El documento no existe.", null, 'errors');
+			setEventMessages($langs->trans("ErrDocNotFound"), null, 'errors');
 		}
 	}
 	header("Location: " . $_SERVER['PHP_SELF'] . "?id=" . $veh_id . "&tab=documentos");
@@ -284,13 +284,13 @@ if ($action == 'create_vehiculo' || $action == 'add_vehiculo') {
 	$notas     = trim(GETPOST('notas', 'restricthtml'));
 
 	if (empty($matricula)) {
-		setEventMessages($langs->trans("ErrorFieldRequired", "Matrícula"), null, 'errors');
+		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("FieldMatricula")), null, 'errors');
 	} elseif ($fk_soc <= 0) {
-		setEventMessages($langs->trans("ErrorFieldRequired", "Propietario / Cliente"), null, 'errors');
+		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("FieldPropietarioCliente")), null, 'errors');
 	} else {
 		$res_soc_chk = $db->query("SELECT rowid FROM " . MAIN_DB_PREFIX . "societe WHERE rowid = " . ((int) $fk_soc) . " AND entity IN (" . getEntity('societe') . ")");
 		if (!$res_soc_chk || $db->num_rows($res_soc_chk) <= 0) {
-			setEventMessages("El cliente seleccionado no pertenece a la empresa activa", null, 'errors');
+			setEventMessages($langs->trans("ErrClientNotInEntity"), null, 'errors');
 		} else {
 			$veh_obj = new TallerVehiculo($db);
 			$veh_obj->fk_soc    = (int) $fk_soc;
@@ -310,7 +310,7 @@ if ($action == 'create_vehiculo' || $action == 'add_vehiculo') {
 				exit;
 			} else {
 				dol_syslog("TallerPro - Error al guardar vehículo: " . $veh_obj->error . " " . implode(' ', $veh_obj->errors), LOG_ERR);
-				setEventMessages("Error al guardar el vehículo", null, 'errors');
+				setEventMessages($langs->trans("ErrSaveVehicle"), null, 'errors');
 			}
 		}
 	}
@@ -330,7 +330,7 @@ if ($action == 'delete_vehiculo' || $action == 'delete') {
 			exit;
 		} else {
 			dol_syslog("TallerPro - Error al eliminar vehículo ID " . $rowid . ": " . $veh_obj->error, LOG_ERR);
-			setEventMessages("Error al eliminar el vehículo", null, 'errors');
+			setEventMessages($langs->trans("ErrDeleteVehicle"), null, 'errors');
 		}
 	}
 }
@@ -537,19 +537,10 @@ if ($veh_id > 0 || !empty($veh_matricula)) {
 	}
 }
 
-$css_file = __DIR__ . '/css/tallerpro.css';
-$js_file = __DIR__ . '/js/tallerpro.js';
-$css_version = (file_exists($css_file) ? filemtime($css_file) : dol_now());
-$js_version = (file_exists($js_file) ? filemtime($js_file) : dol_now()) . '_' . dol_now();
-
-$css_url = dol_buildpath('/taller/css/tallerpro.css', 1) . '?v=' . $css_version;
-$js_url = dol_buildpath('/taller/js/tallerpro.js', 1) . '?v=' . $js_version;
-
-$morehead = '<link rel="stylesheet" type="text/css" href="'.$css_url.'">'."\n";
-$morehead .= '<script src="'.$js_url.'"></script>'."\n";
+$morehead = tallerpro_build_morehead($langs);
 
 // Page Header
-llxHeader($morehead, 'Vehículos - TallerPro', '', '', 0, 0, array(), array(), '', 'mod-taller page-tallerpro');
+llxHeader($morehead, $langs->trans("Vehiculos") . ' - ' . $langs->trans("TallerPro"), '', '', 0, 0, array(), array(), '', 'mod-taller page-tallerpro');
 
 $dolibarr_root_url = DOL_URL_ROOT . '/index.php';
 $setup_url = dol_buildpath('/taller/configuracion.php', 1);
@@ -698,7 +689,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 
 		<!-- Collapse Button -->
 		<div class="tallerpro-sidebar-bottom">
-			<button type="button" class="tallerpro-collapse-btn" id="tallerCollapseBtn" title="Colapsar menú">
+			<button type="button" class="tallerpro-collapse-btn" id="tallerCollapseBtn" title="<?php echo dol_escape_htmltag($langs->trans("ColapsarMenu")); ?>">
 				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
 					<polyline points="15 18 9 12 15 6"></polyline>
 				</svg>
@@ -710,7 +701,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 	<div class="tallerpro-main">
 		<!-- Top Bar -->
 		<header class="tallerpro-topbar">
-			<button type="button" class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="Alternar menú" aria-label="Alternar menú">
+			<button type="button" class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="<?php echo dol_escape_htmltag($langs->trans("AlternarMenu")); ?>" aria-label="<?php echo dol_escape_htmltag($langs->trans("AlternarMenu")); ?>">
 				<svg class="tallerpro-toggle-icon-desktop" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 					<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
 					<line x1="9" y1="3" x2="9" y2="21"></line>
@@ -800,7 +791,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<line x1="19" y1="12" x2="5" y2="12"></line>
 								<polyline points="12 19 5 12 12 5"></polyline>
 							</svg>
-							<span>Volver a vehículos</span>
+							<span><?php echo $langs->trans("VolverAVehiculos"); ?></span>
 						</a>
 
 						<!-- Tarjeta del Vehículo -->
@@ -811,22 +802,22 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							</div>
 							<div class="tallerpro-vehicle-meta-group">
 								<div class="tallerpro-vehicle-meta-item">
-									<span class="tallerpro-vehicle-meta-label">COLOR</span>
+									<span class="tallerpro-vehicle-meta-label"><?php echo $langs->trans("ColorUpper"); ?></span>
 									<span class="tallerpro-vehicle-meta-value"><?php echo dol_escape_htmltag($veh_color); ?></span>
 								</div>
 								<div class="tallerpro-vehicle-meta-item">
-									<span class="tallerpro-vehicle-meta-label">VIN</span>
+									<span class="tallerpro-vehicle-meta-label"><?php echo $langs->trans("VinUpper"); ?></span>
 									<span class="tallerpro-vehicle-meta-value"><?php echo dol_escape_htmltag($veh_vin); ?></span>
 								</div>
 								<div class="tallerpro-vehicle-meta-item">
-									<span class="tallerpro-vehicle-meta-label">KM</span>
+									<span class="tallerpro-vehicle-meta-label"><?php echo $langs->trans("KmUpper"); ?></span>
 									<span class="tallerpro-vehicle-meta-value"><?php echo dol_escape_htmltag($veh_km); ?></span>
 								</div>
 								<div class="tallerpro-vehicle-meta-item">
-									<span class="tallerpro-vehicle-meta-label">PROPIETARIO</span>
+									<span class="tallerpro-vehicle-meta-label"><?php echo $langs->trans("PropietarioUpper"); ?></span>
 									<span class="tallerpro-vehicle-meta-value">
 										<?php if (!empty($veh_detail->fk_soc)): ?>
-											<a href="<?php echo dol_buildpath('/taller/clientes.php', 1) . '?id=' . $veh_detail->fk_soc; ?>" style="color: inherit; text-decoration: none;" title="Ver ficha del cliente">
+											<a href="<?php echo dol_buildpath('/taller/clientes.php', 1) . '?id=' . $veh_detail->fk_soc; ?>" style="color: inherit; text-decoration: none;" title="<?php echo dol_escape_htmltag($langs->trans("VerFichaCliente")); ?>">
 												<?php echo dol_escape_htmltag($client_name); ?>
 											</a>
 										<?php else: ?>
@@ -840,13 +831,13 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<!-- Navegación por pestañas -->
 						<div class="tallerpro-tabs-container">
 							<button type="button" class="tallerpro-tab-btn active" data-tab="tab-propietario">
-								<span>Propietario</span>
+								<span><?php echo $langs->trans("TabPropietario"); ?></span>
 							</button>
 							<button type="button" class="tallerpro-tab-btn" data-tab="tab-reparaciones">
 								<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 									<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
 								</svg>
-								<span>Reparaciones</span>
+								<span><?php echo $langs->trans("Reparaciones"); ?></span>
 							</button>
 							<button type="button" class="tallerpro-tab-btn" data-tab="tab-materiales">
 								<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -854,13 +845,13 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									<polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline>
 									<line x1="12" y1="22.08" x2="12" y2="12"></line>
 								</svg>
-								<span>Materiales</span>
+								<span><?php echo $langs->trans("Materiales"); ?></span>
 							</button>
 							<button type="button" class="tallerpro-tab-btn" data-tab="tab-seguros">
 								<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 									<circle cx="12" cy="12" r="9"></circle>
 								</svg>
-								<span>Seguros</span>
+								<span><?php echo $langs->trans("Seguros"); ?></span>
 							</button>
 							<button type="button" class="tallerpro-tab-btn" data-tab="tab-documentos">
 								<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -869,7 +860,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									<line x1="16" y1="13" x2="8" y2="13"></line>
 									<line x1="16" y1="17" x2="8" y2="17"></line>
 								</svg>
-								<span>Documentos<?php echo !empty($veh_documentos) ? ' (' . count($veh_documentos) . ')' : ''; ?></span>
+								<span><?php echo $langs->trans("TabDocumentos"); ?><?php echo !empty($veh_documentos) ? ' (' . count($veh_documentos) . ')' : ''; ?></span>
 							</button>
 							<button type="button" class="tallerpro-tab-btn" data-tab="tab-facturas">
 								<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -877,33 +868,33 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									<line x1="12" y1="7" x2="12" y2="17"></line>
 									<path d="M9.5 9.5a1.5 1.5 0 0 1 1.5-1.5h2a1.5 1.5 0 0 1 1.5 1.5c0 1.5-3 1.5-3 3a1.5 1.5 0 0 0 1.5 1.5h2a1.5 1.5 0 0 0 1.5-1.5"></path>
 								</svg>
-								<span>Facturas</span>
+								<span><?php echo $langs->trans("Facturas"); ?></span>
 							</button>
 						</div>
 
 						<!-- Contenido Pestaña 1: Propietario -->
 						<div class="tallerpro-tab-pane active" id="tab-propietario">
 							<div class="tallerpro-vehicle-detail-card">
-								<h2 class="tallerpro-vehicle-detail-card-title">Datos del propietario</h2>
+								<h2 class="tallerpro-vehicle-detail-card-title"><?php echo $langs->trans("DatosDelPropietario"); ?></h2>
 								<div class="tallerpro-vehicle-owner-grid">
 									<div class="tallerpro-vehicle-owner-field">
-										<span class="tallerpro-vehicle-owner-label">NOMBRE</span>
+										<span class="tallerpro-vehicle-owner-label"><?php echo $langs->trans("NombreUpper"); ?></span>
 										<span class="tallerpro-vehicle-owner-value"><?php echo dol_escape_htmltag($client_name); ?></span>
 									</div>
 									<div class="tallerpro-vehicle-owner-field">
-										<span class="tallerpro-vehicle-owner-label">TELÉFONO</span>
+										<span class="tallerpro-vehicle-owner-label"><?php echo $langs->trans("TelefonoUpper"); ?></span>
 										<span class="tallerpro-vehicle-owner-value"><?php echo dol_escape_htmltag($client_phone); ?></span>
 									</div>
 									<div class="tallerpro-vehicle-owner-field">
-										<span class="tallerpro-vehicle-owner-label">EMAIL</span>
+										<span class="tallerpro-vehicle-owner-label"><?php echo $langs->trans("EmailUpper"); ?></span>
 										<span class="tallerpro-vehicle-owner-value"><?php echo dol_escape_htmltag($client_email); ?></span>
 									</div>
 									<div class="tallerpro-vehicle-owner-field">
-										<span class="tallerpro-vehicle-owner-label">DNI</span>
+										<span class="tallerpro-vehicle-owner-label"><?php echo $langs->trans("DniUpper"); ?></span>
 										<span class="tallerpro-vehicle-owner-value"><?php echo dol_escape_htmltag($client_dni); ?></span>
 									</div>
 									<div class="tallerpro-vehicle-owner-field">
-										<span class="tallerpro-vehicle-owner-label">DIRECCIÓN</span>
+										<span class="tallerpro-vehicle-owner-label"><?php echo $langs->trans("DireccionUpper"); ?></span>
 										<span class="tallerpro-vehicle-owner-value"><?php echo dol_escape_htmltag($client_address); ?></span>
 									</div>
 								</div>
@@ -913,7 +904,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<!-- Contenido Pestaña 2: Reparaciones -->
 						<div class="tallerpro-tab-pane" id="tab-reparaciones">
 							<div class="tallerpro-vehicle-detail-card">
-								<h2 class="tallerpro-vehicle-detail-card-title">Reparaciones del vehículo</h2>
+								<h2 class="tallerpro-vehicle-detail-card-title"><?php echo $langs->trans("ReparacionesDelVehiculo"); ?></h2>
 								<?php if (!empty($veh_repairs)): ?>
 									<div class="tallerpro-detail-list">
 										<?php foreach ($veh_repairs as $vr): ?>
@@ -926,7 +917,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 													if (isset($p_n['total'])) $vr_total = (float) $p_n['total'];
 													$n_mat = count($p_n['materiales'] ?? []);
 													$n_rep = count($p_n['reparaciones'] ?? []);
-													$vr_summary_text = $n_mat . ' material(es) · ' . $n_rep . ' intervención(es)';
+													$vr_summary_text = $n_mat . ' ' . $langs->transnoentitiesnoconv("MaterialsCountShort") . ' · ' . $n_rep . ' ' . $langs->transnoentitiesnoconv("InterventionsCountShort");
 												}
 											} elseif (!empty($vr->notas)) {
 												$vr_summary_text = $vr->notas;
@@ -934,9 +925,9 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 											?>
 											<div class="tallerpro-detail-item">
 												<div class="tallerpro-detail-item-main">
-													<span class="tallerpro-detail-item-title"><?php echo dol_escape_htmltag(!empty($vr->descripcion) ? $vr->descripcion : 'Mantenimiento / Reparación'); ?></span>
+													<span class="tallerpro-detail-item-title"><?php echo dol_escape_htmltag(!empty($vr->descripcion) ? $vr->descripcion : $langs->trans("MantenimientoReparacion")); ?></span>
 													<span class="tallerpro-detail-item-sub">
-														Fecha: <?php echo dol_escape_htmltag($vr->fecha); ?>
+														<?php echo $langs->trans("LabelFechaConDosPuntos"); ?> <?php echo dol_escape_htmltag($vr->fecha); ?>
 														<?php if (!empty($vr->ref_factura)) echo ' • <span style="color: #047857; font-weight: 500;">' . dol_escape_htmltag($vr->ref_factura) . '</span>'; ?>
 														<?php if (!empty($vr_summary_text)) echo ' • ' . dol_escape_htmltag($vr_summary_text); ?>
 													</span>
@@ -948,7 +939,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<?php endforeach; ?>
 									</div>
 								<?php else: ?>
-									<div class="tallerpro-empty-message">No hay reparaciones registradas para este vehículo.</div>
+									<div class="tallerpro-empty-message"><?php echo $langs->trans("NoRepairsForVehicle"); ?></div>
 								<?php endif; ?>
 							</div>
 						</div>
@@ -956,7 +947,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<!-- Contenido Pestaña 3: Materiales -->
 						<div class="tallerpro-tab-pane" id="tab-materiales">
 							<div class="tallerpro-vehicle-detail-card">
-								<h2 class="tallerpro-vehicle-detail-card-title">Materiales utilizados</h2>
+								<h2 class="tallerpro-vehicle-detail-card-title"><?php echo $langs->trans("MaterialesUtilizados"); ?></h2>
 								<?php if (!empty($veh_materiales)): ?>
 									<div class="tallerpro-detail-list">
 										<?php foreach ($veh_materiales as $mat): ?>
@@ -967,13 +958,13 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 												</div>
 												<div class="tallerpro-detail-item-end" style="text-align: right;">
 													<span style="font-size: 13px; color: #64748b;">x<?php echo (int) $mat->cantidad == $mat->cantidad ? (int) $mat->cantidad : number_format($mat->cantidad, 2, '.', ''); ?></span>
-													<span class="tallerpro-detail-item-price"><?php echo number_format($mat->precio, 2, '.', '') . ' €/ud'; ?></span>
+													<span class="tallerpro-detail-item-price"><?php echo number_format($mat->precio, 2, '.', '') . ' €/' . dol_escape_htmltag($langs->transnoentitiesnoconv("UdShort")); ?></span>
 												</div>
 											</div>
 										<?php endforeach; ?>
 									</div>
 								<?php else: ?>
-									<div class="tallerpro-empty-message">No hay materiales registrados para este vehículo.</div>
+									<div class="tallerpro-empty-message"><?php echo $langs->trans("NoMaterialsForVehicle"); ?></div>
 								<?php endif; ?>
 							</div>
 						</div>
@@ -981,7 +972,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<!-- Contenido Pestaña 4: Seguros -->
 						<div class="tallerpro-tab-pane" id="tab-seguros">
 							<div class="tallerpro-vehicle-detail-card">
-								<h2 class="tallerpro-vehicle-detail-card-title">Seguro del vehículo</h2>
+								<h2 class="tallerpro-vehicle-detail-card-title"><?php echo $langs->trans("SeguroDelVehiculo"); ?></h2>
 								<?php if (!empty($veh_seguros)): ?>
 									<div class="tallerpro-detail-list">
 										<?php foreach ($veh_seguros as $vs): ?>
@@ -994,7 +985,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 																<span class="tallerpro-badge"><?php echo dol_escape_htmltag($vs->tipo); ?></span>
 															<?php endif; ?>
 														</div>
-														<a href="<?php echo $seguros_url; ?>" class="tallerpro-action-btn" title="Gestionar seguros">
+														<a href="<?php echo $seguros_url; ?>" class="tallerpro-action-btn" title="<?php echo dol_escape_htmltag($langs->trans("GestionarSeguros")); ?>">
 															<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 																<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
 															</svg>
@@ -1002,19 +993,19 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 													</div>
 													<div class="tallerpro-seguro-details" style="display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: #475569; margin-bottom: 6px;">
 														<?php if (!empty($vs->poliza)): ?>
-															<span><strong>Póliza:</strong> <?php echo dol_escape_htmltag($vs->poliza); ?></span>
+															<span><strong><?php echo $langs->trans("PolizaConPuntos"); ?></strong> <?php echo dol_escape_htmltag($vs->poliza); ?></span>
 														<?php endif; ?>
 														<?php if (!empty($vs->telefono)): ?>
-															<span><strong>Tel:</strong> <a href="tel:<?php echo dol_escape_htmltag($vs->telefono); ?>" style="color: #dc2626; font-weight: 500; text-decoration: none;"><?php echo dol_escape_htmltag($vs->telefono); ?></a></span>
+															<span><strong><?php echo $langs->trans("LabelTelConDosPuntos"); ?></strong> <a href="tel:<?php echo dol_escape_htmltag($vs->telefono); ?>" style="color: #dc2626; font-weight: 500; text-decoration: none;"><?php echo dol_escape_htmltag($vs->telefono); ?></a></span>
 														<?php endif; ?>
 														<?php 
 														$has_ini = !empty($vs->fecha_inicio);
 														$has_fin = !empty($vs->fecha_fin);
 														if ($has_ini || $has_fin): ?>
 															<span>
-																<strong>Vigencia:</strong> 
+																<strong><?php echo $langs->trans("VigenciaConPuntos"); ?></strong> 
 																<?php echo $has_ini ? dol_escape_htmltag($vs->fecha_inicio) : '—'; ?>
-																al
+																<?php echo $langs->trans("ConectorAl"); ?>
 																<?php echo $has_fin ? dol_escape_htmltag($vs->fecha_fin) : '—'; ?>
 															</span>
 														<?php endif; ?>
@@ -1029,7 +1020,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<?php endforeach; ?>
 									</div>
 								<?php else: ?>
-									<div class="tallerpro-empty-message">No hay seguro asociado registrado para este vehículo.</div>
+									<div class="tallerpro-empty-message"><?php echo $langs->trans("NoInsuranceForVehicle"); ?></div>
 								<?php endif; ?>
 							</div>
 						</div>
@@ -1039,9 +1030,9 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<div class="tallerpro-vehicle-detail-card">
 								<div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
 									<div>
-										<h2 class="tallerpro-vehicle-detail-card-title" style="margin-bottom: 4px;">Documentos del vehículo</h2>
+										<h2 class="tallerpro-vehicle-detail-card-title" style="margin-bottom: 4px;"><?php echo $langs->trans("DocumentosDelVehiculo"); ?></h2>
 										<div style="font-size: 13px; color: var(--tp-text-muted);">
-											Fichas técnicas, permisos de circulación, informes de ITV, pólizas y fotografías adjuntas.
+											<?php echo $langs->trans("DocsSubtitleVehicle"); ?>
 										</div>
 									</div>
 									<?php if ($can_write): ?>
@@ -1050,7 +1041,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 											<line x1="12" y1="5" x2="12" y2="19"></line>
 											<line x1="5" y1="12" x2="19" y2="12"></line>
 										</svg>
-										<span>Subir documento</span>
+										<span><?php echo $langs->trans("SubirDocumento"); ?></span>
 									</button>
 									<?php endif; ?>
 								</div>
@@ -1058,7 +1049,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<?php if ($can_write): ?>
 								<!-- Formulario desplegable para subir documento -->
 								<div id="tallerproUploadDocBox" class="tallerpro-upload-doc-box" style="display: none; background: var(--tp-bg); border: 1px dashed var(--tp-border-strong); border-radius: var(--tp-radius); padding: 20px; margin-bottom: 24px;">
-									<form method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" enctype="multipart/form-data">
+									<form method="POST" action="<?php echo dol_escape_htmltag($_SERVER['PHP_SELF']); ?>" enctype="multipart/form-data">
 										<input type="hidden" name="action" value="upload_doc">
 										<input type="hidden" name="id" value="<?php echo (int) $veh_detail->rowid; ?>">
 										<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
@@ -1066,26 +1057,26 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 16px;">
 											<div>
 												<label class="tallerpro-form-label" style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--tp-text-dark);">
-													Seleccionar archivo <span class="tallerpro-required">*</span>
+													<?php echo $langs->trans("SeleccionarArchivo"); ?> <span class="tallerpro-required">*</span>
 												</label>
 												<input type="file" name="doc_file" required accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.odt,.txt" class="tallerpro-form-input" style="padding: 6px; width: 100%; box-sizing: border-box; background: var(--tp-bg-card); cursor: pointer;" />
 												<div style="font-size: 11.5px; color: var(--tp-text-muted); margin-top: 4px;">
-													Formatos aceptados: <strong>PDF, JPG, PNG, WEBP, DOC, DOCX, ODT, TXT</strong> (Máx. 15 MB)
+													<?php echo $langs->trans("AcceptedFormatsHelp"); ?>
 												</div>
 											</div>
 
 											<div>
 												<label class="tallerpro-form-label" style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--tp-text-dark);">
-													Tipo / Categoría de documento <span class="tallerpro-required">*</span>
+													<?php echo $langs->trans("DocTipoCategoria"); ?> <span class="tallerpro-required">*</span>
 												</label>
 												<select name="doc_category" class="tallerpro-form-select" style="width: 100%; box-sizing: border-box; padding: 9px 12px; border-radius: var(--tp-radius-sm); border: 1px solid var(--tp-border); background: var(--tp-bg-card); color: var(--tp-text-dark);">
-													<option value="Ficha técnica / Homologación">Ficha técnica / Homologación</option>
-													<option value="Permiso de circulación">Permiso de circulación</option>
-													<option value="Informe / Tarjeta ITV">Informe / Tarjeta ITV</option>
-													<option value="Póliza / Seguro">Póliza / Seguro</option>
-													<option value="Fotos de recepción / Daños">Fotos de recepción / Daños</option>
-													<option value="Factura / Albarán de recambio">Factura / Albarán de recambio</option>
-													<option value="Documento general" selected>Otro documento / General</option>
+													<option value="Ficha técnica / Homologación"><?php echo $langs->trans("DocCatFichaTecnica"); ?></option>
+													<option value="Permiso de circulación"><?php echo $langs->trans("DocCatPermiso"); ?></option>
+													<option value="Informe / Tarjeta ITV"><?php echo $langs->trans("DocCatITV"); ?></option>
+													<option value="Póliza / Seguro"><?php echo $langs->trans("DocCatPoliza"); ?></option>
+													<option value="Fotos de recepción / Daños"><?php echo $langs->trans("DocCatFotos"); ?></option>
+													<option value="Factura / Albarán de recambio"><?php echo $langs->trans("DocCatFacturaRecambio"); ?></option>
+													<option value="Documento general" selected><?php echo $langs->trans("DocCatOtro"); ?></option>
 												</select>
 											</div>
 										</div>
@@ -1093,21 +1084,21 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; margin-bottom: 16px;">
 											<div>
 												<label class="tallerpro-form-label" style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--tp-text-dark);">
-													Título o nombre identificativo (opcional)
+													<?php echo $langs->trans("DocTitleOptional"); ?>
 												</label>
-												<input type="text" name="doc_title" placeholder="Ej: Ficha técnica 2026, Daño aleta derecha..." class="tallerpro-form-input" style="width: 100%; box-sizing: border-box; padding: 9px 12px; border-radius: var(--tp-radius-sm); border: 1px solid var(--tp-border); background: var(--tp-bg-card); color: var(--tp-text-dark);" />
+												<input type="text" name="doc_title" placeholder="<?php echo dol_escape_htmltag($langs->trans("DocTitlePlaceholder")); ?>" class="tallerpro-form-input" style="width: 100%; box-sizing: border-box; padding: 9px 12px; border-radius: var(--tp-radius-sm); border: 1px solid var(--tp-border); background: var(--tp-bg-card); color: var(--tp-text-dark);" />
 											</div>
 											<div>
 												<label class="tallerpro-form-label" style="display: block; font-size: 12px; font-weight: 600; margin-bottom: 6px; color: var(--tp-text-dark);">
-													Notas u observaciones adicionales (opcional)
+													<?php echo $langs->trans("DocNotesOptional"); ?>
 												</label>
-												<input type="text" name="doc_notes" placeholder="Ej: Vigente hasta 11/2027, entregado por cliente..." class="tallerpro-form-input" style="width: 100%; box-sizing: border-box; padding: 9px 12px; border-radius: var(--tp-radius-sm); border: 1px solid var(--tp-border); background: var(--tp-bg-card); color: var(--tp-text-dark);" />
+												<input type="text" name="doc_notes" placeholder="<?php echo dol_escape_htmltag($langs->trans("DocNotesPlaceholder")); ?>" class="tallerpro-form-input" style="width: 100%; box-sizing: border-box; padding: 9px 12px; border-radius: var(--tp-radius-sm); border: 1px solid var(--tp-border); background: var(--tp-bg-card); color: var(--tp-text-dark);" />
 											</div>
 										</div>
 
 										<div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px;">
 											<button type="button" id="btnCancelUploadDoc" style="padding: 8px 16px; border-radius: var(--tp-radius-sm); border: 1px solid var(--tp-border); background: transparent; color: var(--tp-text-muted); cursor: pointer; font-size: 13px;">
-												Cancelar
+												<?php echo $langs->trans("Cancelar"); ?>
 											</button>
 											<button type="submit" class="tallerpro-btn-submit" style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: var(--tp-radius-sm); background: #0f172a; color: #ffffff; border: none; font-size: 13px; font-weight: 600; cursor: pointer;">
 												<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1115,7 +1106,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 													<polyline points="17 8 12 3 7 8"></polyline>
 													<line x1="12" y1="3" x2="12" y2="15"></line>
 												</svg>
-												<span>Subir y adjuntar archivo</span>
+												<span><?php echo $langs->trans("SubirYAdjuntarArchivo"); ?></span>
 											</button>
 										</div>
 									</form>
@@ -1147,7 +1138,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															</span>
 														</div>
 														<div style="font-size: 12px; color: var(--tp-text-muted); display: flex; gap: 12px; flex-wrap: wrap;">
-															<span>Archivo: <?php echo dol_escape_htmltag($doc->original_name); ?></span>
+															<span><?php echo $langs->trans("ArchivoPrefix"); ?> <?php echo dol_escape_htmltag($doc->original_name); ?></span>
 															<span>·</span>
 															<span><?php echo round($doc->size / 1024, 1); ?> KB</span>
 															<span>·</span>
@@ -1162,28 +1153,28 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 												</div>
 
 												<div style="display: flex; align-items: center; gap: 8px;">
-													<a href="<?php echo $_SERVER['PHP_SELF']; ?>?action=view_doc&id=<?php echo (int) $veh_detail->rowid; ?>&file=<?php echo urlencode($doc->filename); ?>" target="_blank" class="tallerpro-btn-action" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12.5px; font-weight: 500; color: #0284c7; background: #e0f2fe; border-radius: 6px; text-decoration: none;" title="Abrir / Ver en pestaña nueva">
+													<a href="<?php echo dol_escape_htmltag($_SERVER['PHP_SELF']); ?>?action=view_doc&id=<?php echo (int) $veh_detail->rowid; ?>&file=<?php echo urlencode($doc->filename); ?>" target="_blank" class="tallerpro-btn-action" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12.5px; font-weight: 500; color: #0284c7; background: #e0f2fe; border-radius: 6px; text-decoration: none;" title="<?php echo dol_escape_htmltag($langs->trans("VerDocTooltip")); ?>">
 														<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 															<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
 															<circle cx="12" cy="12" r="3"></circle>
 														</svg>
-														<span>Ver</span>
+														<span><?php echo $langs->trans("Ver"); ?></span>
 													</a>
-													<a href="<?php echo $_SERVER['PHP_SELF']; ?>?action=download_doc&id=<?php echo (int) $veh_detail->rowid; ?>&file=<?php echo urlencode($doc->filename); ?>" class="tallerpro-btn-action" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12.5px; font-weight: 500; color: #334155; background: #f1f5f9; border-radius: 6px; text-decoration: none;" title="Descargar archivo">
+													<a href="<?php echo dol_escape_htmltag($_SERVER['PHP_SELF']); ?>?action=download_doc&id=<?php echo (int) $veh_detail->rowid; ?>&file=<?php echo urlencode($doc->filename); ?>" class="tallerpro-btn-action" style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12.5px; font-weight: 500; color: #334155; background: #f1f5f9; border-radius: 6px; text-decoration: none;" title="<?php echo dol_escape_htmltag($langs->trans("DescargarDocTooltip")); ?>">
 														<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 															<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
 															<polyline points="7 10 12 15 17 10"></polyline>
 															<line x1="12" y1="15" x2="12" y2="3"></line>
 														</svg>
-														<span>Descargar</span>
+														<span><?php echo $langs->trans("Descargar"); ?></span>
 													</a>
 													<?php if ($can_delete): ?>
-													<form method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: inline;" onsubmit="return confirm('¿Seguro que deseas eliminar este documento? Esta acción no se puede deshacer.');">
+													<form method="POST" action="<?php echo dol_escape_htmltag($_SERVER['PHP_SELF']); ?>" style="display: inline;" onsubmit="return confirm('<?php echo dol_escape_js($langs->transnoentitiesnoconv("ConfirmDeleteDocPrompt")); ?>');">
 														<input type="hidden" name="action" value="delete_doc">
 														<input type="hidden" name="id" value="<?php echo (int) $veh_detail->rowid; ?>">
 														<input type="hidden" name="file" value="<?php echo dol_escape_htmltag($doc->filename); ?>">
 														<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
-														<button type="submit" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; background: transparent; color: #ef4444; border-radius: 6px; cursor: pointer;" title="Eliminar documento">
+														<button type="submit" style="display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: none; background: transparent; color: #ef4444; border-radius: 6px; cursor: pointer;" title="<?php echo dol_escape_htmltag($langs->trans("EliminarDocumento")); ?>">
 															<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 																<polyline points="3 6 5 6 21 6"></polyline>
 																<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
@@ -1196,7 +1187,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<?php endforeach; ?>
 									</div>
 								<?php else: ?>
-									<div class="tallerpro-empty-message">No hay documentos adjuntos para este vehículo. Pulsa en <strong>Subir documento</strong> para adjuntar fichas técnicas, permisos, fotos o informes de ITV.</div>
+									<div class="tallerpro-empty-message"><?php echo $langs->trans("NoDocsForVehicle"); ?></div>
 								<?php endif; ?>
 							</div>
 						</div>
@@ -1204,7 +1195,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<!-- Contenido Pestaña 6: Facturas -->
 						<div class="tallerpro-tab-pane" id="tab-facturas">
 							<div class="tallerpro-vehicle-detail-card">
-								<h2 class="tallerpro-vehicle-detail-card-title">Facturas del vehículo</h2>
+								<h2 class="tallerpro-vehicle-detail-card-title"><?php echo $langs->trans("FacturasDelVehiculo"); ?></h2>
 								<?php if (!empty($veh_invoices)): ?>
 									<div class="tallerpro-detail-list">
 										<?php foreach ($veh_invoices as $f): ?>
@@ -1214,11 +1205,11 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 											?>
 											<div class="tallerpro-detail-item">
 												<div class="tallerpro-detail-item-main">
-													<span class="tallerpro-detail-item-title">Factura <?php echo dol_escape_htmltag($f->ref); ?></span>
+													<span class="tallerpro-detail-item-title"><?php echo trim($langs->trans("FacturaPrefix")) . ' ' . dol_escape_htmltag($f->ref); ?></span>
 													<span class="tallerpro-detail-item-sub"><?php echo dol_escape_htmltag($f_date . ' · ' . $f_total); ?></span>
 												</div>
 												<div class="tallerpro-detail-item-end">
-													<a href="<?php echo $facturas_url . '?id=' . ((int) $f->rowid); ?>" class="tallerpro-btn-ver-factura" title="Ver factura">
+													<a href="<?php echo $facturas_url . '?id=' . ((int) $f->rowid); ?>" class="tallerpro-btn-ver-factura" title="<?php echo dol_escape_htmltag($langs->trans("VerFactura")); ?>">
 														<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 															<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
 															<polyline points="14 2 14 8 20 8"></polyline>
@@ -1226,14 +1217,14 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															<line x1="16" y1="17" x2="8" y2="17"></line>
 															<line x1="10" y1="9" x2="8" y2="9"></line>
 														</svg>
-														<span>Ver factura</span>
+														<span><?php echo $langs->trans("VerFactura"); ?></span>
 													</a>
 												</div>
 											</div>
 										<?php endforeach; ?>
 									</div>
 								<?php else: ?>
-									<div class="tallerpro-empty-message">No hay facturas asociadas a este vehículo.</div>
+									<div class="tallerpro-empty-message"><?php echo $langs->trans("NoInvoicesForVehicle"); ?></div>
 								<?php endif; ?>
 							</div>
 						</div>
@@ -1244,7 +1235,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<div class="tallerpro-header-actions">
 						<div class="tallerpro-content-header" style="margin-bottom: 0;">
 							<h1 class="tallerpro-page-title"><?php echo $langs->trans("Vehiculos"); ?></h1>
-							<p class="tallerpro-page-subtitle"><?php echo $num_veh; ?> registro(s)</p>
+							<p class="tallerpro-page-subtitle"><?php echo $langs->trans("RegistrosCount", $num_veh); ?></p>
 						</div>
 						<?php if ($can_write): ?>
 						<div>
@@ -1253,7 +1244,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									<line x1="12" y1="5" x2="12" y2="19"></line>
 									<line x1="5" y1="12" x2="19" y2="12"></line>
 								</svg>
-								<span>Añadir</span>
+								<span><?php echo $langs->trans("Anadir"); ?></span>
 							</button>
 						</div>
 						<?php endif; ?>
@@ -1264,10 +1255,10 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<table class="tallerpro-table">
 							<thead>
 								<tr>
-									<th>Matrícula</th>
-									<th>Marca</th>
-									<th>Modelo</th>
-									<th>Propietario</th>
+									<th><?php echo $langs->trans("FieldMatricula"); ?></th>
+									<th><?php echo $langs->trans("Marca"); ?></th>
+									<th><?php echo $langs->trans("Modelo"); ?></th>
+									<th><?php echo $langs->trans("Propietario"); ?></th>
 									<th style="width: 80px; text-align: right;"></th>
 								</tr>
 							</thead>
@@ -1280,7 +1271,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										?>
 										<tr>
 											<td style="font-weight: 700; color: #0f172a; letter-spacing: 0.02em;">
-												<a href="<?php echo $veh_url; ?>" style="color: inherit; text-decoration: none;" title="Ver vehículo">
+												<a href="<?php echo $veh_url; ?>" style="color: inherit; text-decoration: none;" title="<?php echo dol_escape_htmltag($langs->trans("VerVehiculo")); ?>">
 													<?php echo dol_escape_htmltag($veh->matricula); ?>
 												</a>
 											</td>
@@ -1288,16 +1279,16 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 											<td style="color: #1e293b;"><?php echo !empty($veh->modelo) ? dol_escape_htmltag($veh->modelo) : '<span style="color: #94a3b8;">—</span>'; ?></td>
 											<td>
 												<?php if (!empty($veh->cliente_nombre)): ?>
-													<a href="<?php echo $client_url; ?>" style="color: #0f172a; font-weight: 600; text-decoration: none;" title="Ver detalles del cliente">
+													<a href="<?php echo $client_url; ?>" style="color: #0f172a; font-weight: 600; text-decoration: none;" title="<?php echo dol_escape_htmltag($langs->trans("VerDetallesCliente")); ?>">
 														<?php echo dol_escape_htmltag($veh->cliente_nombre); ?>
 													</a>
 												<?php else: ?>
-													<span style="color: #94a3b8;">Sin asignar</span>
+													<span style="color: #94a3b8;"><?php echo $langs->trans("SinAsignar"); ?></span>
 												<?php endif; ?>
 											</td>
 											<td>
 												<div class="tallerpro-actions">
-													<a href="<?php echo $veh_url; ?>" class="tallerpro-action-btn" title="Ver vehículo">
+													<a href="<?php echo $veh_url; ?>" class="tallerpro-action-btn" title="<?php echo dol_escape_htmltag($langs->trans("VerVehiculo")); ?>">
 														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 															<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
 															<polyline points="15 3 21 3 21 9"></polyline>
@@ -1307,7 +1298,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 													<?php if ($can_delete): ?>
 													<button type="button"
 														class="tallerpro-action-btn btn-delete-action"
-														title="Eliminar vehículo"
+														title="<?php echo dol_escape_htmltag($langs->trans("EliminarVehiculo")); ?>"
 														data-id="<?php echo (int) $veh->rowid; ?>"
 														data-action="delete_vehiculo">
 														<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1323,7 +1314,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<?php else: ?>
 									<tr>
 										<td colspan="5" style="text-align: center; color: #94a3b8; padding: 40px 20px;">
-											Aún no hay vehículos registrados. Pulsa en <strong>Añadir</strong> para registrar el primero.
+											<?php echo $langs->trans("VehiclesEmptyTable"); ?>
 										</td>
 									</tr>
 								<?php endif; ?>
@@ -1339,26 +1330,26 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 	<div class="tallerpro-modal-backdrop" id="tallerVehiculoModal">
 		<div class="tallerpro-modal-card" style="max-width: 540px;">
 			<div class="tallerpro-modal-header">
-				<h2 class="tallerpro-modal-title">Nuevo registro de vehículo</h2>
-				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="Cerrar">
+				<h2 class="tallerpro-modal-title"><?php echo $langs->trans("NuevoRegistroVehiculo"); ?></h2>
+				<button type="button" class="tallerpro-modal-close" id="tallerCloseModalBtn" title="<?php echo dol_escape_htmltag($langs->trans("Cerrar")); ?>">
 					<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<line x1="18" y1="6" x2="6" y2="18"></line>
 						<line x1="6" y1="6" x2="18" y2="18"></line>
 					</svg>
 				</button>
 			</div>
-			<form class="tallerpro-modal-form" id="tallerVehiculoForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
+			<form class="tallerpro-modal-form" id="tallerVehiculoForm" method="POST" action="<?php echo dol_escape_htmltag($_SERVER['PHP_SELF']); ?>">
 				<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
 				<input type="hidden" name="action" value="create_vehiculo">
 
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Matrícula <span class="tallerpro-required">*</span></label>
-					<input type="text" name="matricula" id="veh_matricula" class="tallerpro-form-input" placeholder="Ej: 1234ABC" required autocomplete="off" style="text-transform: uppercase;" />
+					<label class="tallerpro-form-label"><?php echo $langs->trans("FieldMatricula"); ?> <span class="tallerpro-required">*</span></label>
+					<input type="text" name="matricula" id="veh_matricula" class="tallerpro-form-input" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderPlate")); ?>" required autocomplete="off" style="text-transform: uppercase;" />
 				</div>
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Propietario / Cliente <span class="tallerpro-required">*</span></label>
+					<label class="tallerpro-form-label"><?php echo $langs->trans("FieldPropietarioCliente"); ?> <span class="tallerpro-required">*</span></label>
 					<select name="fk_soc" id="veh_fk_soc" class="tallerpro-form-select" required>
-						<option value="">— Selecciona un cliente —</option>
+						<option value=""><?php echo $langs->trans("SelectClientOption"); ?></option>
 						<?php foreach ($clients_list as $c): ?>
 							<option value="<?php echo $c->rowid; ?>"><?php echo dol_escape_htmltag($c->nom); ?></option>
 						<?php endforeach; ?>
@@ -1366,39 +1357,39 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 				</div>
 				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
 					<div class="tallerpro-form-group">
-						<label class="tallerpro-form-label">Marca</label>
-						<input type="text" name="marca" id="veh_marca" class="tallerpro-form-input" placeholder="Ej: BMW, Renault..." />
+						<label class="tallerpro-form-label"><?php echo $langs->trans("Marca"); ?></label>
+						<input type="text" name="marca" id="veh_marca" class="tallerpro-form-input" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderBrand")); ?>" />
 					</div>
 					<div class="tallerpro-form-group">
-						<label class="tallerpro-form-label">Modelo</label>
-						<input type="text" name="modelo" id="veh_modelo" class="tallerpro-form-input" placeholder="Ej: 318 D, Mégane..." />
+						<label class="tallerpro-form-label"><?php echo $langs->trans("Modelo"); ?></label>
+						<input type="text" name="modelo" id="veh_modelo" class="tallerpro-form-input" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderModel")); ?>" />
 					</div>
 				</div>
 				<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 14px;">
 					<div class="tallerpro-form-group">
-						<label class="tallerpro-form-label">Año</label>
-						<input type="text" name="anio" id="veh_anio" class="tallerpro-form-input" placeholder="Ej: 2018" />
+						<label class="tallerpro-form-label"><?php echo $langs->trans("Anio"); ?></label>
+						<input type="text" name="anio" id="veh_anio" class="tallerpro-form-input" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderYear")); ?>" />
 					</div>
 					<div class="tallerpro-form-group">
-						<label class="tallerpro-form-label">Color</label>
-						<input type="text" name="color" id="veh_color" class="tallerpro-form-input" placeholder="Ej: Blanco, Negro..." />
+						<label class="tallerpro-form-label"><?php echo $langs->trans("Color"); ?></label>
+						<input type="text" name="color" id="veh_color" class="tallerpro-form-input" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderColor")); ?>" />
 					</div>
 				</div>
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Nº bastidor (VIN)</label>
-					<input type="text" name="vin" id="veh_vin" class="tallerpro-form-input" placeholder="Ej: WBA..." />
+					<label class="tallerpro-form-label"><?php echo $langs->trans("VinNumberLabel"); ?></label>
+					<input type="text" name="vin" id="veh_vin" class="tallerpro-form-input" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderVin")); ?>" />
 				</div>
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Kilometraje</label>
-					<input type="number" name="km" id="veh_km" class="tallerpro-form-input" placeholder="Ej: 120000" />
+					<label class="tallerpro-form-label"><?php echo $langs->trans("Kilometraje"); ?></label>
+					<input type="number" name="km" id="veh_km" class="tallerpro-form-input" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderKm")); ?>" />
 				</div>
 				<div class="tallerpro-form-group">
-					<label class="tallerpro-form-label">Notas</label>
-					<textarea name="notas" id="veh_notas" class="tallerpro-form-textarea" rows="3" placeholder="Observaciones o notas sobre el vehículo..."></textarea>
+					<label class="tallerpro-form-label"><?php echo $langs->trans("Notas"); ?></label>
+					<textarea name="notas" id="veh_notas" class="tallerpro-form-textarea" rows="3" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderVehicleNotes")); ?>"></textarea>
 				</div>
 				<div class="tallerpro-modal-footer">
-					<button type="button" class="tallerpro-btn-cancel" id="tallerCancelModalBtn">Cancelar</button>
-					<button type="submit" class="tallerpro-btn-save" id="btnGuardarVehiculo">Guardar</button>
+					<button type="button" class="tallerpro-btn-cancel" id="tallerCancelModalBtn"><?php echo $langs->trans("Cancelar"); ?></button>
+					<button type="submit" class="tallerpro-btn-save" id="btnGuardarVehiculo"><?php echo $langs->trans("Guardar"); ?></button>
 				</div>
 			</form>
 		</div>
@@ -1415,22 +1406,22 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 					<line x1="14" y1="11" x2="14" y2="17"></line>
 				</svg>
 			</div>
-			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;">¿Estás seguro de que deseas borrar?</h3>
-			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;">Este vehículo dejará de mostrarse en la lista activa, pero sus datos se conservarán en el sistema.</p>
+			<h3 style="font-size: 18px; font-weight: 700; color: #0f172a; margin: 0 0 8px 0;"><?php echo $langs->trans("ConfirmDeleteTitle"); ?></h3>
+			<p style="font-size: 13.5px; color: #64748b; margin: 0 0 24px 0; line-height: 1.5;"><?php echo $langs->trans("ConfirmDeleteBodyVehicle"); ?></p>
 
 			<div style="display: flex; gap: 12px; justify-content: center;">
 				<button type="button" id="btnCancelDelete" style="flex: 1; padding: 10px 16px; border: 1px solid #cbd5e1; background: #ffffff; color: #475569; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px;">
-					Rechazar
+					<?php echo $langs->trans("Rechazar"); ?>
 				</button>
 				<button type="button" id="btnConfirmDelete" style="flex: 1; padding: 10px 16px; border: none; background: #ef4444; color: #ffffff; font-weight: 600; border-radius: 8px; cursor: pointer; font-size: 14px; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.2);">
-					Confirmar
+					<?php echo $langs->trans("Confirmar"); ?>
 				</button>
 			</div>
 		</div>
 	</div>
 
 	<!-- Formulario oculto para borrado seguro POST con CSRF Token -->
-	<form id="tallerGlobalDeleteForm" method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: none;">
+	<form id="tallerGlobalDeleteForm" method="POST" action="<?php echo dol_escape_htmltag($_SERVER['PHP_SELF']); ?>" style="display: none;">
 		<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
 		<input type="hidden" name="action" id="globalDeleteAction" value="">
 		<input type="hidden" name="rowid" id="globalDeleteRowid" value="">

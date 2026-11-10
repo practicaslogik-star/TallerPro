@@ -7,6 +7,25 @@ if (window.__tallerProLoaded) {
 } else {
     window.__tallerProLoaded = true;
 
+    function tpTr(key, fallback) {
+        const dict = (window.TALLERPRO_I18N && typeof window.TALLERPRO_I18N === 'object') ? window.TALLERPRO_I18N : {};
+        let str = (Object.prototype.hasOwnProperty.call(dict, key) && dict[key]) ? String(dict[key]) : (fallback !== undefined ? String(fallback) : String(key));
+        for (let i = 2; i < arguments.length; i++) {
+            str = str.replace('%s', String(arguments[i]));
+        }
+        return str;
+    }
+
+    function tpEscapeHtml(str) {
+        if (!str && str !== 0) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         const sidebar = document.getElementById('tallerSidebar');
         const collapseBtn = document.getElementById('tallerCollapseBtn');
@@ -103,7 +122,7 @@ if (window.__tallerProLoaded) {
                 const closeBtn = document.createElement('button');
                 closeBtn.type = 'button';
                 closeBtn.className = 'tallerpro-sidebar-close';
-                closeBtn.title = 'Cerrar menú';
+                closeBtn.title = tpTr('CloseMenu', 'Cerrar menú');
                 closeBtn.innerHTML = `
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -177,14 +196,14 @@ if (window.__tallerProLoaded) {
                                 if (!btn.querySelector('.tallerpro-action-text, span')) {
                                     const title = (btn.getAttribute('title') || '').toLowerCase();
                                     let label = '';
-                                    if (title.includes('eliminar') || title.includes('borrar')) {
-                                        label = 'Eliminar';
+                                    if (title.includes('eliminar') || title.includes('borrar') || title.includes('delete') || title.includes('supprimer') || (tpTr('Eliminar', '').toLowerCase() && title.includes(tpTr('Eliminar', '').toLowerCase()))) {
+                                        label = tpTr('Eliminar', 'Eliminar');
                                         btn.classList.add('tallerpro-btn-delete');
-                                    } else if (title.includes('editar') || title.includes('edit')) {
-                                        label = 'Editar';
+                                    } else if (title.includes('editar') || title.includes('edit') || title.includes('modifier') || (tpTr('Editar', '').toLowerCase() && title.includes(tpTr('Editar', '').toLowerCase()))) {
+                                        label = tpTr('Editar', 'Editar');
                                         btn.classList.add('tallerpro-btn-edit');
-                                    } else if (title.includes('ver') || title.includes('detalle') || title.includes('view') || title.includes('descargar') || title.includes('pdf')) {
-                                        label = title.includes('pdf') ? 'PDF' : 'Ver';
+                                    } else if (title.includes('ver') || title.includes('detalle') || title.includes('view') || title.includes('voir') || title.includes('descargar') || title.includes('download') || title.includes('pdf')) {
+                                        label = title.includes('pdf') ? tpTr('PDF', 'PDF') : tpTr('Ver', 'Ver');
                                         btn.classList.add('tallerpro-btn-view');
                                     }
 
@@ -323,7 +342,7 @@ if (window.__tallerProLoaded) {
         if (addClientBtn && clientForm && clientModal) {
             addClientBtn.addEventListener('click', function () {
                 clientForm.reset();
-                if (clientModalTitle) clientModalTitle.textContent = 'Nuevo registro de cliente';
+                if (clientModalTitle) clientModalTitle.textContent = tpTr('NuevoRegistroCliente', 'Nuevo registro de cliente');
                 if (clientFormAction) clientFormAction.value = 'create_client';
                 if (clientFormSocid) clientFormSocid.value = '0';
             });
@@ -335,7 +354,7 @@ if (window.__tallerProLoaded) {
                 e.preventDefault();
                 if (!clientModal || !clientForm) return;
 
-                if (clientModalTitle) clientModalTitle.textContent = 'Editar cliente';
+                if (clientModalTitle) clientModalTitle.textContent = tpTr('EditarCliente', 'Editar cliente');
                 if (clientFormAction) clientFormAction.value = 'update_client';
                 if (clientFormSocid) clientFormSocid.value = btn.dataset.id || '0';
 
@@ -369,7 +388,7 @@ if (window.__tallerProLoaded) {
         if (addMatBtn && matForm) {
             addMatBtn.addEventListener('click', function () {
                 matForm.reset();
-                if (matModalTitle) matModalTitle.textContent = 'Nuevo registro';
+                if (matModalTitle) matModalTitle.textContent = tpTr('NuevoRegistro', 'Nuevo registro');
                 if (matFormAction) matFormAction.value = 'create_material';
                 if (matFormRowid) matFormRowid.value = '0';
             });
@@ -381,7 +400,7 @@ if (window.__tallerProLoaded) {
                 e.preventDefault();
                 if (!matModal || !matForm) return;
 
-                if (matModalTitle) matModalTitle.textContent = 'Editar registro';
+                if (matModalTitle) matModalTitle.textContent = tpTr('EditarRegistro', 'Editar registro');
                 if (matFormAction) matFormAction.value = 'update_material';
                 if (matFormRowid) matFormRowid.value = btn.dataset.id || '0';
 
@@ -417,7 +436,7 @@ if (window.__tallerProLoaded) {
         if (addSegBtn && segForm) {
             addSegBtn.addEventListener('click', function () {
                 segForm.reset();
-                if (segModalTitle) segModalTitle.textContent = 'Nuevo registro';
+                if (segModalTitle) segModalTitle.textContent = tpTr('NuevoRegistro', 'Nuevo registro');
                 if (segFormAction) segFormAction.value = 'create_seguro';
                 if (segFormRowid) segFormRowid.value = '0';
                 const segTipo = document.getElementById('seg_tipo');
@@ -429,7 +448,7 @@ if (window.__tallerProLoaded) {
         if (segVehiculo && segVehiculo.dataset.preselected && segModal && segForm) {
             segForm.reset();
             segVehiculo.value = segVehiculo.dataset.preselected;
-            if (segModalTitle) segModalTitle.textContent = 'Nuevo registro';
+            if (segModalTitle) segModalTitle.textContent = tpTr('NuevoRegistro', 'Nuevo registro');
             if (segFormAction) segFormAction.value = 'create_seguro';
             if (segFormRowid) segFormRowid.value = '0';
             const segTipo = document.getElementById('seg_tipo');
@@ -443,7 +462,7 @@ if (window.__tallerProLoaded) {
                 e.preventDefault();
                 if (!segModal || !segForm) return;
 
-                if (segModalTitle) segModalTitle.textContent = 'Editar registro';
+                if (segModalTitle) segModalTitle.textContent = tpTr('EditarRegistro', 'Editar registro');
                 if (segFormAction) segFormAction.value = 'update_seguro';
                 if (segFormRowid) segFormRowid.value = btn.dataset.id || '0';
 
@@ -546,7 +565,7 @@ if (window.__tallerProLoaded) {
             // Opción por defecto
             const defaultOpt = document.createElement('option');
             defaultOpt.value = '';
-            defaultOpt.textContent = '— Selecciona —';
+            defaultOpt.textContent = tpTr('SelectOption', '— Selecciona —');
             facVehiculo.appendChild(defaultOpt);
 
             let matchFound = false;
@@ -637,7 +656,7 @@ if (window.__tallerProLoaded) {
                     if (isNaN(totalVal) || totalVal <= 0) {
                         e.preventDefault();
                         if (typeof window.showTallerToast === 'function') {
-                            window.showTallerToast('El importe total debe ser mayor que 0,00 € para registrar el cobro.', 'error');
+                            window.showTallerToast(tpTr('ErrTotalPositiveForPayment', 'El importe total debe ser mayor que 0,00 € para registrar el cobro.'), 'error');
                         }
                         return;
                     }
@@ -645,7 +664,7 @@ if (window.__tallerProLoaded) {
                         e.preventDefault();
                         facPaiementId.focus();
                         if (typeof window.showTallerToast === 'function') {
-                            window.showTallerToast('Debe seleccionar un modo de pago para registrar el cobro.', 'error');
+                            window.showTallerToast(tpTr('ErrSelectPaymentMethod', 'Debe seleccionar un modo de pago para registrar el cobro.'), 'error');
                         }
                         return;
                     }
@@ -653,7 +672,7 @@ if (window.__tallerProLoaded) {
                         e.preventDefault();
                         facAccountId.focus();
                         if (typeof window.showTallerToast === 'function') {
-                            window.showTallerToast('Debe seleccionar una cuenta bancaria o caja abierta.', 'error');
+                            window.showTallerToast(tpTr('ErrSelectBankAccount', 'Debe seleccionar una cuenta bancaria o caja abierta.'), 'error');
                         }
                         return;
                     }
@@ -715,9 +734,11 @@ if (window.__tallerProLoaded) {
             addFacBtn.addEventListener('click', function () {
                 facForm.reset();
                 resetFacturaFormStyles();
-                if (facModalTitle) facModalTitle.textContent = 'Nuevo registro';
+                if (facModalTitle) facModalTitle.textContent = tpTr('NuevoRegistro', 'Nuevo registro');
                 if (facFormAction) facFormAction.value = 'create_factura';
                 if (facFormRowid) facFormRowid.value = '0';
+                const facDocTypeInput = document.getElementById('facturaFormDocType');
+                if (facDocTypeInput) facDocTypeInput.value = 'factura';
                 filterFacturaVehiclesByClient('');
                 const todayStr = new Date().toISOString().split('T')[0];
                 if (facFecha) {
@@ -749,9 +770,12 @@ if (window.__tallerProLoaded) {
                 e.preventDefault();
                 if (!facModal || !facForm) return;
 
-                const isPresupuesto = (btn.dataset.tipoDoc === 'presupuesto');
+                const docTypeVal = btn.dataset.docType || (btn.dataset.tipoDoc === 'presupuesto' ? 'propal' : 'factura');
+                const isPresupuesto = (docTypeVal === 'propal' || btn.dataset.tipoDoc === 'presupuesto');
+                const facDocTypeInput = document.getElementById('facturaFormDocType');
+                if (facDocTypeInput) facDocTypeInput.value = docTypeVal;
 
-                if (facModalTitle) facModalTitle.textContent = isPresupuesto ? 'Editar presupuesto' : 'Editar factura';
+                if (facModalTitle) facModalTitle.textContent = isPresupuesto ? tpTr('EditarPresupuesto', 'Editar presupuesto') : tpTr('EditarFactura', 'Editar factura');
                 if (facFormAction) facFormAction.value = 'update_factura';
                 if (facFormRowid) facFormRowid.value = btn.dataset.id || '0';
 
@@ -849,7 +873,7 @@ if (window.__tallerProLoaded) {
                                 <line x1="12" y1="16" x2="12" y2="12"></line>
                                 <line x1="12" y1="8" x2="12.01" y2="8"></line>
                             </svg>
-                            <strong>Edición de presupuesto:</strong> Documento enlazado a la reparación, editable en todo momento sin estado rígido.
+                            <strong>` + tpEscapeHtml(tpTr('EditQuoteNoticeTitle', 'Edición de presupuesto:')) + `</strong> ` + tpEscapeHtml(tpTr('EditQuoteNoticeDesc', 'Documento enlazado a la reparación, editable en todo momento.')) + `
                         `;
                     } else {
                         facEditNotice.innerHTML = `
@@ -858,7 +882,7 @@ if (window.__tallerProLoaded) {
                                 <line x1="12" y1="16" x2="12" y2="12"></line>
                                 <line x1="12" y1="8" x2="12.01" y2="8"></line>
                             </svg>
-                            <strong>Edición de factura:</strong> Es posible modificar la fecha, las notas y el estado.
+                            <strong>` + tpEscapeHtml(tpTr('EditInvoiceNoticeTitle', 'Edición de factura:')) + `</strong> ` + tpEscapeHtml(tpTr('EditInvoiceNoticeDesc', 'Es posible modificar la fecha, las notas y el estado.')) + `
                         `;
                     }
                 }
@@ -937,11 +961,11 @@ if (window.__tallerProLoaded) {
             const msgCode = repUrlParams.get('msg');
             let flashMsg = '';
             if (msgCode === 'saved') {
-                flashMsg = 'Reparación guardada';
+                flashMsg = tpTr('ToastRepairSaved', 'Reparación guardada');
             } else if (msgCode === 'deleted') {
-                flashMsg = 'Reparación eliminada correctamente';
+                flashMsg = tpTr('ToastRepairDeleted', 'Reparación eliminada correctamente');
             } else if (msgCode === 'status_updated') {
-                flashMsg = 'Estado de la reparación actualizado correctamente';
+                flashMsg = tpTr('ToastRepairStatusUpdated', 'Estado de la reparación actualizado correctamente');
             }
             if (flashMsg) {
                 window.showTallerToast(flashMsg);
@@ -967,7 +991,7 @@ if (window.__tallerProLoaded) {
 
                 if (actionInput) actionInput.value = 'create_reparacion';
                 if (rowidInput) rowidInput.value = '0';
-                if (titleEl) titleEl.textContent = 'Orden de Reparación';
+                if (titleEl) titleEl.textContent = tpTr('OrdenDeReparacion', 'Orden de Reparación');
 
                 const fechaInput = document.getElementById('orderFecha');
                 if (fechaInput) {
@@ -1002,6 +1026,7 @@ if (window.__tallerProLoaded) {
         let pendingDeleteUrl = null;
         let pendingDeleteRow = null;
         let pendingDeleteRowId = null;
+        let pendingDeleteDocType = null;
 
         document.addEventListener('click', function (e) {
             // Caso 1: Reparaciones AJAX delete
@@ -1012,6 +1037,7 @@ if (window.__tallerProLoaded) {
                 pendingDeleteRow = delRepBtn.closest('.rep-row');
                 pendingDeleteRowId = delRepBtn.getAttribute('data-id');
                 pendingDeleteUrl = null;
+                pendingDeleteDocType = null;
                 const modal = document.getElementById('deleteConfirmModal');
                 if (modal) modal.classList.add('active');
                 return;
@@ -1023,6 +1049,7 @@ if (window.__tallerProLoaded) {
                 e.preventDefault();
                 pendingDeleteAction = delActionBtn.getAttribute('data-action') || null;
                 pendingDeleteRowId = delActionBtn.getAttribute('data-id') || null;
+                pendingDeleteDocType = delActionBtn.getAttribute('data-doc-type') || '';
                 pendingDeleteUrl = delActionBtn.getAttribute('data-delete-url') || (delActionBtn.tagName === 'A' ? delActionBtn.getAttribute('href') : null);
                 pendingDeleteRow = delActionBtn.closest('tr');
                 const modal = document.getElementById('deleteConfirmModal');
@@ -1041,12 +1068,14 @@ if (window.__tallerProLoaded) {
                 pendingDeleteUrl = null;
                 pendingDeleteRow = null;
                 pendingDeleteRowId = null;
+                pendingDeleteDocType = null;
             } else if (modal && e.target === modal) {
                 modal.classList.remove('active');
                 pendingDeleteAction = null;
                 pendingDeleteUrl = null;
                 pendingDeleteRow = null;
                 pendingDeleteRowId = null;
+                pendingDeleteDocType = null;
             }
         });
 
@@ -1063,9 +1092,11 @@ if (window.__tallerProLoaded) {
             if (globalDeleteForm && pendingDeleteAction && pendingDeleteAction !== 'delete_reparacion') {
                 const actionInput = document.getElementById('globalDeleteAction');
                 const rowidInput = document.getElementById('globalDeleteRowid');
+                const docTypeInput = document.getElementById('globalDeleteDocType');
                 const socidInput = document.getElementById('globalDeleteSocid');
                 if (actionInput) actionInput.value = pendingDeleteAction;
                 if (rowidInput) rowidInput.value = pendingDeleteRowId || '';
+                if (docTypeInput) docTypeInput.value = pendingDeleteDocType || '';
                 if (socidInput) socidInput.value = pendingDeleteRowId || '';
                 globalDeleteForm.submit();
                 return;
@@ -1109,10 +1140,10 @@ if (window.__tallerProLoaded) {
                             }, 250);
                         }
                         if (typeof window.showTallerToast === 'function') {
-                            window.showTallerToast('Reparación eliminada correctamente');
+                            window.showTallerToast(tpTr('ToastRepairDeleted', 'Reparación eliminada correctamente'));
                         }
                     } else if (typeof window.showTallerToast === 'function') {
-                        window.showTallerToast((data && (data.message || data.error)) || 'No tienes permiso para eliminar la reparación', 'error');
+                        window.showTallerToast((data && (data.message || data.error)) || tpTr('ErrNoDeleteRepairPerm', 'No tienes permiso para eliminar la reparación'), 'error');
                     }
                 })
                 .catch(console.error);
@@ -1128,7 +1159,7 @@ if (window.__tallerProLoaded) {
                     }
                 }, 250);
                 if (typeof window.showTallerToast === 'function') {
-                    window.showTallerToast('Reparación eliminada correctamente');
+                    window.showTallerToast(tpTr('ToastRepairDeleted', 'Reparación eliminada correctamente'));
                 }
             }
 
@@ -1136,6 +1167,7 @@ if (window.__tallerProLoaded) {
             pendingDeleteUrl = null;
             pendingDeleteRow = null;
             pendingDeleteRowId = null;
+            pendingDeleteDocType = null;
         });
 
         // Modal Confirmación de Facturación (vía POST seguro con token CSRF)
@@ -1161,7 +1193,7 @@ if (window.__tallerProLoaded) {
             const modal = document.getElementById('facturarConfirmModal');
             if (modal) {
                 modal.classList.add('active');
-            } else if (confirm('¿Deseas facturar esta reparación? Se generará la factura en estado borrador en Dolibarr.')) {
+            } else if (confirm(tpTr('ConfirmInvoiceRepair', '¿Deseas facturar esta reparación? Se generará la factura en estado borrador en Dolibarr.'))) {
                 submitFacturarPost(rowid);
             }
         };
@@ -1231,7 +1263,7 @@ if (window.__tallerProLoaded) {
             });
 
             if (countSubtitle) {
-                countSubtitle.textContent = visibleCount + ' órdenes registradas';
+                countSubtitle.textContent = visibleCount + ' ' + tpTr('OrdersRegisteredSuffix', 'órdenes registradas').trim();
             }
         }
 
@@ -1277,7 +1309,7 @@ if (window.__tallerProLoaded) {
                     facturarBtn.type = 'button';
                     facturarBtn.setAttribute('data-id', rowid);
                     facturarBtn.className = 'tallerpro-btn-facturar-action';
-                    facturarBtn.title = 'Emitir Factura oficial de esta reparación';
+                    facturarBtn.title = tpTr('EmitirFacturaTitle', 'Emitir Factura oficial de esta reparación');
                     facturarBtn.onclick = function () { window.openFacturarModal(this); };
                     facturarBtn.innerHTML = `
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1287,7 +1319,7 @@ if (window.__tallerProLoaded) {
                             <line x1="16" y1="17" x2="8" y2="17"></line>
                             <polyline points="10 9 9 9 8 9"></polyline>
                         </svg>
-                        <span>Facturar</span>
+                        <span>` + tpEscapeHtml(tpTr('Facturar', 'Facturar')) + `</span>
                     `;
                     actionsDiv.insertBefore(facturarBtn, actionsDiv.firstChild);
                 }
@@ -1320,11 +1352,11 @@ if (window.__tallerProLoaded) {
             }).then(function (data) {
                 if (data && data.success) {
                     if (typeof window.showTallerToast === 'function') {
-                        window.showTallerToast('Estado actualizado a ' + (newEstado === 'finalizada' ? 'Finalizada' : 'En curso'));
+                        window.showTallerToast(tpTr('StateUpdatedTo', 'Estado actualizado a').trim() + ' ' + (newEstado === 'finalizada' ? tpTr('Finalizada', 'Finalizada') : tpTr('EnCurso', 'En curso')));
                     }
                 } else {
                     if (typeof window.showTallerToast === 'function') {
-                        window.showTallerToast((data && (data.message || data.error)) || 'No tienes permiso para actualizar el estado', 'error');
+                        window.showTallerToast((data && (data.message || data.error)) || tpTr('ErrNoUpdateStatusPerm', 'No tienes permiso para actualizar el estado'), 'error');
                     }
                 }
             }).catch(function (err) {
@@ -1354,7 +1386,7 @@ if (window.__tallerProLoaded) {
             if (newEstado === 'Borrador') {
                 invSelect.value = oldEstado;
                 if (typeof window.showTallerToast === 'function') {
-                    window.showTallerToast('Una factura emitida no puede volver a estado Borrador', 'error');
+                    window.showTallerToast(tpTr('ErrPaidToDraftForbidden', 'Una factura emitida no puede volver a estado Borrador'), 'error');
                 }
                 return;
             }
@@ -1362,7 +1394,7 @@ if (window.__tallerProLoaded) {
             if (newEstado === 'Pagada' && totalAttr !== '' && (isNaN(parseFloat(totalAttr)) || parseFloat(totalAttr) <= 0)) {
                 invSelect.value = oldEstado;
                 if (typeof window.showTallerToast === 'function') {
-                    window.showTallerToast('El importe de la factura debe ser mayor que 0,00 € para registrar un cobro', 'error');
+                    window.showTallerToast(tpTr('ErrInvoiceTotalPositive', 'El importe de la factura debe ser mayor que 0,00 € para registrar un cobro'), 'error');
                 }
                 return;
             }
@@ -1381,21 +1413,41 @@ if (window.__tallerProLoaded) {
                 const desc = document.getElementById('pendienteModalDesc');
                 if (desc) {
                     if (oldEstado === 'Borrador') {
-                        desc.textContent = 'Se validará la factura borrador ' + (ref ? '(' + ref + ') ' : '') + 'y se le asignará su número fiscal oficial en Dolibarr.';
+                        desc.textContent = [
+                            tpTr('ValidateDraftDescPrefix', 'Se validará la factura borrador').trim(),
+                            ref ? '(' + ref + ')' : '',
+                            tpTr('ValidateDraftDescSuffix', 'y se le asignará su número fiscal oficial en Dolibarr.').trim()
+                        ].filter(Boolean).join(' ');
                     } else {
-                        desc.textContent = 'La factura ' + (ref ? '(' + ref + ') ' : '') + 'se marcará como pendiente de cobro en el sistema.';
+                        desc.textContent = [
+                            tpTr('MarkPendingDescPrefix', 'La factura').trim(),
+                            ref ? '(' + ref + ')' : '',
+                            tpTr('MarkPendingDescSuffix', 'se marcará como pendiente de cobro en el sistema.').trim()
+                        ].filter(Boolean).join(' ');
                     }
                 }
                 if (modal) modal.classList.add('active');
             } else if (newEstado === 'Pagada') {
                 const modal = document.getElementById('pagadaConfirmModal');
                 const desc = document.getElementById('pagadaModalDesc');
-                const totalTxt = totalAttr ? ' (' + totalAttr + ' €)' : '';
+                const totalTxt = totalAttr ? '(' + totalAttr + ' €)' : '';
                 if (desc) {
                     if (oldEstado === 'Borrador') {
-                        desc.textContent = 'Se validará la factura oficial ' + (ref ? '(' + ref + ') ' : '') + 'y se registrará el cobro total' + totalTxt + ' en Dolibarr.';
+                        desc.textContent = [
+                            tpTr('MarkPaidDraftDescPrefix', 'Se validará la factura oficial').trim(),
+                            ref ? '(' + ref + ')' : '',
+                            tpTr('MarkPaidDraftDescMid', 'y se registrará el cobro total').trim(),
+                            totalTxt,
+                            tpTr('MarkPaidDescSuffix', 'en Dolibarr.').trim()
+                        ].filter(Boolean).join(' ');
                     } else {
-                        desc.textContent = 'Se registrará el cobro completo' + totalTxt + ' de la factura ' + (ref ? '(' + ref + ') ' : '') + 'en Dolibarr.';
+                        desc.textContent = [
+                            tpTr('MarkPaidDescPrefix', 'Se registrará el cobro completo').trim(),
+                            totalTxt,
+                            tpTr('MarkPaidDescMid', 'de la factura').trim(),
+                            ref ? '(' + ref + ')' : '',
+                            tpTr('MarkPaidDescSuffix', 'en Dolibarr.').trim()
+                        ].filter(Boolean).join(' ');
                     }
                 }
                 const pagDatePaye = document.getElementById('pagada_datepaye');
@@ -1476,15 +1528,15 @@ if (window.__tallerProLoaded) {
                     pagErrorBox.textContent = '';
                 }
                 if (pagDatePaye && !pagDatePaye.value) {
-                    showPagadaModalErr('Debe indicar la fecha de cobro.', pagDatePaye);
+                    showPagadaModalErr(tpTr('ErrSpecifyPaymentDate', 'Debe indicar la fecha de cobro.'), pagDatePaye);
                     return;
                 }
                 if (pagPaiementId && !pagPaiementId.value) {
-                    showPagadaModalErr('Debe seleccionar un modo de pago.', pagPaiementId);
+                    showPagadaModalErr(tpTr('ErrSelectPaymentMethod', 'Debe seleccionar un modo de pago.'), pagPaiementId);
                     return;
                 }
                 if (pagAccountId && !pagAccountId.value) {
-                    showPagadaModalErr('Debe seleccionar una cuenta bancaria o caja abierta.', pagAccountId);
+                    showPagadaModalErr(tpTr('ErrSelectBankAccount', 'Debe seleccionar una cuenta bancaria o caja abierta.'), pagAccountId);
                     return;
                 }
 
@@ -1541,7 +1593,7 @@ if (window.__tallerProLoaded) {
                             if (editBtn) {
                                 editBtn.disabled = true;
                                 editBtn.classList.add('is-disabled');
-                                editBtn.setAttribute('title', 'Solo se pueden editar facturas en estado Borrador');
+                                editBtn.setAttribute('title', tpTr('OnlyDraftCanEdit', 'Solo se pueden editar facturas en estado Borrador'));
                                 const editSvg = editBtn.querySelector('svg');
                                 if (editSvg) editSvg.setAttribute('stroke', '#cbd5e1');
                             }
@@ -1549,7 +1601,7 @@ if (window.__tallerProLoaded) {
                             if (delBtn) {
                                 delBtn.disabled = true;
                                 delBtn.classList.add('is-disabled');
-                                delBtn.setAttribute('title', 'Solo se pueden eliminar facturas en estado Borrador');
+                                delBtn.setAttribute('title', tpTr('OnlyDraftCanDelete', 'Solo se pueden eliminar facturas en estado Borrador'));
                             }
                         }
                     }
@@ -1559,12 +1611,12 @@ if (window.__tallerProLoaded) {
                     }
 
                     if (typeof window.showTallerToast === 'function') {
-                        window.showTallerToast('Estado de factura actualizado a ' + finalEstado);
+                        window.showTallerToast(tpTr('InvoiceStatusUpdatedTo', 'Estado de factura actualizado a').trim() + ' ' + tpTr(finalEstado, finalEstado));
                     }
                 } else {
                     select.value = oldEstado;
                     if (typeof window.showTallerToast === 'function') {
-                        window.showTallerToast((data && data.error) || 'Error al actualizar el estado de la factura', 'error');
+                        window.showTallerToast((data && data.error) || tpTr('ErrUpdateInvoiceStatus', 'Error al actualizar el estado de la factura'), 'error');
                     }
                 }
                 pendingInvoiceStateChange = null;
@@ -1575,7 +1627,7 @@ if (window.__tallerProLoaded) {
                 select.value = oldEstado;
                 console.error('Error al actualizar estado de factura:', err);
                 if (typeof window.showTallerToast === 'function') {
-                    window.showTallerToast('Error de conexión al actualizar estado', 'error');
+                    window.showTallerToast(tpTr('ErrConnectionUpdateStatus', 'Error de conexión al actualizar estado'), 'error');
                 }
                 pendingInvoiceStateChange = null;
             });
@@ -1662,19 +1714,19 @@ if (window.__tallerProLoaded) {
             if (stock <= 0) {
                 repMatStockPill.innerHTML = '<span class="tallerpro-stock-badge out-stock">' +
                     '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>' +
-                    'Sin stock disponible (0 uds en almacén)</span>';
+                    tpEscapeHtml(tpTr('StockOutWarehouse', 'Sin stock disponible (0 uds en almacén)')) + '</span>';
             } else if (cant > stock) {
                 repMatStockPill.innerHTML = '<span class="tallerpro-stock-badge out-stock">' +
                     '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>' +
-                    'Cantidad solicitada (' + cant + ') supera el stock disponible (' + stock + ' uds)</span>';
+                    tpEscapeHtml(tpTr('StockRequestedExceeds', 'Cantidad solicitada (%s) supera el stock disponible (%s uds)', cant, stock)) + '</span>';
             } else if (stock <= 3) {
                 repMatStockPill.innerHTML = '<span class="tallerpro-stock-badge low-stock">' +
                     '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>' +
-                    'Stock bajo: ' + stock + ' uds en almacén</span>';
+                    tpEscapeHtml(tpTr('StockLowInWarehouse', 'Stock bajo: %s uds en almacén', stock)) + '</span>';
             } else {
                 repMatStockPill.innerHTML = '<span class="tallerpro-stock-badge in-stock">' +
                     '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>' +
-                    'Stock disponible: ' + stock + ' uds</span>';
+                    tpEscapeHtml(tpTr('StockAvailableInWarehouse', 'Stock disponible: %s uds', stock)) + '</span>';
             }
         }
 
@@ -1729,12 +1781,12 @@ if (window.__tallerProLoaded) {
             let html = '<table class="tallerpro-invoice-table">' +
                 '<thead>' +
                 '<tr>' +
-                '<th style="width: 15%;">Código</th>' +
-                '<th style="width: 44%;">Descripción</th>' +
-                '<th style="width: 8%; text-align: center;">Cant.</th>' +
-                '<th style="width: 12%; text-align: right;">P. unit.</th>' +
-                '<th style="width: 8%; text-align: center;">Dto.</th>' +
-                '<th style="width: 13%; text-align: right;">Total</th>' +
+                '<th style="width: 15%;">' + tpEscapeHtml(tpTr('ColCodigo', 'Código')) + '</th>' +
+                '<th style="width: 44%;">' + tpEscapeHtml(tpTr('ColDescripcion', 'Descripción')) + '</th>' +
+                '<th style="width: 8%; text-align: center;">' + tpEscapeHtml(tpTr('ColCantShort', 'Cant.')) + '</th>' +
+                '<th style="width: 12%; text-align: right;">' + tpEscapeHtml(tpTr('ColPrecioUnit', 'P. unit.')) + '</th>' +
+                '<th style="width: 8%; text-align: center;">' + tpEscapeHtml(tpTr('ColDtoShort', 'Dto.')) + '</th>' +
+                '<th style="width: 13%; text-align: right;">' + tpEscapeHtml(tpTr('ColTotal', 'Total')) + '</th>' +
                 '<th style="width: 32px; text-align: center;"></th>' +
                 '</tr>' +
                 '</thead>' +
@@ -1756,7 +1808,7 @@ if (window.__tallerProLoaded) {
                     '<td style="text-align: center; color: #64748b;">' + dtoDisplay + '</td>' +
                     '<td style="text-align: right; font-weight: 600; color: #0f172a;">' + totalDisplay + '</td>' +
                     '<td style="text-align: center;">' +
-                    '<button type="button" class="tallerpro-btn-line-delete btn-delete-rep-mat" data-index="' + idx + '" title="Eliminar material">' +
+                    '<button type="button" class="tallerpro-btn-line-delete btn-delete-rep-mat" data-index="' + idx + '" title="' + tpEscapeHtml(tpTr('DeleteMaterialTitle', 'Eliminar material')) + '">' +
                     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
                     '<polyline points="3 6 5 6 21 6"></polyline>' +
                     '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>' +
@@ -1786,10 +1838,10 @@ if (window.__tallerProLoaded) {
             let html = '<table class="tallerpro-invoice-table">' +
                 '<thead>' +
                 '<tr>' +
-                '<th style="width: 59%;">Descripción / Intervención</th>' +
-                '<th style="width: 15%; text-align: right;">Precio</th>' +
-                '<th style="width: 10%; text-align: center;">Dto.</th>' +
-                '<th style="width: 16%; text-align: right;">Total</th>' +
+                '<th style="width: 59%;">' + tpEscapeHtml(tpTr('ColDescIntervencion', 'Descripción / Intervención')) + '</th>' +
+                '<th style="width: 15%; text-align: right;">' + tpEscapeHtml(tpTr('ColPrecio', 'Precio')) + '</th>' +
+                '<th style="width: 10%; text-align: center;">' + tpEscapeHtml(tpTr('ColDtoShort', 'Dto.')) + '</th>' +
+                '<th style="width: 16%; text-align: right;">' + tpEscapeHtml(tpTr('ColTotal', 'Total')) + '</th>' +
                 '<th style="width: 32px; text-align: center;"></th>' +
                 '</tr>' +
                 '</thead>' +
@@ -1811,7 +1863,7 @@ if (window.__tallerProLoaded) {
                     '<td style="text-align: center; color: #64748b;">' + dtoDisplay + '</td>' +
                     '<td style="text-align: right; font-weight: 600; color: #0f172a;">' + totalDisplay + '</td>' +
                     '<td style="text-align: center;">' +
-                    '<button type="button" class="tallerpro-btn-line-delete btn-delete-rep-mo" data-index="' + idx + '" title="Eliminar trabajo">' +
+                    '<button type="button" class="tallerpro-btn-line-delete btn-delete-rep-mo" data-index="' + idx + '" title="' + tpEscapeHtml(tpTr('DeleteLaborTitle', 'Eliminar trabajo')) + '">' +
                     '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
                     '<polyline points="3 6 5 6 21 6"></polyline>' +
                     '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>' +
@@ -1844,7 +1896,7 @@ if (window.__tallerProLoaded) {
             if (repSumSubtotal) repSumSubtotal.textContent = subtotal.toFixed(2) + ' €';
             if (repSumDescuento) repSumDescuento.textContent = '- ' + descuento.toFixed(2) + ' €';
             if (repSumBaseImponible) repSumBaseImponible.textContent = baseImponible.toFixed(2) + ' €';
-            if (repLblIva) repLblIva.textContent = 'IVA (' + (Number.isInteger(ivaPorcentaje) ? ivaPorcentaje : ivaPorcentaje.toFixed(1)) + '%)';
+            if (repLblIva) repLblIva.textContent = tpTr('IVA', 'IVA') + ' (' + (Number.isInteger(ivaPorcentaje) ? ivaPorcentaje : ivaPorcentaje.toFixed(1)) + '%)';
             if (repSumIva) repSumIva.textContent = ivaImporte.toFixed(2) + ' €';
             if (repSumTotal) repSumTotal.textContent = grandTotal.toFixed(2) + ' €';
 
@@ -1875,7 +1927,7 @@ if (window.__tallerProLoaded) {
                 if (e) e.preventDefault();
                 const desc = repMatDescripcion ? repMatDescripcion.value.trim() : '';
                 if (!desc) {
-                    alert('Por favor, indica una descripción para el material.');
+                    alert(tpTr('ErrIndicateMaterialDesc', 'Por favor, indica una descripción para el material.'));
                     if (repMatDescripcion) {
                         repMatDescripcion.focus();
                         repMatDescripcion.style.borderColor = '#ef4444';
@@ -1893,11 +1945,11 @@ if (window.__tallerProLoaded) {
                 if (selectedOpt && selectedOpt.value) {
                     const availableStock = parseFloat(selectedOpt.dataset.stock !== undefined ? selectedOpt.dataset.stock : '0') || 0;
                     if (availableStock <= 0) {
-                        if (!confirm("Atención: El material '" + desc + "' no tiene stock disponible en almacén (0 uds). ¿Deseas incluirlo de todos modos en la orden?")) {
+                        if (!confirm(tpTr('ConfirmOutOfStockMaterial', "Atención: El material '%s' no tiene stock disponible en almacén (0 uds). ¿Deseas incluirlo de todos modos en la orden?", desc))) {
                             return;
                         }
                     } else if (cant > availableStock) {
-                        if (!confirm("Atención: La cantidad indicada (" + cant + ") supera el stock disponible (" + availableStock + " uds). ¿Deseas continuar?")) {
+                        if (!confirm(tpTr('ConfirmOverStockMaterial', "Atención: La cantidad indicada (%s) supera el stock disponible (%s uds). ¿Deseas continuar?", cant, availableStock))) {
                             return;
                         }
                     }
@@ -1957,7 +2009,7 @@ if (window.__tallerProLoaded) {
                 if (e) e.preventDefault();
                 const desc = repMoDescripcion ? repMoDescripcion.value.trim() : '';
                 if (!desc) {
-                    alert('Por favor, indica la descripción de la reparación o tarea realizada.');
+                    alert(tpTr('ErrIndicateLaborDesc', 'Por favor, indica la descripción de la reparación o tarea realizada.'));
                     if (repMoDescripcion) {
                         repMoDescripcion.focus();
                         repMoDescripcion.style.borderColor = '#ef4444';
@@ -2017,7 +2069,7 @@ if (window.__tallerProLoaded) {
 
             if (actionInput) actionInput.value = 'create_reparacion';
             if (rowidInput) rowidInput.value = '0';
-            if (titleEl) titleEl.textContent = 'Nueva Orden de Reparación';
+            if (titleEl) titleEl.textContent = tpTr('NuevaOrdenReparacion', 'Nueva Orden de Reparación');
 
             if (vehSelect) vehSelect.value = '';
             if (fechaInput) {
@@ -2061,7 +2113,7 @@ if (window.__tallerProLoaded) {
             if (btnCrearAlbaran) {
                 btnCrearAlbaran.style.display = 'none';
                 btnCrearAlbaran.removeAttribute('data-target-albaran-url');
-                if (btnCrearAlbaranText) btnCrearAlbaranText.textContent = 'Crear albarán';
+                if (btnCrearAlbaranText) btnCrearAlbaranText.textContent = tpTr('CrearAlbaran', 'Crear albarán');
             }
 
             currentRepMaterials = [];
@@ -2104,7 +2156,7 @@ if (window.__tallerProLoaded) {
 
             if (actionInput) actionInput.value = 'update_reparacion';
             if (rowidInput) rowidInput.value = id;
-            if (titleEl) titleEl.textContent = ref ? ('Editar ' + ref) : 'Editar Orden de Reparación';
+            if (titleEl) titleEl.textContent = ref ? (tpTr('EditLabelPrefix', 'Editar').trim() + ' ' + ref) : tpTr('EditarOrdenReparacion', 'Editar Orden de Reparación');
 
             // Configurar botón Crear albarán / Ver albarán en modal
             const btnCrearAlbaran = document.getElementById('btnModalCrearAlbaran');
@@ -2112,17 +2164,17 @@ if (window.__tallerProLoaded) {
             if (btnCrearAlbaran) {
                 btnCrearAlbaran.style.display = 'inline-flex';
                 if (albaranId && parseInt(albaranId) > 0) {
-                    btnCrearAlbaran.setAttribute('data-target-albaran-url', 'facturas.php?id=' + albaranId);
+                    btnCrearAlbaran.setAttribute('data-target-albaran-url', 'facturas.php?doc=propal&id=' + albaranId);
                     if (btnCrearAlbaranText) {
-                        btnCrearAlbaranText.textContent = 'Ver albarán' + (albaranRef ? ' (' + albaranRef + ')' : '');
+                        btnCrearAlbaranText.textContent = tpTr('VerAlbaran', 'Ver albarán') + (albaranRef ? ' (' + albaranRef + ')' : '');
                     }
-                    btnCrearAlbaran.title = 'Ver el albarán / presupuesto enlazado';
+                    btnCrearAlbaran.title = tpTr('ViewLinkedQuoteTitle', 'Ver el albarán / presupuesto enlazado');
                 } else {
                     btnCrearAlbaran.removeAttribute('data-target-albaran-url');
                     if (btnCrearAlbaranText) {
-                        btnCrearAlbaranText.textContent = 'Crear albarán';
+                        btnCrearAlbaranText.textContent = tpTr('CrearAlbaran', 'Crear albarán');
                     }
-                    btnCrearAlbaran.title = 'Crear un nuevo albarán / presupuesto enlazado a esta reparación';
+                    btnCrearAlbaran.title = tpTr('CreateLinkedQuoteTitle', 'Crear un nuevo albarán / presupuesto enlazado a esta reparación');
                 }
             }
 
@@ -2142,7 +2194,7 @@ if (window.__tallerProLoaded) {
             if (factura && factura.trim()) {
                 if (repFacturaBadgeContainer) {
                     repFacturaBadgeContainer.style.display = 'block';
-                    repFacturaBadgeContainer.innerHTML = '<span style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; border-radius: 9999px; font-size: 12px; font-weight: 600;">Facturada: ' + escapeRepHtml(factura) + '</span>';
+                    repFacturaBadgeContainer.innerHTML = '<span style="display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; background-color: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; border-radius: 9999px; font-size: 12px; font-weight: 600;">' + tpEscapeHtml(tpTr('InvoicedPrefix', 'Facturada:').trim() + ' ') + escapeRepHtml(factura) + '</span>';
                 }
             } else {
                 if (repFacturaBadgeContainer) {
@@ -2171,7 +2223,7 @@ if (window.__tallerProLoaded) {
                 const costVal = parseFloat(coste) || 0;
                 if (costVal > 0) {
                     currentRepLabor = [{
-                        descripcion: descripcion || 'Mano de obra reparación',
+                        descripcion: descripcion || tpTr('DefaultLaborDesc', 'Mano de obra reparación'),
                         precio: costVal,
                         descuento: 0,
                         total_neto: costVal,
@@ -2210,14 +2262,14 @@ if (window.__tallerProLoaded) {
                 const vehSelect = document.getElementById('orderVehiculoSelect');
                 if (!vehSelect || !vehSelect.value || parseInt(vehSelect.value) <= 0) {
                     e.preventDefault();
-                    alert('Por favor, selecciona el vehículo al que se le realiza la reparación.');
+                    alert(tpTr('ErrSelectVehicleForRepair', 'Por favor, selecciona el vehículo al que se le realiza la reparación.'));
                     if (vehSelect) vehSelect.focus();
                     return false;
                 }
                 const averiaInput = document.getElementById('orderAveria');
                 if (!averiaInput || !averiaInput.value.trim()) {
                     e.preventDefault();
-                    alert('Por favor, indica la avería o trabajo solicitado.');
+                    alert(tpTr('ErrIndicateFaultOrWork', 'Por favor, indica la avería o trabajo solicitado.'));
                     if (averiaInput) averiaInput.focus();
                     return false;
                 }
@@ -2250,13 +2302,13 @@ if (window.__tallerProLoaded) {
 
                 const vehSelect = document.getElementById('orderVehiculoSelect');
                 if (!vehSelect || !vehSelect.value || parseInt(vehSelect.value) <= 0) {
-                    alert('Por favor, selecciona el vehículo al que se le realiza la reparación.');
+                    alert(tpTr('ErrSelectVehicleForRepair', 'Por favor, selecciona el vehículo al que se le realiza la reparación.'));
                     if (vehSelect) vehSelect.focus();
                     return false;
                 }
                 const averiaInput = document.getElementById('orderAveria');
                 if (!averiaInput || !averiaInput.value.trim()) {
-                    alert('Por favor, indica la avería o trabajo solicitado.');
+                    alert(tpTr('ErrIndicateFaultOrWork', 'Por favor, indica la avería o trabajo solicitado.'));
                     if (averiaInput) averiaInput.focus();
                     return false;
                 }
@@ -2313,7 +2365,7 @@ if (window.__tallerProLoaded) {
                 let itemsHtml = '';
 
                 if (count === 0) {
-                    itemsHtml = '<div class="tallerpro-search-empty-text">Sin coincidencias</div>';
+                    itemsHtml = '<div class="tallerpro-search-empty-text">' + tpEscapeHtml(tpTr('SearchNoMatches', 'Sin coincidencias')) + '</div>';
                 } else {
                     itemsHtml = '<div class="tallerpro-search-items-list">' +
                         items.map(function (item) {
@@ -2374,14 +2426,14 @@ if (window.__tallerProLoaded) {
 
                             let html = '';
                             // 1. Vehículos
-                            html += renderSection('Vehículos', iconVehiculo, data.vehiculos || []);
+                            html += renderSection(tpTr('Vehiculos', 'Vehículos'), iconVehiculo, data.vehiculos || []);
                             // 2. Clientes
-                            html += renderSection('Clientes', iconCliente, data.clientes || []);
+                            html += renderSection(tpTr('Clientes', 'Clientes'), iconCliente, data.clientes || []);
                             // 3. Materiales
-                            html += renderSection('Materiales', iconMaterial, data.materiales || []);
+                            html += renderSection(tpTr('Materiales', 'Materiales'), iconMaterial, data.materiales || []);
                             // 4. Facturas (if matching invoices exist)
                             if (data.facturas && data.facturas.length > 0) {
-                                html += renderSection('Facturas', iconFactura, data.facturas);
+                                html += renderSection(tpTr('Facturas', 'Facturas'), iconFactura, data.facturas);
                             }
 
                             searchResultsContainer.innerHTML = html;
@@ -2410,10 +2462,10 @@ if (window.__tallerProLoaded) {
         if (ibanSwitch && ibanStatus) {
             ibanSwitch.addEventListener('change', function () {
                 if (this.checked) {
-                    ibanStatus.textContent = 'Activado (se mostrará en facturas emitidas)';
+                    ibanStatus.textContent = tpTr('IbanStatusEnabled', 'Activado (se mostrará en facturas emitidas)');
                     ibanStatus.className = 'tallerpro-switch-label is-active';
                 } else {
-                    ibanStatus.textContent = 'Desactivado (oculto en facturas emitidas)';
+                    ibanStatus.textContent = tpTr('IbanStatusDisabled', 'Desactivado (oculto en facturas emitidas)');
                     ibanStatus.className = 'tallerpro-switch-label is-inactive';
                 }
             });

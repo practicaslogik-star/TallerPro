@@ -97,42 +97,40 @@ if ($action == 'update_settings') {
 		dolibarr_del_const($db, 'TALLER_IBAN', $conf->entity);
 	}
 
-	setEventMessages("Datos del taller actualizados correctamente", null, 'mesgs');
+	setEventMessages($langs->trans("MsgWorkshopSettingsUpdated"), null, 'mesgs');
 	header("Location: " . $_SERVER['PHP_SELF']);
 	exit;
 }
 
 // Cargar datos: primero de las constantes de TallerPro, o fallback a los datos generales de Dolibarr ($mysoc)
-$taller_nombre = !empty($conf->global->TALLER_NOMBRE_COMERCIAL) ? $conf->global->TALLER_NOMBRE_COMERCIAL : (!empty($mysoc->name) ? $mysoc->name : 'TallerPro');
-$taller_cif = !empty($conf->global->TALLER_CIF) ? $conf->global->TALLER_CIF : (!empty($mysoc->idprof1) ? $mysoc->idprof1 : (!empty($mysoc->tva_intra) ? $mysoc->tva_intra : ''));
-$taller_email = !empty($conf->global->TALLER_EMAIL) ? $conf->global->TALLER_EMAIL : (!empty($mysoc->email) ? $mysoc->email : '');
-$taller_telefono = !empty($conf->global->TALLER_TELEFONO) ? $conf->global->TALLER_TELEFONO : (!empty($mysoc->phone) ? $mysoc->phone : '');
-$taller_direccion = !empty($conf->global->TALLER_DIRECCION) ? $conf->global->TALLER_DIRECCION : (!empty($mysoc->address) ? $mysoc->address : '');
-$taller_poblacion = !empty($conf->global->TALLER_POBLACION) ? $conf->global->TALLER_POBLACION : ((!empty($mysoc->zip) ? $mysoc->zip . ' ' : '') . (!empty($mysoc->town) ? $mysoc->town : ''));
-$taller_mostrar_iban = isset($conf->global->TALLER_MOSTRAR_IBAN) ? (int) $conf->global->TALLER_MOSTRAR_IBAN : 1;
+$taller_nombre_cfg = getDolGlobalString('TALLER_NOMBRE_COMERCIAL');
+$taller_cif_cfg = getDolGlobalString('TALLER_CIF');
+$taller_email_cfg = getDolGlobalString('TALLER_EMAIL');
+$taller_tel_cfg = getDolGlobalString('TALLER_TELEFONO');
+$taller_dir_cfg = getDolGlobalString('TALLER_DIRECCION');
+$taller_pob_cfg = getDolGlobalString('TALLER_POBLACION');
+
+$taller_nombre = !empty($taller_nombre_cfg) ? $taller_nombre_cfg : (!empty($mysoc->name) ? $mysoc->name : 'TallerPro');
+$taller_cif = !empty($taller_cif_cfg) ? $taller_cif_cfg : (!empty($mysoc->idprof1) ? $mysoc->idprof1 : (!empty($mysoc->tva_intra) ? $mysoc->tva_intra : ''));
+$taller_email = !empty($taller_email_cfg) ? $taller_email_cfg : (!empty($mysoc->email) ? $mysoc->email : '');
+$taller_telefono = !empty($taller_tel_cfg) ? $taller_tel_cfg : (!empty($mysoc->phone) ? $mysoc->phone : '');
+$taller_direccion = !empty($taller_dir_cfg) ? $taller_dir_cfg : (!empty($mysoc->address) ? $mysoc->address : '');
+$taller_poblacion = !empty($taller_pob_cfg) ? $taller_pob_cfg : ((!empty($mysoc->zip) ? $mysoc->zip . ' ' : '') . (!empty($mysoc->town) ? $mysoc->town : ''));
+$taller_mostrar_iban = getDolGlobalInt('TALLER_MOSTRAR_IBAN', 1);
 
 // Descifrar IBAN para visualización en el formulario
 $taller_iban = '';
-if (!empty($conf->global->TALLER_IBAN)) {
-	$raw_iban = dolDecrypt($conf->global->TALLER_IBAN);
+$taller_iban_enc = getDolGlobalString('TALLER_IBAN');
+if (!empty($taller_iban_enc)) {
+	$raw_iban = dolDecrypt($taller_iban_enc);
 	if (!empty($raw_iban) && strtoupper(trim($raw_iban)) !== 'NONE') {
 		$taller_iban = trim(chunk_split($raw_iban, 4, ' '));
 	}
 }
 
-// Rutas
-$css_file = __DIR__ . '/css/tallerpro.css';
-$js_file = __DIR__ . '/js/tallerpro.js';
-$css_version = file_exists($css_file) ? filemtime($css_file) : dol_now();
-$js_version = file_exists($js_file) ? filemtime($js_file) : dol_now();
+$morehead = tallerpro_build_morehead($langs);
 
-$css_url = dol_buildpath('/taller/css/tallerpro.css', 1) . '?v=' . $css_version;
-$js_url = dol_buildpath('/taller/js/tallerpro.js', 1) . '?v=' . $js_version;
-
-$morehead = '<link rel="stylesheet" type="text/css" href="'.$css_url.'">'."\n";
-$morehead .= '<script src="'.$js_url.'"></script>'."\n";
-
-llxHeader($morehead, 'Configuración - TallerPro', '', '', 0, 0, array(), array(), '', 'mod-taller page-tallerpro');
+llxHeader($morehead, $langs->trans("Configuracion") . ' - ' . $langs->trans("TallerPro"), '', '', 0, 0, array(), array(), '', 'mod-taller page-tallerpro');
 
 $dolibarr_root_url = DOL_URL_ROOT . '/index.php';
 $index_url = dol_buildpath('/taller/tallerindex.php', 1);
@@ -279,7 +277,7 @@ $configuracion_url = dol_buildpath('/taller/configuracion.php', 1);
 
 		<!-- Collapse Button -->
 		<div class="tallerpro-sidebar-bottom">
-			<button type="button" class="tallerpro-collapse-btn" id="tallerCollapseBtn" title="Colapsar menú">
+			<button type="button" class="tallerpro-collapse-btn" id="tallerCollapseBtn" title="<?php echo dol_escape_htmltag($langs->trans("ColapsarMenu")); ?>">
 				<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
 					<polyline points="15 18 9 12 15 6"></polyline>
 				</svg>
@@ -291,7 +289,7 @@ $configuracion_url = dol_buildpath('/taller/configuracion.php', 1);
 	<div class="tallerpro-main">
 		<!-- Top Bar -->
 		<header class="tallerpro-topbar">
-			<button type="button" class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="Alternar menú" aria-label="Alternar menú">
+			<button type="button" class="tallerpro-topbar-sidebar-toggle" id="tallerTopbarToggle" title="<?php echo dol_escape_htmltag($langs->trans("AlternarMenu")); ?>" aria-label="<?php echo dol_escape_htmltag($langs->trans("AlternarMenu")); ?>">
 				<svg class="tallerpro-toggle-icon-desktop" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 					<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
 					<line x1="9" y1="3" x2="9" y2="21"></line>
@@ -311,7 +309,7 @@ $configuracion_url = dol_buildpath('/taller/configuracion.php', 1);
 				</div>
 			</div>
 			<div class="tallerpro-topbar-right">
-				<a href="<?php echo $dolibarr_root_url; ?>" class="tallerpro-back-dolibarr" title="Volver al menú principal de Dolibarr">
+				<a href="<?php echo $dolibarr_root_url; ?>" class="tallerpro-back-dolibarr" title="<?php echo dol_escape_htmltag($langs->trans("VolverDolibarrTitle")); ?>">
 					<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 						<line x1="19" y1="12" x2="5" y2="12"></line>
 						<polyline points="12 19 5 12 12 5"></polyline>
@@ -327,73 +325,73 @@ $configuracion_url = dol_buildpath('/taller/configuracion.php', 1);
 				
 				<!-- Header -->
 				<div class="tallerpro-content-header" style="margin-bottom: 24px;">
-					<h1 class="tallerpro-page-title" style="font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">Configuración</h1>
-					<p class="tallerpro-page-subtitle" style="font-size: 14px; color: #64748b; margin: 0;">Preferencias del taller</p>
+					<h1 class="tallerpro-page-title" style="font-size: 24px; font-weight: 700; color: #0f172a; margin-bottom: 4px;"><?php echo $langs->trans("Configuracion"); ?></h1>
+					<p class="tallerpro-page-subtitle" style="font-size: 14px; color: #64748b; margin: 0;"><?php echo $langs->trans("PreferenciasDelTaller"); ?></p>
 				</div>
 
 				<!-- Formulario editable -->
-				<form method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>">
+				<form method="POST" action="<?php echo dol_escape_htmltag($_SERVER['PHP_SELF']); ?>">
 					<input type="hidden" name="token" value="<?php echo (!empty($_SESSION['newtoken']) ? $_SESSION['newtoken'] : (!empty($_SESSION['token']) ? $_SESSION['token'] : newToken())); ?>">
 					<input type="hidden" name="action" value="update_settings">
 
 					<!-- Tarjeta 1: Datos del taller -->
 					<div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px 28px; margin-bottom: 24px; box-shadow: 0 1px 2px rgba(0,0,0,0.02);">
 						<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px;">
-							<h2 style="font-size: 15px; font-weight: 700; color: #0f172a; margin: 0;">Datos del taller</h2>
-							<span style="font-size: 12px; color: #64748b; background: #f8fafc; padding: 4px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">Datos visibles en órdenes y facturas</span>
+							<h2 style="font-size: 15px; font-weight: 700; color: #0f172a; margin: 0;"><?php echo $langs->trans("DatosDelTaller"); ?></h2>
+							<span style="font-size: 12px; color: #64748b; background: #f8fafc; padding: 4px 10px; border-radius: 6px; border: 1px solid #e2e8f0;"><?php echo $langs->trans("DatosVisiblesOrdenesFacturas"); ?></span>
 						</div>
 
 						<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; gap: 20px;">
-							<label style="font-size: 14px; color: #64748b; min-width: 140px;">Nombre comercial</label>
-							<input type="text" name="taller_nombre" class="tallerpro-form-input" style="max-width: 450px;" value="<?php echo dol_escape_htmltag($taller_nombre); ?>" placeholder="Nombre comercial de tu taller" required />
+							<label style="font-size: 14px; color: #64748b; min-width: 140px;"><?php echo $langs->trans("NombreComercial"); ?></label>
+							<input type="text" name="taller_nombre" class="tallerpro-form-input" style="max-width: 450px;" value="<?php echo dol_escape_htmltag($taller_nombre); ?>" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderNombreComercial")); ?>" required />
 						</div>
 
 						<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; gap: 20px;">
-							<label style="font-size: 14px; color: #64748b; min-width: 140px;">CIF / NIF</label>
-							<input type="text" name="taller_cif" class="tallerpro-form-input" style="max-width: 450px;" value="<?php echo dol_escape_htmltag($taller_cif); ?>" placeholder="Ej: B-12345678" />
+							<label style="font-size: 14px; color: #64748b; min-width: 140px;"><?php echo $langs->trans("CifNif"); ?></label>
+							<input type="text" name="taller_cif" class="tallerpro-form-input" style="max-width: 450px;" value="<?php echo dol_escape_htmltag($taller_cif); ?>" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderCif")); ?>" />
 						</div>
 
 						<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; gap: 20px;">
-							<label style="font-size: 14px; color: #64748b; min-width: 140px;">Email</label>
-							<input type="email" name="taller_email" class="tallerpro-form-input" style="max-width: 450px;" value="<?php echo dol_escape_htmltag($taller_email); ?>" placeholder="taller@ejemplo.com" />
+							<label style="font-size: 14px; color: #64748b; min-width: 140px;"><?php echo $langs->trans("Email"); ?></label>
+							<input type="email" name="taller_email" class="tallerpro-form-input" style="max-width: 450px;" value="<?php echo dol_escape_htmltag($taller_email); ?>" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderEmailTaller")); ?>" />
 						</div>
 
 						<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; gap: 20px;">
-							<label style="font-size: 14px; color: #64748b; min-width: 140px;">Teléfono</label>
-							<input type="text" name="taller_telefono" class="tallerpro-form-input" style="max-width: 450px;" value="<?php echo dol_escape_htmltag($taller_telefono); ?>" placeholder="Teléfono del taller" />
+							<label style="font-size: 14px; color: #64748b; min-width: 140px;"><?php echo $langs->trans("Telefono"); ?></label>
+							<input type="text" name="taller_telefono" class="tallerpro-form-input" style="max-width: 450px;" value="<?php echo dol_escape_htmltag($taller_telefono); ?>" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderTelTaller")); ?>" />
 						</div>
 
 						<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; gap: 20px;">
-							<label style="font-size: 14px; color: #64748b; min-width: 140px;">Dirección</label>
-							<input type="text" name="taller_direccion" class="tallerpro-form-input" style="max-width: 450px;" value="<?php echo dol_escape_htmltag($taller_direccion); ?>" placeholder="Calle, número, polígono..." />
+							<label style="font-size: 14px; color: #64748b; min-width: 140px;"><?php echo $langs->trans("Direccion"); ?></label>
+							<input type="text" name="taller_direccion" class="tallerpro-form-input" style="max-width: 450px;" value="<?php echo dol_escape_htmltag($taller_direccion); ?>" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderDirTaller")); ?>" />
 						</div>
 
 						<div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f1f5f9; gap: 20px;">
-							<label style="font-size: 14px; color: #64748b; min-width: 140px;">CP y Ciudad</label>
-							<input type="text" name="taller_poblacion" class="tallerpro-form-input" style="max-width: 450px;" value="<?php echo dol_escape_htmltag($taller_poblacion); ?>" placeholder="Ej: 28001 Madrid" />
+							<label style="font-size: 14px; color: #64748b; min-width: 140px;"><?php echo $langs->trans("CpYCiudad"); ?></label>
+							<input type="text" name="taller_poblacion" class="tallerpro-form-input" style="max-width: 450px;" value="<?php echo dol_escape_htmltag($taller_poblacion); ?>" placeholder="<?php echo dol_escape_htmltag($langs->trans("PlaceholderCpCiudad")); ?>" />
 						</div>
 
 						<div style="display: flex; justify-content: space-between; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid #f1f5f9; gap: 20px;">
 							<div>
-								<label style="font-size: 14px; color: #64748b; display: block; margin-bottom: 4px;">IBAN Bancario (Opcional)</label>
+								<label style="font-size: 14px; color: #64748b; display: block; margin-bottom: 4px;"><?php echo $langs->trans("IbanBancarioOpcional"); ?></label>
 								<span style="display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; color: #059669; background: #ecfdf5; padding: 2px 8px; border-radius: 4px; border: 1px solid #a7f3d0;">
 									<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
 										<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
 										<path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
 									</svg>
-									Cifrado seguro en BD
+									<?php echo $langs->trans("CifradoSeguroBD"); ?>
 								</span>
 							</div>
 							<div style="width: 100%; max-width: 450px;">
 								<input type="text" name="taller_iban" class="tallerpro-form-input" style="font-family: monospace; letter-spacing: 0.05em;" value="<?php echo dol_escape_htmltag($taller_iban); ?>" placeholder="ES00 0000 0000 0000 0000 0000" />
-								<span style="font-size: 11.5px; color: #94a3b8; margin-top: 4px; display: block;">Se imprimirá en las facturas pendientes como cuenta de destino para transferencias.</span>
+								<span style="font-size: 11.5px; color: #94a3b8; margin-top: 4px; display: block;"><?php echo $langs->trans("IbanPendingHelp"); ?></span>
 							</div>
 						</div>
 
 						<div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #f1f5f9; gap: 20px;">
 							<div>
-								<label for="taller_mostrar_iban" style="font-size: 14px; color: #475569; font-weight: 500; display: block; margin-bottom: 4px; cursor: pointer;">Mostrar IBAN en facturas</label>
-								<span style="font-size: 11.5px; color: #94a3b8; display: block;">¿Desea mostrar el IBAN al emitir factura?</span>
+								<label for="taller_mostrar_iban" style="font-size: 14px; color: #475569; font-weight: 500; display: block; margin-bottom: 4px; cursor: pointer;"><?php echo $langs->trans("MostrarIbanFacturas"); ?></label>
+								<span style="font-size: 11.5px; color: #94a3b8; display: block;"><?php echo $langs->trans("MostrarIbanPregunta"); ?></span>
 							</div>
 							<div style="width: 100%; max-width: 450px;">
 								<div class="tallerpro-switch-wrapper">
@@ -403,16 +401,16 @@ $configuracion_url = dol_buildpath('/taller/configuracion.php', 1);
 										<span class="tallerpro-switch-slider"></span>
 									</label>
 									<label for="taller_mostrar_iban" id="taller_mostrar_iban_status" class="tallerpro-switch-label <?php echo !empty($taller_mostrar_iban) ? 'is-active' : 'is-inactive'; ?>">
-										<?php echo !empty($taller_mostrar_iban) ? 'Activado (se mostrará en facturas emitidas)' : 'Desactivado (oculto en facturas emitidas)'; ?>
+										<?php echo !empty($taller_mostrar_iban) ? $langs->trans("IbanStatusEnabled") : $langs->trans("IbanStatusDisabled"); ?>
 									</label>
 								</div>
-								<span style="font-size: 11.5px; color: #94a3b8; margin-top: 6px; display: block;">Si está desactivado, el bloque de transferencia bancaria y el número de cuenta se omitirán por completo en las facturas.</span>
+								<span style="font-size: 11.5px; color: #94a3b8; margin-top: 6px; display: block;"><?php echo $langs->trans("MostrarIbanOmitHelp"); ?></span>
 							</div>
 						</div>
 
 						<div style="margin-top: 20px; display: flex; justify-content: flex-end;">
 							<button type="submit" class="tallerpro-btn-save" style="padding: 9px 20px; font-size: 13.5px; font-weight: 600; border-radius: 8px;">
-								Guardar cambios
+								<?php echo $langs->trans("GuardarCambios"); ?>
 							</button>
 						</div>
 					</div>
@@ -426,15 +424,15 @@ $configuracion_url = dol_buildpath('/taller/configuracion.php', 1);
 							<line x1="12" y1="16" x2="12" y2="12"></line>
 							<line x1="12" y1="8" x2="12.01" y2="8"></line>
 						</svg>
-						<h2 style="font-size: 15px; font-weight: 700; color: #0f172a; margin: 0;">Sobre esta aplicación</h2>
+						<h2 style="font-size: 15px; font-weight: 700; color: #0f172a; margin: 0;"><?php echo $langs->trans("SobreEstaAplicacion"); ?></h2>
 					</div>
 
 					<p style="font-size: 13.5px; color: #64748b; line-height: 1.6; margin: 0 0 10px 0;">
-						Aplicación de gestión profesional para talleres mecánicos integrada con Dolibarr ERP: clientes, vehículos, reparaciones, materiales, seguros y facturas.
+						<?php echo $langs->trans("AboutAppDesc1"); ?>
 					</p>
 
 					<p style="font-size: 13px; color: #94a3b8; line-height: 1.5; margin: 0;">
-						Los datos están asegurados y sincronizados con tu base de datos de Dolibarr. El acceso al módulo se gestiona desde el panel de usuarios y permisos de Dolibarr.
+						<?php echo $langs->trans("AboutAppDesc2"); ?>
 					</p>
 				</div>
 
@@ -442,24 +440,6 @@ $configuracion_url = dol_buildpath('/taller/configuracion.php', 1);
 		</div>
 	</div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-	var sw = document.getElementById('taller_mostrar_iban');
-	var lbl = document.getElementById('taller_mostrar_iban_status');
-	if (sw && lbl) {
-		sw.addEventListener('change', function() {
-			if (this.checked) {
-				lbl.textContent = 'Activado (se mostrará en facturas emitidas)';
-				lbl.className = 'tallerpro-switch-label is-active';
-			} else {
-				lbl.textContent = 'Desactivado (oculto en facturas emitidas)';
-				lbl.className = 'tallerpro-switch-label is-inactive';
-			}
-		});
-	}
-});
-</script>
 
 <?php
 llxFooter();
