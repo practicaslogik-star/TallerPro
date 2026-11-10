@@ -58,13 +58,10 @@ require_once DOL_DOCUMENT_ROOT . "/core/lib/admin.lib.php";
 // Load translations
 $langs->loadLangs(array("admin", "taller@taller"));
 
+require_once __DIR__ . '/lib/taller.lib.php';
+
 // Security check
-if (!isModEnabled('taller')) {
-	accessforbidden('Module not enabled');
-}
-if (empty($user->admin)) {
-	accessforbidden('Solo los administradores pueden gestionar la configuración del taller');
-}
+tallerpro_require_permission('admin');
 
 require_once DOL_DOCUMENT_ROOT . '/core/lib/security.lib.php';
 
@@ -72,14 +69,8 @@ $action = GETPOST('action', 'aZ09');
 
 // Guardar datos editados del taller
 if ($action == 'update_settings') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('admin');
 	$nombre = trim(GETPOST('taller_nombre', 'alphanohtml'));
 	$cif = trim(GETPOST('taller_cif', 'alphanohtml'));
 	$email = trim(GETPOST('taller_email', 'alphanohtml'));

@@ -41,7 +41,7 @@ function tallerpro_generate_factura_pdf($db, $conf, $user, $fac_id, $output_mode
 	$sql .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON f.fk_soc = s.rowid ";
 	$sql .= "LEFT JOIN " . MAIN_DB_PREFIX . "facture_extrafields as fe ON fe.fk_object = f.rowid ";
 	$sql .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON fe.fk_vehiculo = v.rowid ";
-	$sql .= "WHERE f.rowid = " . ((int) $fac_id);
+	$sql .= "WHERE f.rowid = " . ((int) $fac_id) . " AND f.entity IN (" . getEntity('facture') . ")";
 
 	$res = $db->query($sql);
 	if (!$res || !($factura = $db->fetch_object($res))) {

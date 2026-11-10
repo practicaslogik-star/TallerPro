@@ -29,3 +29,9 @@ TallerSetup = Configuration de TallerPro
 TallerSetupPage = Page de configuration du module TallerPro
 TallerAbout = À propos de TallerPro
 
+# Permissions du module
+PermissionTallerRead = Consulter les données de l'atelier (clients, véhicules, réparations, matériaux, assurances et factures)
+PermissionTallerWrite = Créer et modifier les enregistrements de l'atelier (clients, véhicules, réparations, matériaux, assurances)
+PermissionTallerDelete = Supprimer les enregistrements et documents de l'atelier
+PermissionTallerFacturar = Émettre, modifier et gérer la facturation et les devis de l'atelier
+

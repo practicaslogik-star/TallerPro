@@ -28,3 +28,9 @@ VolverADolibarr = Dolibarr ERP
 TallerSetup = TallerPro Setup
 TallerSetupPage = TallerPro module configuration page
 TallerAbout = About TallerPro
+
+# Module permissions
+PermissionTallerRead = Read workshop data (customers, vehicles, repairs, materials, insurance and invoices)
+PermissionTallerWrite = Create and update workshop records (customers, vehicles, repairs, materials, insurance)
+PermissionTallerDelete = Delete workshop records and documents
+PermissionTallerFacturar = Issue, update and manage workshop invoicing and quotes

@@ -294,24 +294,29 @@ class modTaller extends DolibarrModules
 		$r = 0;
 		// Add here entries to declare new permissions
 		/* BEGIN MODULEBUILDER PERMISSIONS */
-		/*
-		$o = 1;
-		$this->rights[$r][0] = $this->numero . sprintf("%02d", ($o * 10) + 1); // Permission id (must not be already used)
-		$this->rights[$r][1] = 'Read objects of Taller'; // Permission label
-		$this->rights[$r][4] = 'myobject';
-		$this->rights[$r][5] = 'read'; // In php code, permission will be checked by test if ($user->hasRight('taller', 'myobject', 'read'))
+		$this->rights[$r][0] = $this->numero . sprintf("%02d", 1); // Permission id
+		$this->rights[$r][1] = 'PermissionTallerRead'; // Permission label
+		$this->rights[$r][3] = 0;
+		$this->rights[$r][4] = 'read'; // In php code, permission will be checked by test if ($user->hasRight('taller', 'read'))
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf("%02d", ($o * 10) + 2); // Permission id (must not be already used)
-		$this->rights[$r][1] = 'Create/Update objects of Taller'; // Permission label
-		$this->rights[$r][4] = 'myobject';
-		$this->rights[$r][5] = 'write'; // In php code, permission will be checked by test if ($user->hasRight('taller', 'myobject', 'write'))
+
+		$this->rights[$r][0] = $this->numero . sprintf("%02d", 2);
+		$this->rights[$r][1] = 'PermissionTallerWrite';
+		$this->rights[$r][3] = 0;
+		$this->rights[$r][4] = 'write'; // $user->hasRight('taller', 'write')
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf("%02d", ($o * 10) + 3); // Permission id (must not be already used)
-		$this->rights[$r][1] = 'Delete objects of Taller'; // Permission label
-		$this->rights[$r][4] = 'myobject';
-		$this->rights[$r][5] = 'delete'; // In php code, permission will be checked by test if ($user->hasRight('taller', 'myobject', 'delete'))
+
+		$this->rights[$r][0] = $this->numero . sprintf("%02d", 3);
+		$this->rights[$r][1] = 'PermissionTallerDelete';
+		$this->rights[$r][3] = 0;
+		$this->rights[$r][4] = 'delete'; // $user->hasRight('taller', 'delete')
 		$r++;
-		*/
+
+		$this->rights[$r][0] = $this->numero . sprintf("%02d", 4);
+		$this->rights[$r][1] = 'PermissionTallerFacturar';
+		$this->rights[$r][3] = 0;
+		$this->rights[$r][4] = 'facturar'; // $user->hasRight('taller', 'facturar')
+		$r++;
 		/* END MODULEBUILDER PERMISSIONS */
 
 
@@ -331,22 +336,22 @@ class modTaller extends DolibarrModules
 			'langs' => 'taller@taller', // Lang file to use (without .lang) by module. File must be in langs/code_CODE/ directory.
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("taller")', // Define condition to show or hide menu entry. Use 'isModEnabled("taller")' if entry must be visible if module is enabled.
-			'perms' => '1', // Use 'perms'=>'$user->hasRight("taller", "myobject", "read")' if you want your menu with a permission rules
+			'perms' => '$user->hasRight("taller", "read")', // Solo usuarios internos con permiso de lectura
 			'target' => '',
-			'user' => 2, // 0=Menu for internal users, 1=external users, 2=both
+			'user' => 0, // 0=Menu for internal users only, 1=external users, 2=both
 		);
 		/* END MODULEBUILDER TOPMENU */
 
 		/* BEGIN MODULEBUILDER LEFTMENU MYOBJECT */
 		$menu_items = array(
-			array('code' => 'inicio', 'titre' => 'Inicio', 'url' => '/taller/tallerindex.php', 'icon' => 'fa-home'),
-			array('code' => 'clientes', 'titre' => 'Clientes', 'url' => '/taller/clientes.php', 'icon' => 'fa-users'),
-			array('code' => 'vehiculos', 'titre' => 'Vehículos', 'url' => '/taller/vehiculos.php', 'icon' => 'fa-car'),
-			array('code' => 'reparaciones', 'titre' => 'Reparaciones', 'url' => '/taller/reparaciones.php', 'icon' => 'fa-wrench'),
-			array('code' => 'materiales', 'titre' => 'Materiales', 'url' => '/taller/materiales.php', 'icon' => 'fa-box'),
-			array('code' => 'seguros', 'titre' => 'Seguros', 'url' => '/taller/seguros.php', 'icon' => 'fa-shield-alt'),
-			array('code' => 'facturas', 'titre' => 'Facturas', 'url' => '/taller/facturas.php', 'icon' => 'fa-file-invoice-dollar'),
-			array('code' => 'configuracion', 'titre' => 'Configuración', 'url' => '/taller/admin/setup.php', 'icon' => 'fa-cog'),
+			array('code' => 'inicio', 'titre' => 'Inicio', 'url' => '/taller/tallerindex.php', 'icon' => 'fa-home', 'perms' => '$user->hasRight("taller", "read")'),
+			array('code' => 'clientes', 'titre' => 'Clientes', 'url' => '/taller/clientes.php', 'icon' => 'fa-users', 'perms' => '$user->hasRight("taller", "read")'),
+			array('code' => 'vehiculos', 'titre' => 'Vehículos', 'url' => '/taller/vehiculos.php', 'icon' => 'fa-car', 'perms' => '$user->hasRight("taller", "read")'),
+			array('code' => 'reparaciones', 'titre' => 'Reparaciones', 'url' => '/taller/reparaciones.php', 'icon' => 'fa-wrench', 'perms' => '$user->hasRight("taller", "read")'),
+			array('code' => 'materiales', 'titre' => 'Materiales', 'url' => '/taller/materiales.php', 'icon' => 'fa-box', 'perms' => '$user->hasRight("taller", "read")'),
+			array('code' => 'seguros', 'titre' => 'Seguros', 'url' => '/taller/seguros.php', 'icon' => 'fa-shield-alt', 'perms' => '$user->hasRight("taller", "read")'),
+			array('code' => 'facturas', 'titre' => 'Facturas', 'url' => '/taller/facturas.php', 'icon' => 'fa-file-invoice-dollar', 'perms' => '$user->hasRight("taller", "read") || $user->hasRight("taller", "facturar")'),
+			array('code' => 'configuracion', 'titre' => 'Configuración', 'url' => '/taller/admin/setup.php', 'icon' => 'fa-cog', 'perms' => '$user->admin'),
 		);
 
 		foreach ($menu_items as $mitem) {
@@ -361,9 +366,9 @@ class modTaller extends DolibarrModules
 				'langs' => 'taller@taller',
 				'position' => 1000 + $r,
 				'enabled' => 'isModEnabled("taller")',
-				'perms' => '1',
+				'perms' => $mitem['perms'],
 				'target' => '',
-				'user' => 2,
+				'user' => 0,
 			);
 		}
 		/* END MODULEBUILDER LEFTMENU MYOBJECT */

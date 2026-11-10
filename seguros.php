@@ -55,10 +55,13 @@ if (!$res) {
 // Load translation files required by the page
 $langs->loadLangs(array("taller@taller"));
 
+require_once __DIR__ . '/lib/taller.lib.php';
+
 // Security check
-if (!isModEnabled('taller')) {
-	accessforbidden('Module not enabled');
-}
+tallerpro_require_permission('read');
+
+$can_write = $user->hasRight('taller', 'write');
+$can_delete = $user->hasRight('taller', 'delete');
 
 $table_seguro = MAIN_DB_PREFIX . "taller_seguro";
 $table_vehiculo = MAIN_DB_PREFIX . "taller_vehiculo";
@@ -67,14 +70,8 @@ $action = GETPOST('action', 'aZ09');
 
 // Acción: Crear Seguro
 if ($action == 'create_seguro' || $action == 'add_seguro') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('write');
 
 	$fk_vehiculo  = GETPOSTINT('fk_vehiculo');
 	$compania     = trim(GETPOST('compania', 'alphanohtml'));
@@ -85,8 +82,18 @@ if ($action == 'create_seguro' || $action == 'add_seguro') {
 	$telefono     = trim(GETPOST('telefono', 'alphanohtml'));
 	$notas        = trim(GETPOST('notas', 'restricthtml'));
 
+	$vehiculo_valido = true;
+	if ($fk_vehiculo > 0) {
+		$res_v_chk = $db->query("SELECT rowid FROM " . $table_vehiculo . " WHERE rowid = " . ((int) $fk_vehiculo) . " AND entity IN (" . getEntity('taller_vehiculo') . ")");
+		if (!$res_v_chk || $db->num_rows($res_v_chk) <= 0) {
+			$vehiculo_valido = false;
+		}
+	}
+
 	if (empty($compania)) {
 		setEventMessages($langs->trans("ErrorFieldRequired", "Compañía"), null, 'errors');
+	} elseif (!$vehiculo_valido) {
+		setEventMessages("El vehículo seleccionado no pertenece a la empresa activa", null, 'errors');
 	} else {
 		$sql_insert = "INSERT INTO " . $table_seguro . " (";
 		$sql_insert .= "fk_vehiculo, compania, poliza, tipo, fecha_inicio, fecha_fin, telefono, notas, date_creation, fk_user_creat, entity, status";
@@ -119,14 +126,8 @@ if ($action == 'create_seguro' || $action == 'add_seguro') {
 
 // Acción: Actualizar Seguro
 if ($action == 'update_seguro' || $action == 'edit_seguro') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('write');
 
 	$rowid        = GETPOSTINT('rowid');
 	$fk_vehiculo  = GETPOSTINT('fk_vehiculo');
@@ -138,10 +139,20 @@ if ($action == 'update_seguro' || $action == 'edit_seguro') {
 	$telefono     = trim(GETPOST('telefono', 'alphanohtml'));
 	$notas        = trim(GETPOST('notas', 'restricthtml'));
 
+	$vehiculo_valido = true;
+	if ($fk_vehiculo > 0) {
+		$res_v_chk = $db->query("SELECT rowid FROM " . $table_vehiculo . " WHERE rowid = " . ((int) $fk_vehiculo) . " AND entity IN (" . getEntity('taller_vehiculo') . ")");
+		if (!$res_v_chk || $db->num_rows($res_v_chk) <= 0) {
+			$vehiculo_valido = false;
+		}
+	}
+
 	if (empty($compania)) {
 		setEventMessages($langs->trans("ErrorFieldRequired", "Compañía"), null, 'errors');
 	} elseif ($rowid <= 0) {
 		setEventMessages("Identificador de seguro no válido", null, 'errors');
+	} elseif (!$vehiculo_valido) {
+		setEventMessages("El vehículo seleccionado no pertenece a la empresa activa", null, 'errors');
 	} else {
 		$sql_update = "UPDATE " . $table_seguro . " SET ";
 		$sql_update .= "fk_vehiculo = " . ($fk_vehiculo > 0 ? ((int) $fk_vehiculo) : "NULL") . ", ";
@@ -168,14 +179,8 @@ if ($action == 'update_seguro' || $action == 'edit_seguro') {
 
 // Acción: Eliminar Seguro (Seguro vía POST con token)
 if ($action == 'delete_seguro' || $action == 'delete') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('delete');
 
 	$rowid = GETPOSTINT('rowid');
 	if ($rowid > 0) {
@@ -425,6 +430,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 						<h1 class="tallerpro-page-title"><?php echo $langs->trans("Seguros"); ?></h1>
 						<p class="tallerpro-page-subtitle"><?php echo $total_seguros; ?> registro(s)</p>
 					</div>
+					<?php if ($can_write): ?>
 					<div>
 						<button type="button" class="tallerpro-btn-primary" id="tallerOpenModalBtn">
 							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -434,6 +440,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<span>Añadir</span>
 						</button>
 					</div>
+					<?php endif; ?>
 				</div>
 
 				<?php echo dol_htmloutput_events(); ?>
@@ -516,6 +523,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										</td>
 										<td>
 											<div class="tallerpro-actions">
+												<?php if ($can_write): ?>
 												<button type="button" class="tallerpro-action-btn btn-edit-seguro" title="Editar"
 													data-id="<?php echo (int) $seg->rowid; ?>"
 													data-vehiculo="<?php echo (int) $seg->fk_vehiculo; ?>"
@@ -530,6 +538,8 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 														<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
 													</svg>
 												</button>
+												<?php endif; ?>
+												<?php if ($can_delete): ?>
 												<button type="button"
 													class="tallerpro-action-btn btn-delete-action"
 													title="Eliminar"
@@ -540,6 +550,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 														<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
 													</svg>
 												</button>
+												<?php endif; ?>
 											</div>
 										</td>
 									</tr>

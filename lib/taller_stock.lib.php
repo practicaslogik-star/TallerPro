@@ -232,7 +232,7 @@ function tallerpro_sync_all_materials($user = null)
 	$warehouse_id = tallerpro_get_default_warehouse($user);
 
 	// 2. Mapear cada material existente a llx_product
-	$sql = "SELECT rowid, ref, nombre, precio, stock, fk_product FROM " . $table_material . " WHERE status = 1";
+	$sql = "SELECT rowid, ref, nombre, precio, stock, fk_product FROM " . $table_material . " WHERE status = 1 AND entity IN (" . getEntity('taller_material') . ")";
 	$res = $db->query($sql);
 
 	$count = 0;
@@ -264,7 +264,7 @@ function tallerpro_sync_all_materials($user = null)
 
 	// 3. Si en llx_product hay productos creados por Dolibarr que no están en llx_taller_material, importarlos
 	$sql_ext = "SELECT p.rowid, p.ref, p.label, p.price, p.stock FROM " . MAIN_DB_PREFIX . "product p ";
-	$sql_ext .= "LEFT JOIN " . $table_material . " tm ON tm.fk_product = p.rowid ";
+	$sql_ext .= "LEFT JOIN " . $table_material . " tm ON (tm.fk_product = p.rowid AND tm.entity IN (" . getEntity('taller_material') . ")) ";
 	$sql_ext .= "WHERE p.tosell = 1 AND p.fk_product_type = 0 AND tm.rowid IS NULL AND p.entity IN (" . getEntity('product') . ")";
 	$res_ext = $db->query($sql_ext);
 	if ($res_ext) {
@@ -311,7 +311,7 @@ function tallerpro_consume_repair_materials($reparacion_id, $user = null)
 	$sql = "SELECT r.rowid, r.notas, r.stock_descontado, v.matricula ";
 	$sql .= "FROM " . $table_rep . " r ";
 	$sql .= "LEFT JOIN " . $table_veh . " v ON r.fk_vehiculo = v.rowid ";
-	$sql .= "WHERE r.rowid = " . $reparacion_id;
+	$sql .= "WHERE r.rowid = " . $reparacion_id . " AND r.entity IN (" . getEntity('taller_reparacion') . ")";
 
 	$res = $db->query($sql);
 	if (!$res || !($rep = $db->fetch_object($res))) {
@@ -346,11 +346,11 @@ function tallerpro_consume_repair_materials($reparacion_id, $user = null)
 		$mat_desc = !empty($m['descripcion']) ? trim($m['descripcion']) : '';
 
 		// Buscar material por código o nombre
-		$sql_m = "SELECT rowid, fk_product, stock FROM " . $table_mat . " WHERE ";
+		$sql_m = "SELECT rowid, fk_product, stock FROM " . $table_mat . " WHERE status = 1 AND entity IN (" . getEntity('taller_material') . ") AND (";
 		if (!empty($mat_code)) {
 			$sql_m .= "ref = '" . $db->escape($mat_code) . "' OR ";
 		}
-		$sql_m .= "nombre = '" . $db->escape($mat_desc) . "' LIMIT 1";
+		$sql_m .= "nombre = '" . $db->escape($mat_desc) . "') LIMIT 1";
 
 		$res_m = $db->query($sql_m);
 		if ($res_m && ($mat_obj = $db->fetch_object($res_m))) {
@@ -397,7 +397,7 @@ function tallerpro_restore_repair_stock($reparacion_id, $user = null)
 	$sql = "SELECT r.rowid, r.notas, r.stock_descontado, v.matricula ";
 	$sql .= "FROM " . $table_rep . " r ";
 	$sql .= "LEFT JOIN " . $table_veh . " v ON r.fk_vehiculo = v.rowid ";
-	$sql .= "WHERE r.rowid = " . $reparacion_id;
+	$sql .= "WHERE r.rowid = " . $reparacion_id . " AND r.entity IN (" . getEntity('taller_reparacion') . ")";
 
 	$res = $db->query($sql);
 	if (!$res || !($rep = $db->fetch_object($res))) {
@@ -428,11 +428,11 @@ function tallerpro_restore_repair_stock($reparacion_id, $user = null)
 		$mat_code = !empty($m['codigo']) ? trim($m['codigo']) : '';
 		$mat_desc = !empty($m['descripcion']) ? trim($m['descripcion']) : '';
 
-		$sql_m = "SELECT rowid, fk_product FROM " . $table_mat . " WHERE ";
+		$sql_m = "SELECT rowid, fk_product FROM " . $table_mat . " WHERE status = 1 AND entity IN (" . getEntity('taller_material') . ") AND (";
 		if (!empty($mat_code)) {
 			$sql_m .= "ref = '" . $db->escape($mat_code) . "' OR ";
 		}
-		$sql_m .= "nombre = '" . $db->escape($mat_desc) . "' LIMIT 1";
+		$sql_m .= "nombre = '" . $db->escape($mat_desc) . "') LIMIT 1";
 
 		$res_m = $db->query($sql_m);
 		if ($res_m && ($mat_obj = $db->fetch_object($res_m))) {

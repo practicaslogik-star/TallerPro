@@ -89,7 +89,7 @@ $error = 0;
 $setupnotempty = 0;
 
 // Access control
-if (!$user->admin) {
+if (!$user->admin || !empty($user->socid)) {
 	accessforbidden();
 }
 
@@ -103,7 +103,7 @@ if (!class_exists('FormSetup')) {
 $formSetup = new FormSetup($db);
 
 // Access control
-if (!$user->admin) {
+if (!$user->admin || !empty($user->socid)) {
 	accessforbidden();
 }
 

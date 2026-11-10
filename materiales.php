@@ -55,10 +55,13 @@ if (!$res) {
 // Load translation files required by the page
 $langs->loadLangs(array("taller@taller"));
 
+require_once __DIR__ . '/lib/taller.lib.php';
+
 // Security check
-if (!isModEnabled('taller')) {
-	accessforbidden('Module not enabled');
-}
+tallerpro_require_permission('read');
+
+$can_write = $user->hasRight('taller', 'write');
+$can_delete = $user->hasRight('taller', 'delete');
 
 require_once __DIR__ . '/lib/taller_stock.lib.php';
 
@@ -72,14 +75,8 @@ $action = GETPOST('action', 'aZ09');
 
 // Acción: Crear Material
 if ($action == 'create_material' || $action == 'add_material') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('write');
 
 	$nombre    = trim(GETPOST('nombre', 'alphanohtml'));
 	$ref       = trim(GETPOST('ref', 'alphanohtml'));
@@ -152,14 +149,8 @@ if ($action == 'create_material' || $action == 'add_material') {
 
 // Acción: Actualizar Material
 if ($action == 'update_material' || $action == 'edit_material') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('write');
 
 	$rowid     = GETPOSTINT('rowid');
 	$nombre    = trim(GETPOST('nombre', 'alphanohtml'));
@@ -179,34 +170,42 @@ if ($action == 'update_material' || $action == 'edit_material') {
 
 		$prev_stock = 0.0;
 		$prev_fk_product = 0;
-		$res_prev = $db->query("SELECT stock, fk_product FROM " . $table_material . " WHERE rowid = " . ((int) $rowid));
+		$res_prev = $db->query("SELECT stock, fk_product FROM " . $table_material . " WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_material') . ")");
 		if ($res_prev && ($p_mat = $db->fetch_object($res_prev))) {
 			$prev_stock = (float) $p_mat->stock;
 			$prev_fk_product = (int) $p_mat->fk_product;
+		} else {
+			$ok = false;
 		}
 
 		// Sincronizar con Dolibarr Product
-		if ($prev_fk_product <= 0) {
-			$prev_fk_product = tallerpro_get_or_create_product($ref, $nombre, (float) $precio, 0, $user);
-		} else {
-			$prod_obj = new Product($db);
-			if ($prod_obj->fetch($prev_fk_product) > 0) {
-				$prod_obj->label = $nombre;
-				if (!empty($ref)) {
-					$prod_obj->ref = $ref;
-				}
-				$prod_obj->price = (float) $precio;
-				$res_prod_upd = $prod_obj->update($prev_fk_product, $user);
-				if ($res_prod_upd < 0) {
-					$ok = false;
+		if ($ok) {
+			if ($prev_fk_product <= 0) {
+				$prev_fk_product = tallerpro_get_or_create_product($ref, $nombre, (float) $precio, 0, $user);
+			} else {
+				$prod_obj = new Product($db);
+				if ($prod_obj->fetch($prev_fk_product) > 0) {
+					$prod_obj->label = $nombre;
+					if (!empty($ref)) {
+						$prod_obj->ref = $ref;
+					}
+					$prod_obj->price = (float) $precio;
+					$res_prod_upd = $prod_obj->update($prev_fk_product, $user);
+					if ($res_prod_upd < 0) {
+						$ok = false;
+					}
 				}
 			}
 		}
 
 		// Obtener el stock real del almacén antes del ajuste
-		$current_wh_stock = tallerpro_get_product_stock($prev_fk_product, $default_warehouse_id);
-		$base_stock = ($current_wh_stock > 0 || $prev_stock == 0) ? $current_wh_stock : $prev_stock;
-		$diff = ((float) $stock) - $base_stock;
+		$base_stock = $prev_stock;
+		$diff = 0.0;
+		if ($ok) {
+			$current_wh_stock = tallerpro_get_product_stock($prev_fk_product, $default_warehouse_id);
+			$base_stock = ($current_wh_stock > 0 || $prev_stock == 0) ? $current_wh_stock : $prev_stock;
+			$diff = ((float) $stock) - $base_stock;
+		}
 
 		$sql_update = "UPDATE " . $table_material . " SET ";
 		$sql_update .= "nombre = '" . $db->escape($nombre) . "', ";
@@ -218,7 +217,7 @@ if ($action == 'update_material' || $action == 'edit_material') {
 		$sql_update .= "notas = '" . $db->escape($notas) . "' ";
 		$sql_update .= "WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_material') . ")";
 
-		$resql = $db->query($sql_update);
+		$resql = $ok ? $db->query($sql_update) : false;
 		if ($resql && $ok) {
 			if (abs($diff) > 0.0001 && $prev_fk_product > 0) {
 				// Movimiento nativo en Almacén Dolibarr
@@ -254,14 +253,8 @@ if ($action == 'update_material' || $action == 'edit_material') {
 
 // Acción: Eliminar Material (Seguro vía POST con token)
 if ($action == 'delete_material' || $action == 'delete') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('delete');
 
 	$rowid = GETPOSTINT('rowid');
 	if ($rowid > 0) {
@@ -524,6 +517,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							</span>
 						</div>
 					</div>
+					<?php if ($can_write): ?>
 					<div>
 						<button type="button" class="tallerpro-btn-primary" id="tallerOpenModalBtn">
 							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -533,6 +527,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<span>Añadir</span>
 						</button>
 					</div>
+					<?php endif; ?>
 				</div>
 
 				<!-- Table Card -->
@@ -585,6 +580,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<td style="color: #1e293b; font-weight: 500;"><?php echo number_format((float) $mat->precio, 2, '.', ''); ?> €</td>
 										<td>
 											<div class="tallerpro-actions">
+												<?php if ($can_write): ?>
 												<button type="button" class="tallerpro-action-btn btn-edit-material" title="Editar"
 													data-id="<?php echo (int) $mat->rowid; ?>"
 													data-nombre="<?php echo dol_escape_htmltag($mat->nombre); ?>"
@@ -597,6 +593,8 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 														<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
 													</svg>
 												</button>
+												<?php endif; ?>
+												<?php if ($can_delete): ?>
 												<button type="button"
 													class="tallerpro-action-btn btn-delete-action"
 													title="Eliminar"
@@ -607,6 +605,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 														<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
 													</svg>
 												</button>
+												<?php endif; ?>
 											</div>
 										</td>
 									</tr>

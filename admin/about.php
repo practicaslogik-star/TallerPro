@@ -72,7 +72,7 @@ require_once dirname(__DIR__).'/lib/taller.lib.php';
 $langs->loadLangs(array("errors", "admin", "taller@taller"));
 
 // Access control
-if (!$user->admin) {
+if (!$user->admin || !empty($user->socid)) {
 	accessforbidden();
 }
 
