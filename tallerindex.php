@@ -59,10 +59,10 @@ if (!$res) {
 // Load translation files required by the page
 $langs->loadLangs(array("taller@taller"));
 
+require_once __DIR__ . '/lib/taller.lib.php';
+
 // Security check
-if (!isModEnabled('taller')) {
-	accessforbidden('Module not enabled');
-}
+tallerpro_require_permission('read', GETPOST('action', 'aZ09') == 'search_all');
 
 // AJAX: Búsqueda global en el Dashboard
 if (GETPOST('action', 'aZ09') == 'search_all') {
@@ -81,7 +81,7 @@ if (GETPOST('action', 'aZ09') == 'search_all') {
 		$sql_r .= "FROM " . MAIN_DB_PREFIX . "taller_reparacion as r ";
 		$sql_r .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON r.fk_vehiculo = v.rowid ";
 		$sql_r .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON v.fk_soc = s.rowid ";
-		$sql_r .= "WHERE r.status = 1 AND (r.descripcion LIKE '%" . $q_esc . "%' OR r.ref_factura LIKE '%" . $q_esc . "%' OR v.matricula LIKE '%" . $q_esc . "%' OR r.rowid = " . ((int) $q) . ") LIMIT 10";
+		$sql_r .= "WHERE r.status = 1 AND r.entity IN (" . getEntity('taller_reparacion') . ") AND (r.descripcion LIKE '%" . $q_esc . "%' OR r.ref_factura LIKE '%" . $q_esc . "%' OR v.matricula LIKE '%" . $q_esc . "%' OR r.rowid = " . ((int) $q) . ") LIMIT 10";
 		$res_r = $db->query($sql_r);
 		if ($res_r) {
 			while ($o = $db->fetch_object($res_r)) {
@@ -98,7 +98,7 @@ if (GETPOST('action', 'aZ09') == 'search_all') {
 		$sql_v = "SELECT v.rowid, v.matricula, v.marca, v.modelo, s.nom as cliente ";
 		$sql_v .= "FROM " . MAIN_DB_PREFIX . "taller_vehiculo as v ";
 		$sql_v .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON v.fk_soc = s.rowid ";
-		$sql_v .= "WHERE v.status = 1 AND (v.matricula LIKE '%" . $q_esc . "%' OR v.marca LIKE '%" . $q_esc . "%' OR v.modelo LIKE '%" . $q_esc . "%') LIMIT 10";
+		$sql_v .= "WHERE v.status = 1 AND v.entity IN (" . getEntity('taller_vehiculo') . ") AND (v.matricula LIKE '%" . $q_esc . "%' OR v.marca LIKE '%" . $q_esc . "%' OR v.modelo LIKE '%" . $q_esc . "%') LIMIT 10";
 		$res_v = $db->query($sql_v);
 		if ($res_v) {
 			while ($o = $db->fetch_object($res_v)) {
@@ -111,7 +111,7 @@ if (GETPOST('action', 'aZ09') == 'search_all') {
 			}
 		}
 		// Clientes
-		$sql_c = "SELECT rowid, nom, siren, email, phone FROM " . MAIN_DB_PREFIX . "societe WHERE client IN (1, 2, 3) AND (nom LIKE '%" . $q_esc . "%' OR siren LIKE '%" . $q_esc . "%' OR email LIKE '%" . $q_esc . "%' OR phone LIKE '%" . $q_esc . "%') LIMIT 10";
+		$sql_c = "SELECT rowid, nom, siren, email, phone FROM " . MAIN_DB_PREFIX . "societe WHERE client IN (1, 2, 3) AND entity IN (" . getEntity('societe') . ") AND (nom LIKE '%" . $q_esc . "%' OR siren LIKE '%" . $q_esc . "%' OR email LIKE '%" . $q_esc . "%' OR phone LIKE '%" . $q_esc . "%') LIMIT 10";
 		$res_c = $db->query($sql_c);
 		if ($res_c) {
 			while ($o = $db->fetch_object($res_c)) {
@@ -129,7 +129,7 @@ if (GETPOST('action', 'aZ09') == 'search_all') {
 		$sql_m = "SELECT tm.rowid, tm.nombre, tm.ref, tm.precio, tm.stock, ps.reel as wh_stock ";
 		$sql_m .= "FROM " . MAIN_DB_PREFIX . "taller_material tm ";
 		$sql_m .= "LEFT JOIN " . MAIN_DB_PREFIX . "product_stock ps ON ps.fk_product = tm.fk_product ";
-		$sql_m .= "WHERE tm.status = 1 AND (tm.nombre LIKE '%" . $q_esc . "%' OR tm.ref LIKE '%" . $q_esc . "%') LIMIT 10";
+		$sql_m .= "WHERE tm.status = 1 AND tm.entity IN (" . getEntity('taller_material') . ") AND (tm.nombre LIKE '%" . $q_esc . "%' OR tm.ref LIKE '%" . $q_esc . "%') LIMIT 10";
 		$res_m = $db->query($sql_m);
 		if ($res_m) {
 			while ($o = $db->fetch_object($res_m)) {

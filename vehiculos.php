@@ -55,68 +55,64 @@ if (!$res) {
 // Load translation files required by the page
 $langs->loadLangs(array("taller@taller", "companies"));
 
+require_once __DIR__ . '/lib/taller.lib.php';
+
 // Security check
-if (!isModEnabled('taller')) {
-	accessforbidden('Module not enabled');
-}
+tallerpro_require_permission('read');
+
+$can_write = $user->hasRight('taller', 'write');
+$can_delete = $user->hasRight('taller', 'delete');
 
 $table_vehiculo = MAIN_DB_PREFIX . "taller_vehiculo";
 
-// Ensure table exists
-$sql_create = "CREATE TABLE IF NOT EXISTS " . $table_vehiculo . " (
-    rowid           INT AUTO_INCREMENT PRIMARY KEY,
-    fk_soc          INT NOT NULL,
-    matricula       VARCHAR(32) NOT NULL,
-    marca           VARCHAR(64) DEFAULT NULL,
-    modelo          VARCHAR(64) DEFAULT NULL,
-    anio            VARCHAR(10) DEFAULT NULL,
-    color           VARCHAR(32) DEFAULT NULL,
-    vin             VARCHAR(64) DEFAULT NULL,
-    km              INT DEFAULT 0,
-    notas           TEXT DEFAULT NULL,
-    date_creation   DATETIME NOT NULL,
-    tms             TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    fk_user_creat   INT NOT NULL,
-    entity          INT DEFAULT 1,
-    status          SMALLINT DEFAULT 1,
-    INDEX idx_taller_vehiculo_fk_soc (fk_soc),
-    INDEX idx_taller_vehiculo_matricula (matricula)
-) ENGINE=innodb;";
-$db->query($sql_create);
+$action = GETPOST('action', 'aZ09');
 
-$action = GETPOST('action', 'alpha');
-if (empty($action) && !empty($_POST['action'])) {
-	$action = $_POST['action'];
+/**
+ * Comprueba que el vehículo exista, esté activo y pertenezca a la entidad actual.
+ */
+if (!function_exists('tallerpro_vehicle_in_entity')) {
+	function tallerpro_vehicle_in_entity($db, $veh_id) {
+		$veh_id = (int) $veh_id;
+		if ($veh_id <= 0) {
+			return false;
+		}
+		$sql_chk = "SELECT rowid FROM " . MAIN_DB_PREFIX . "taller_vehiculo WHERE rowid = " . $veh_id . " AND status = 1 AND entity IN (" . getEntity('taller_vehiculo') . ") LIMIT 1";
+		$res_chk = $db->query($sql_chk);
+		return ($res_chk && $db->num_rows($res_chk) > 0);
+	}
 }
 
 // Acción: Ver o Descargar Documento de Vehículo
 if ($action == 'view_doc' || $action == 'download_doc') {
 	$veh_id = GETPOSTINT('id');
-	if (empty($veh_id) && isset($_GET['id'])) {
-		$veh_id = (int) $_GET['id'];
+	if (empty($veh_id)) {
+		$veh_id = GETPOSTINT('rowid');
 	}
-	$raw_file = isset($_GET['file']) ? $_GET['file'] : (isset($_POST['file']) ? $_POST['file'] : '');
+	$raw_file = GETPOST('file', 'alphanohtml');
 	$filename = basename(trim($raw_file));
 	$filename = preg_replace('/[^a-zA-Z0-9_\-\.]/', '', $filename);
 
-	if ($veh_id > 0 && !empty($filename) && $filename !== 'metadata.json') {
+	if ($veh_id > 0 && !empty($filename) && $filename !== 'metadata.json' && tallerpro_vehicle_in_entity($db, $veh_id)) {
 		$dir_veh_docs = DOL_DATA_ROOT . '/taller/vehiculos/' . ((int) $veh_id);
 		$filepath = $dir_veh_docs . '/' . $filename;
 		if (file_exists($filepath) && is_file($filepath)) {
 			$ext = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
-			$mimes = array(
+			$mimes_ext = array(
 				'pdf'  => 'application/pdf',
 				'jpg'  => 'image/jpeg',
 				'jpeg' => 'image/jpeg',
 				'png'  => 'image/png',
 				'webp' => 'image/webp',
-				'gif'  => 'image/gif',
 				'doc'  => 'application/msword',
 				'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 				'odt'  => 'application/vnd.oasis.opendocument.text',
 				'txt'  => 'text/plain',
 			);
-			$mime = isset($mimes[$ext]) ? $mimes[$ext] : 'application/octet-stream';
+			$real_mime = tallerpro_detect_real_mime($filepath);
+			$mime = isset($mimes_ext[$ext]) ? $mimes_ext[$ext] : (!empty($real_mime) ? $real_mime : 'application/octet-stream');
+			if ($real_mime === 'application/octet-stream' || empty($mimes_ext[$ext])) {
+				$mime = 'application/octet-stream';
+			}
 
 			$download_name = $filename;
 			$meta_file = $dir_veh_docs . '/metadata.json';
@@ -126,13 +122,21 @@ if ($action == 'view_doc' || $action == 'download_doc') {
 					$download_name = $metadata[$filename]['original_name'];
 				}
 			}
+			$download_name = preg_replace('/[\r\n"\\\\]+/', '_', basename((string) $download_name));
+			if (empty($download_name)) {
+				$download_name = $filename;
+			}
+
+			$safe_inline_exts = array('pdf', 'jpg', 'jpeg', 'png', 'webp');
+			$disposition = ($action == 'view_doc' && in_array($ext, $safe_inline_exts, true)) ? 'inline' : 'attachment';
 
 			if (ob_get_level()) {
 				ob_end_clean();
 			}
 			header('Content-Description: File Transfer');
+			header('X-Content-Type-Options: nosniff');
 			header('Content-Type: ' . $mime);
-			header('Content-Disposition: ' . ($action == 'view_doc' ? 'inline' : 'attachment') . '; filename="' . $download_name . '"');
+			header('Content-Disposition: ' . $disposition . '; filename="' . $download_name . '"');
 			header('Content-Transfer-Encoding: binary');
 			header('Expires: 0');
 			header('Cache-Control: private, must-revalidate, post-check=0, pre-check=0');
@@ -147,18 +151,12 @@ if ($action == 'view_doc' || $action == 'download_doc') {
 
 // Acción: Subir Documento de Vehículo
 if ($action == 'upload_doc') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('write');
 
 	$veh_id = GETPOSTINT('id');
-	if ($veh_id <= 0) {
-		setEventMessages("ID de vehículo no válido", null, 'errors');
+	if ($veh_id <= 0 || !tallerpro_vehicle_in_entity($db, $veh_id)) {
+		setEventMessages("ID de vehículo no válido o sin acceso en esta entidad", null, 'errors');
 		header("Location: " . $_SERVER['PHP_SELF']);
 		exit;
 	}
@@ -171,18 +169,22 @@ if ($action == 'upload_doc') {
 
 	$orig_name = basename($_FILES['doc_file']['name']);
 	$ext = strtolower(pathinfo($orig_name, PATHINFO_EXTENSION));
-	$allowed_exts = array('pdf', 'jpg', 'jpeg', 'png', 'webp', 'doc', 'docx', 'odt', 'txt');
-	if (!in_array($ext, $allowed_exts)) {
-		setEventMessages("Formato no permitido (.{$ext}). Se aceptan PDF, imágenes (JPG, PNG) y documentos comunes.", null, 'errors');
-		header("Location: " . $_SERVER['PHP_SELF'] . "?id=" . $veh_id . "&tab=documentos");
-		exit;
-	}
 
 	if ($_FILES['doc_file']['size'] > 15 * 1024 * 1024) {
 		setEventMessages("El archivo supera el límite de 15 MB.", null, 'errors');
 		header("Location: " . $_SERVER['PHP_SELF'] . "?id=" . $veh_id . "&tab=documentos");
 		exit;
 	}
+
+	// Validación estricta de extensión + MIME real del contenido binario + cabecera de imagen
+	$file_validation = tallerpro_validate_uploaded_file($_FILES['doc_file']['tmp_name'], $ext);
+	if (empty($file_validation['valid'])) {
+		setEventMessages($file_validation['error'], null, 'errors');
+		header("Location: " . $_SERVER['PHP_SELF'] . "?id=" . $veh_id . "&tab=documentos");
+		exit;
+	}
+
+	require_once DOL_DOCUMENT_ROOT . '/core/lib/files.lib.php';
 
 	$dir_veh_docs = DOL_DATA_ROOT . '/taller/vehiculos/' . ((int) $veh_id);
 	if (!is_dir($dir_veh_docs)) {
@@ -193,7 +195,8 @@ if ($action == 'upload_doc') {
 	$safe_filename = time() . '_' . substr($safe_base, 0, 40) . '.' . $ext;
 	$dest_path = $dir_veh_docs . '/' . $safe_filename;
 
-	if (move_uploaded_file($_FILES['doc_file']['tmp_name'], $dest_path)) {
+	$move_res = dol_move_uploaded_file($_FILES['doc_file']['tmp_name'], $dest_path, 0, 0, $_FILES['doc_file']['error'], 0, 'doc_file');
+	if ($move_res > 0 && file_exists($dest_path)) {
 		$meta_file = $dir_veh_docs . '/metadata.json';
 		$metadata = array();
 		if (file_exists($meta_file)) {
@@ -232,24 +235,18 @@ if ($action == 'upload_doc') {
 
 // Acción: Eliminar Documento de Vehículo
 if ($action == 'delete_doc') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('delete');
 
 	$veh_id = GETPOSTINT('id');
-	if (empty($veh_id) && isset($_POST['id'])) {
-		$veh_id = (int) $_POST['id'];
+	if (empty($veh_id)) {
+		$veh_id = GETPOSTINT('rowid');
 	}
-	$raw_file = isset($_POST['file']) ? $_POST['file'] : (isset($_GET['file']) ? $_GET['file'] : '');
+	$raw_file = GETPOST('file', 'alphanohtml');
 	$filename = basename(trim($raw_file));
 	$filename = preg_replace('/[^a-zA-Z0-9_\-\.]/', '', $filename);
 
-	if ($veh_id > 0 && !empty($filename) && $filename !== 'metadata.json') {
+	if ($veh_id > 0 && !empty($filename) && $filename !== 'metadata.json' && tallerpro_vehicle_in_entity($db, $veh_id)) {
 		$dir_veh_docs = DOL_DATA_ROOT . '/taller/vehiculos/' . ((int) $veh_id);
 		$filepath = $dir_veh_docs . '/' . $filename;
 		if (file_exists($filepath) && is_file($filepath)) {
@@ -273,86 +270,65 @@ if ($action == 'delete_doc') {
 
 // Acción: Crear Vehículo
 if ($action == 'create_vehiculo' || $action == 'add_vehiculo') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('write');
 
 	$matricula = strtoupper(trim(GETPOST('matricula', 'alphanohtml')));
-	if (empty($matricula) && !empty($_POST['matricula'])) {
-		$matricula = strtoupper(trim($_POST['matricula']));
-	}
-
-	$fk_soc = GETPOSTINT('fk_soc');
-	if (empty($fk_soc) && !empty($_POST['fk_soc'])) {
-		$fk_soc = (int) $_POST['fk_soc'];
-	}
-
-	$marca   = trim(GETPOST('marca', 'alphanohtml'));
-	$modelo  = trim(GETPOST('modelo', 'alphanohtml'));
-	$anio    = trim(GETPOST('anio', 'alphanohtml'));
-	$color   = trim(GETPOST('color', 'alphanohtml'));
-	$vin     = trim(GETPOST('vin', 'alphanohtml'));
-	$km      = GETPOSTINT('km');
-	$notas   = trim(GETPOST('notas', 'restricthtml'));
-	if (empty($notas) && !empty($_POST['notas'])) {
-		$notas = trim($_POST['notas']);
-	}
+	$fk_soc    = GETPOSTINT('fk_soc');
+	$marca     = trim(GETPOST('marca', 'alphanohtml'));
+	$modelo    = trim(GETPOST('modelo', 'alphanohtml'));
+	$anio      = trim(GETPOST('anio', 'alphanohtml'));
+	$color     = trim(GETPOST('color', 'alphanohtml'));
+	$vin       = trim(GETPOST('vin', 'alphanohtml'));
+	$km        = GETPOSTINT('km');
+	$notas     = trim(GETPOST('notas', 'restricthtml'));
 
 	if (empty($matricula)) {
 		setEventMessages($langs->trans("ErrorFieldRequired", "Matrícula"), null, 'errors');
 	} elseif ($fk_soc <= 0) {
 		setEventMessages($langs->trans("ErrorFieldRequired", "Propietario / Cliente"), null, 'errors');
 	} else {
-		$sql_insert = "INSERT INTO " . $table_vehiculo . " (";
-		$sql_insert .= "fk_soc, matricula, marca, modelo, anio, color, vin, km, notas, date_creation, fk_user_creat, entity, status";
-		$sql_insert .= ") VALUES (";
-		$sql_insert .= ((int) $fk_soc) . ", ";
-		$sql_insert .= "'" . $db->escape($matricula) . "', ";
-		$sql_insert .= "'" . $db->escape($marca) . "', ";
-		$sql_insert .= "'" . $db->escape($modelo) . "', ";
-		$sql_insert .= "'" . $db->escape($anio) . "', ";
-		$sql_insert .= "'" . $db->escape($color) . "', ";
-		$sql_insert .= "'" . $db->escape($vin) . "', ";
-		$sql_insert .= ((int) $km) . ", ";
-		$sql_insert .= "'" . $db->escape($notas) . "', ";
-		$sql_insert .= "'" . $db->idate(dol_now()) . "', ";
-		$sql_insert .= ((int) $user->id) . ", ";
-		$sql_insert .= ((int) $conf->entity) . ", ";
-		$sql_insert .= "1";
-		$sql_insert .= ")";
-
-		$resql = $db->query($sql_insert);
-		if ($resql) {
-			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
-			header("Location: " . $_SERVER['PHP_SELF']);
-			exit;
+		$res_soc_chk = $db->query("SELECT rowid FROM " . MAIN_DB_PREFIX . "societe WHERE rowid = " . ((int) $fk_soc) . " AND entity IN (" . getEntity('societe') . ")");
+		if (!$res_soc_chk || $db->num_rows($res_soc_chk) <= 0) {
+			setEventMessages("El cliente seleccionado no pertenece a la empresa activa", null, 'errors');
 		} else {
-			dol_syslog("TallerPro - Error al guardar vehículo: " . $db->lasterror(), LOG_ERR);
-			setEventMessages("Error al guardar el vehículo", null, 'errors');
+			$sql_insert = "INSERT INTO " . $table_vehiculo . " (";
+			$sql_insert .= "fk_soc, matricula, marca, modelo, anio, color, vin, km, notas, date_creation, fk_user_creat, entity, status";
+			$sql_insert .= ") VALUES (";
+			$sql_insert .= ((int) $fk_soc) . ", ";
+			$sql_insert .= "'" . $db->escape($matricula) . "', ";
+			$sql_insert .= "'" . $db->escape($marca) . "', ";
+			$sql_insert .= "'" . $db->escape($modelo) . "', ";
+			$sql_insert .= "'" . $db->escape($anio) . "', ";
+			$sql_insert .= "'" . $db->escape($color) . "', ";
+			$sql_insert .= "'" . $db->escape($vin) . "', ";
+			$sql_insert .= ((int) $km) . ", ";
+			$sql_insert .= "'" . $db->escape($notas) . "', ";
+			$sql_insert .= "'" . $db->idate(dol_now()) . "', ";
+			$sql_insert .= ((int) $user->id) . ", ";
+			$sql_insert .= ((int) $conf->entity) . ", ";
+			$sql_insert .= "1";
+			$sql_insert .= ")";
+
+			$resql = $db->query($sql_insert);
+			if ($resql) {
+				setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
+				header("Location: " . $_SERVER['PHP_SELF']);
+				exit;
+			} else {
+				dol_syslog("TallerPro - Error al guardar vehículo: " . $db->lasterror(), LOG_ERR);
+				setEventMessages("Error al guardar el vehículo", null, 'errors');
+			}
 		}
 	}
 }
 
 // Acción: Eliminar Vehículo (Seguro vía POST con token)
 if ($action == 'delete_vehiculo' || $action == 'delete') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('delete');
 
 	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
 	if ($rowid > 0) {
 		$sql_del = "UPDATE " . $table_vehiculo . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_vehiculo') . ")";
 		$resql = $db->query($sql_del);
@@ -389,19 +365,10 @@ $res_veh = $db->query($sql_veh);
 $num_veh = $res_veh ? $db->num_rows($res_veh) : 0;
 
 $veh_id = GETPOSTINT('id');
-if (empty($veh_id) && isset($_GET['id'])) {
-	$veh_id = (int) $_GET['id'];
-}
 if (empty($veh_id)) {
 	$veh_id = GETPOSTINT('rowid');
 }
-if (empty($veh_id) && isset($_GET['rowid'])) {
-	$veh_id = (int) $_GET['rowid'];
-}
 $veh_matricula = trim(GETPOST('matricula', 'alphanohtml'));
-if (empty($veh_matricula) && isset($_GET['matricula'])) {
-	$veh_matricula = trim($_GET['matricula']);
-}
 
 $veh_detail = null;
 $client_detail = null;
@@ -430,7 +397,7 @@ if ($veh_id > 0 || !empty($veh_matricula)) {
 		if (!empty($veh_detail->fk_soc)) {
 			require_once DOL_DOCUMENT_ROOT . '/societe/class/societe.class.php';
 			$soc = new Societe($db);
-			if ($soc->fetch($veh_detail->fk_soc) > 0) {
+			if ($soc->fetch($veh_detail->fk_soc) > 0 && tallerpro_is_entity_allowed($soc->entity, 'societe')) {
 				$client_detail = $soc;
 			}
 		}
@@ -438,7 +405,7 @@ if ($veh_id > 0 || !empty($veh_matricula)) {
 		// Repairs of this vehicle
 		$sql_vr = "SELECT rowid, fecha, descripcion, coste_mo, notas, ref_factura ";
 		$sql_vr .= "FROM " . MAIN_DB_PREFIX . "taller_reparacion ";
-		$sql_vr .= "WHERE fk_vehiculo = " . ((int) $veh_detail->rowid) . " AND status = 1 ";
+		$sql_vr .= "WHERE fk_vehiculo = " . ((int) $veh_detail->rowid) . " AND status = 1 AND entity IN (" . getEntity('taller_reparacion') . ") ";
 		$sql_vr .= "ORDER BY fecha DESC, rowid DESC";
 		$res_vr = $db->query($sql_vr);
 		if ($res_vr) {
@@ -451,8 +418,8 @@ if ($veh_id > 0 || !empty($veh_matricula)) {
 		$sql_inv = "SELECT DISTINCT f.rowid, f.ref, f.total_ttc, f.datef, f.paye, f.fk_statut ";
 		$sql_inv .= "FROM " . MAIN_DB_PREFIX . "facture as f ";
 		$sql_inv .= "LEFT JOIN " . MAIN_DB_PREFIX . "facture_extrafields as fe ON fe.fk_object = f.rowid ";
-		$sql_inv .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_reparacion as tr ON tr.ref_factura = f.ref ";
-		$sql_inv .= "WHERE (fe.fk_vehiculo = " . ((int) $veh_detail->rowid) . " OR tr.fk_vehiculo = " . ((int) $veh_detail->rowid);
+		$sql_inv .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_reparacion as tr ON (tr.ref_factura = f.ref AND tr.entity IN (" . getEntity('taller_reparacion') . ")) ";
+		$sql_inv .= "WHERE f.entity IN (" . getEntity('facture') . ") AND (fe.fk_vehiculo = " . ((int) $veh_detail->rowid) . " OR tr.fk_vehiculo = " . ((int) $veh_detail->rowid);
 		if (!empty($veh_detail->fk_soc)) {
 			$sql_inv .= " OR (fe.fk_vehiculo IS NULL AND f.fk_soc = " . ((int) $veh_detail->fk_soc) . ")";
 		}
@@ -528,7 +495,7 @@ if ($veh_id > 0 || !empty($veh_matricula)) {
 		// Insurance of this vehicle
 		$sql_vs = "SELECT rowid, compania, poliza, tipo, fecha_inicio, fecha_fin, telefono, notas ";
 		$sql_vs .= "FROM " . MAIN_DB_PREFIX . "taller_seguro ";
-		$sql_vs .= "WHERE fk_vehiculo = " . ((int) $veh_detail->rowid) . " AND (status = 1 OR status IS NULL) ";
+		$sql_vs .= "WHERE fk_vehiculo = " . ((int) $veh_detail->rowid) . " AND (status = 1 OR status IS NULL) AND entity IN (" . getEntity('taller_seguro') . ") ";
 		$sql_vs .= "ORDER BY rowid DESC";
 		$res_vs = $db->query($sql_vs);
 		if ($res_vs) {
@@ -1085,6 +1052,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 											Fichas técnicas, permisos de circulación, informes de ITV, pólizas y fotografías adjuntas.
 										</div>
 									</div>
+									<?php if ($can_write): ?>
 									<button type="button" id="btnToggleUploadDoc" class="tallerpro-btn-secondary" style="display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: var(--tp-radius-sm); font-size: 13px; font-weight: 600; cursor: pointer; border: 1px solid var(--tp-border); background: var(--tp-bg-card); color: var(--tp-text-dark);">
 										<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
 											<line x1="12" y1="5" x2="12" y2="19"></line>
@@ -1092,8 +1060,10 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										</svg>
 										<span>Subir documento</span>
 									</button>
+									<?php endif; ?>
 								</div>
 
+								<?php if ($can_write): ?>
 								<!-- Formulario desplegable para subir documento -->
 								<div id="tallerproUploadDocBox" class="tallerpro-upload-doc-box" style="display: none; background: var(--tp-bg); border: 1px dashed var(--tp-border-strong); border-radius: var(--tp-radius); padding: 20px; margin-bottom: 24px;">
 									<form method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" enctype="multipart/form-data">
@@ -1158,6 +1128,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										</div>
 									</form>
 								</div>
+								<?php endif; ?>
 
 								<!-- Listado de documentos -->
 								<?php if (!empty($veh_documentos)): ?>
@@ -1214,6 +1185,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 														</svg>
 														<span>Descargar</span>
 													</a>
+													<?php if ($can_delete): ?>
 													<form method="POST" action="<?php echo $_SERVER['PHP_SELF']; ?>" style="display: inline;" onsubmit="return confirm('¿Seguro que deseas eliminar este documento? Esta acción no se puede deshacer.');">
 														<input type="hidden" name="action" value="delete_doc">
 														<input type="hidden" name="id" value="<?php echo (int) $veh_detail->rowid; ?>">
@@ -1226,6 +1198,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															</svg>
 														</button>
 													</form>
+													<?php endif; ?>
 												</div>
 											</div>
 										<?php endforeach; ?>
@@ -1281,6 +1254,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<h1 class="tallerpro-page-title"><?php echo $langs->trans("Vehiculos"); ?></h1>
 							<p class="tallerpro-page-subtitle"><?php echo $num_veh; ?> registro(s)</p>
 						</div>
+						<?php if ($can_write): ?>
 						<div>
 							<button type="button" class="tallerpro-btn-primary" id="tallerOpenModalBtn">
 								<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1290,6 +1264,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<span>Añadir</span>
 							</button>
 						</div>
+						<?php endif; ?>
 					</div>
 
 					<!-- Table Card -->
@@ -1337,6 +1312,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															<line x1="10" y1="14" x2="21" y2="3"></line>
 														</svg>
 													</a>
+													<?php if ($can_delete): ?>
 													<button type="button"
 														class="tallerpro-action-btn btn-delete-action"
 														title="Eliminar vehículo"
@@ -1347,6 +1323,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
 														</svg>
 													</button>
+													<?php endif; ?>
 												</div>
 											</td>
 										</tr>

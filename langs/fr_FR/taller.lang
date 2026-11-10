@@ -1,0 +1,37 @@
+# Translation file - French
+ModuleTallerName = TallerPro
+ModuleTallerDesc = Module complet de gestion d'atelier et garage pour Dolibarr
+
+TallerPro = TallerPro
+GestionDeTaller = Gestion d'atelier
+Menu = Menu
+Inicio = Accueil
+Clientes = Clients
+Vehiculos = Véhicules
+Reparaciones = Réparations
+Materiales = Matériaux
+Seguros = Assurances
+Facturas = Factures
+Configuracion = Configuration
+
+SearchPlaceholder = Ex: 1234ABC, Jean Dupont, filtre à huile...
+SearchSubtitle = Rechercher par immatriculation, propriétaire ou produit.
+
+UltimasReparaciones = Dernières réparations
+SinReparaciones = Aucune réparation enregistrée pour le moment.
+VehiculosRecientes = Véhicules récents
+SinVehiculos = Aucun véhicule enregistré pour le moment.
+
+VolverADolibarr = Dolibarr ERP
+
+# Configuration et Administration
+TallerSetup = Configuration de TallerPro
+TallerSetupPage = Page de configuration du module TallerPro
+TallerAbout = À propos de TallerPro
+
+# Permissions du module
+PermissionTallerRead = Consulter les données de l'atelier (clients, véhicules, réparations, matériaux, assurances et factures)
+PermissionTallerWrite = Créer et modifier les enregistrements de l'atelier (clients, véhicules, réparations, matériaux, assurances)
+PermissionTallerDelete = Supprimer les enregistrements et documents de l'atelier
+PermissionTallerFacturar = Émettre, modifier et gérer la facturation et les devis de l'atelier
+

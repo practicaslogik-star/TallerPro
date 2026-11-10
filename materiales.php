@@ -55,108 +55,42 @@ if (!$res) {
 // Load translation files required by the page
 $langs->loadLangs(array("taller@taller"));
 
+require_once __DIR__ . '/lib/taller.lib.php';
+
 // Security check
-if (!isModEnabled('taller')) {
-	accessforbidden('Module not enabled');
-}
+tallerpro_require_permission('read');
+
+$can_write = $user->hasRight('taller', 'write');
+$can_delete = $user->hasRight('taller', 'delete');
 
 require_once __DIR__ . '/lib/taller_stock.lib.php';
 
 $table_material = MAIN_DB_PREFIX . "taller_material";
 $table_stock_mvt = MAIN_DB_PREFIX . "taller_stock_mvt";
 
-// Ensure table exists
-$sql_create = "CREATE TABLE IF NOT EXISTS " . $table_material . " (
-    rowid           INT AUTO_INCREMENT PRIMARY KEY,
-    nombre          VARCHAR(255) NOT NULL,
-    ref             VARCHAR(128) DEFAULT NULL,
-    fk_product      INT DEFAULT NULL,
-    proveedor       VARCHAR(255) DEFAULT NULL,
-    stock           DOUBLE DEFAULT 0,
-    precio          DOUBLE(24,8) DEFAULT 0,
-    notas           TEXT DEFAULT NULL,
-    date_creation   DATETIME NOT NULL,
-    tms             TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    fk_user_creat   INT NOT NULL,
-    entity          INT DEFAULT 1,
-    status          SMALLINT DEFAULT 1,
-    INDEX idx_taller_material_ref (ref),
-    INDEX idx_taller_material_nombre (nombre),
-    INDEX idx_taller_material_fk_product (fk_product)
-) ENGINE=innodb;";
-$db->query($sql_create);
-@$db->query("ALTER TABLE " . $table_material . " ADD COLUMN fk_product INT DEFAULT NULL AFTER ref");
-@$db->query("ALTER TABLE " . $table_material . " ADD INDEX idx_taller_material_fk_product (fk_product)");
-
 $default_warehouse_id = tallerpro_get_default_warehouse($user);
 tallerpro_sync_all_materials($user);
 
-$sql_create_mvt = "CREATE TABLE IF NOT EXISTS " . $table_stock_mvt . " (
-    rowid           INT AUTO_INCREMENT PRIMARY KEY,
-    fk_material     INT NOT NULL,
-    cantidad        DOUBLE NOT NULL,
-    tipo            VARCHAR(32) NOT NULL,
-    fk_reparacion   INT DEFAULT NULL,
-    stock_anterior  DOUBLE DEFAULT 0,
-    stock_posterior DOUBLE DEFAULT 0,
-    fecha           DATETIME NOT NULL,
-    fk_user         INT NOT NULL,
-    descripcion     VARCHAR(255) DEFAULT NULL,
-    entity          INT DEFAULT 1,
-    INDEX idx_taller_mvt_mat (fk_material),
-    INDEX idx_taller_mvt_rep (fk_reparacion)
-) ENGINE=innodb;";
-$db->query($sql_create_mvt);
-
-$action = GETPOST('action', 'alpha');
-if (empty($action) && !empty($_POST['action'])) {
-	$action = $_POST['action'];
-}
+$action = GETPOST('action', 'aZ09');
 
 // Acción: Crear Material
 if ($action == 'create_material' || $action == 'add_material') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('write');
 
-	$nombre = trim(GETPOST('nombre', 'alphanohtml'));
-	if (empty($nombre) && !empty($_POST['nombre'])) {
-		$nombre = trim($_POST['nombre']);
-	}
-
-	$ref = trim(GETPOST('ref', 'alphanohtml'));
-	if (empty($ref) && !empty($_POST['ref'])) {
-		$ref = trim($_POST['ref']);
-	}
-
+	$nombre    = trim(GETPOST('nombre', 'alphanohtml'));
+	$ref       = trim(GETPOST('ref', 'alphanohtml'));
 	$proveedor = trim(GETPOST('proveedor', 'alphanohtml'));
-	if (empty($proveedor) && !empty($_POST['proveedor'])) {
-		$proveedor = trim($_POST['proveedor']);
-	}
-
-	$stock = GETPOSTFLOAT('stock');
-	if ($stock === null || $stock === '') {
-		$stock = isset($_POST['stock']) ? (float) $_POST['stock'] : 0;
-	}
-
-	$precio = GETPOSTFLOAT('precio');
-	if ($precio === null || $precio === '') {
-		$precio = isset($_POST['precio']) ? (float) $_POST['precio'] : 0;
-	}
-
-	$notas = trim(GETPOST('notas', 'restricthtml'));
-	if (empty($notas) && !empty($_POST['notas'])) {
-		$notas = trim($_POST['notas']);
-	}
+	$stock     = (float) price2num(GETPOST('stock', 'alphanohtml'));
+	$precio    = (float) price2num(GETPOST('precio', 'alphanohtml'));
+	$notas     = trim(GETPOST('notas', 'restricthtml'));
 
 	if (empty($nombre)) {
 		setEventMessages($langs->trans("ErrorFieldRequired", "Nombre"), null, 'errors');
 	} else {
+		$db->begin();
+		$ok = true;
+
 		// Sincronizar o crear en producto nativo de Dolibarr (llx_product)
 		$fk_product = tallerpro_get_or_create_product($ref, $nombre, (float) $precio, 0, $user);
 
@@ -182,17 +116,31 @@ if ($action == 'create_material' || $action == 'add_material') {
 			if ($new_mat_id > 0 && $stock > 0) {
 				// 1. Movimiento nativo en Almacén Dolibarr
 				if ($fk_product > 0) {
-					tallerpro_record_stock_movement($fk_product, (float) $stock, 'Alta inicial de material', 'taller_material', $new_mat_id, $user);
+					$res_sm = tallerpro_record_stock_movement($fk_product, (float) $stock, 'Alta inicial de material', 'taller_material', $new_mat_id, $user);
+					if ($res_sm < 0) {
+						$ok = false;
+					}
 				}
 				// 2. Registro histórico en taller_stock_mvt
-				$sql_mvt = "INSERT INTO " . $table_stock_mvt . " (fk_material, cantidad, tipo, stock_anterior, stock_posterior, fecha, fk_user, descripcion, entity) VALUES (";
-				$sql_mvt .= $new_mat_id . ", " . ((float) $stock) . ", 'alta_inicial', 0, " . ((float) $stock) . ", '" . $db->idate(dol_now()) . "', " . ((int) $user->id) . ", 'Alta inicial de material', " . ((int) $conf->entity) . ")";
-				$db->query($sql_mvt);
+				if ($ok) {
+					$sql_mvt = "INSERT INTO " . $table_stock_mvt . " (fk_material, cantidad, tipo, stock_anterior, stock_posterior, fecha, fk_user, descripcion, entity) VALUES (";
+					$sql_mvt .= $new_mat_id . ", " . ((float) $stock) . ", 'alta_inicial', 0, " . ((float) $stock) . ", '" . $db->idate(dol_now()) . "', " . ((int) $user->id) . ", 'Alta inicial de material', " . ((int) $conf->entity) . ")";
+					if (!$db->query($sql_mvt)) {
+						$ok = false;
+					}
+				}
 			}
+		} else {
+			$ok = false;
+		}
+
+		if ($ok) {
+			$db->commit();
 			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
 			header("Location: " . $_SERVER['PHP_SELF']);
 			exit;
 		} else {
+			$db->rollback();
 			dol_syslog("TallerPro - Error al guardar material: " . $db->lasterror(), LOG_ERR);
 			setEventMessages("Error al guardar el material", null, 'errors');
 		}
@@ -201,82 +149,63 @@ if ($action == 'create_material' || $action == 'add_material') {
 
 // Acción: Actualizar Material
 if ($action == 'update_material' || $action == 'edit_material') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('write');
 
-	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
-
-	$nombre = trim(GETPOST('nombre', 'alphanohtml'));
-	if (empty($nombre) && !empty($_POST['nombre'])) {
-		$nombre = trim($_POST['nombre']);
-	}
-
-	$ref = trim(GETPOST('ref', 'alphanohtml'));
-	if (empty($ref) && !empty($_POST['ref'])) {
-		$ref = trim($_POST['ref']);
-	}
-
+	$rowid     = GETPOSTINT('rowid');
+	$nombre    = trim(GETPOST('nombre', 'alphanohtml'));
+	$ref       = trim(GETPOST('ref', 'alphanohtml'));
 	$proveedor = trim(GETPOST('proveedor', 'alphanohtml'));
-	if (empty($proveedor) && !empty($_POST['proveedor'])) {
-		$proveedor = trim($_POST['proveedor']);
-	}
-
-	$stock = GETPOSTFLOAT('stock');
-	if ($stock === null || $stock === '') {
-		$stock = isset($_POST['stock']) ? (float) $_POST['stock'] : 0;
-	}
-
-	$precio = GETPOSTFLOAT('precio');
-	if ($precio === null || $precio === '') {
-		$precio = isset($_POST['precio']) ? (float) $_POST['precio'] : 0;
-	}
-
-	$notas = trim(GETPOST('notas', 'restricthtml'));
-	if (empty($notas) && !empty($_POST['notas'])) {
-		$notas = trim($_POST['notas']);
-	}
+	$stock     = (float) price2num(GETPOST('stock', 'alphanohtml'));
+	$precio    = (float) price2num(GETPOST('precio', 'alphanohtml'));
+	$notas     = trim(GETPOST('notas', 'restricthtml'));
 
 	if (empty($nombre)) {
 		setEventMessages($langs->trans("ErrorFieldRequired", "Nombre"), null, 'errors');
 	} elseif ($rowid <= 0) {
 		setEventMessages("Identificador de material no válido", null, 'errors');
 	} else {
+		$db->begin();
+		$ok = true;
+
 		$prev_stock = 0.0;
 		$prev_fk_product = 0;
-		$res_prev = $db->query("SELECT stock, fk_product FROM " . $table_material . " WHERE rowid = " . ((int) $rowid));
+		$res_prev = $db->query("SELECT stock, fk_product FROM " . $table_material . " WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_material') . ")");
 		if ($res_prev && ($p_mat = $db->fetch_object($res_prev))) {
 			$prev_stock = (float) $p_mat->stock;
 			$prev_fk_product = (int) $p_mat->fk_product;
+		} else {
+			$ok = false;
 		}
 
 		// Sincronizar con Dolibarr Product
-		if ($prev_fk_product <= 0) {
-			$prev_fk_product = tallerpro_get_or_create_product($ref, $nombre, (float) $precio, 0, $user);
-		} else {
-			$prod_obj = new Product($db);
-			if ($prod_obj->fetch($prev_fk_product) > 0) {
-				$prod_obj->label = $nombre;
-				if (!empty($ref)) {
-					$prod_obj->ref = $ref;
+		if ($ok) {
+			if ($prev_fk_product <= 0) {
+				$prev_fk_product = tallerpro_get_or_create_product($ref, $nombre, (float) $precio, 0, $user);
+			} else {
+				$prod_obj = new Product($db);
+				if ($prod_obj->fetch($prev_fk_product) > 0) {
+					$prod_obj->label = $nombre;
+					if (!empty($ref)) {
+						$prod_obj->ref = $ref;
+					}
+					$prod_obj->price = (float) $precio;
+					$res_prod_upd = $prod_obj->update($prev_fk_product, $user);
+					if ($res_prod_upd < 0) {
+						$ok = false;
+					}
 				}
-				$prod_obj->price = (float) $precio;
-				$prod_obj->update($prev_fk_product, $user);
 			}
 		}
 
 		// Obtener el stock real del almacén antes del ajuste
-		$current_wh_stock = tallerpro_get_product_stock($prev_fk_product, $default_warehouse_id);
-		$base_stock = ($current_wh_stock > 0 || $prev_stock == 0) ? $current_wh_stock : $prev_stock;
-		$diff = ((float) $stock) - $base_stock;
+		$base_stock = $prev_stock;
+		$diff = 0.0;
+		if ($ok) {
+			$current_wh_stock = tallerpro_get_product_stock($prev_fk_product, $default_warehouse_id);
+			$base_stock = ($current_wh_stock > 0 || $prev_stock == 0) ? $current_wh_stock : $prev_stock;
+			$diff = ((float) $stock) - $base_stock;
+		}
 
 		$sql_update = "UPDATE " . $table_material . " SET ";
 		$sql_update .= "nombre = '" . $db->escape($nombre) . "', ";
@@ -288,20 +217,34 @@ if ($action == 'update_material' || $action == 'edit_material') {
 		$sql_update .= "notas = '" . $db->escape($notas) . "' ";
 		$sql_update .= "WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_material') . ")";
 
-		$resql = $db->query($sql_update);
-		if ($resql) {
+		$resql = $ok ? $db->query($sql_update) : false;
+		if ($resql && $ok) {
 			if (abs($diff) > 0.0001 && $prev_fk_product > 0) {
 				// Movimiento nativo en Almacén Dolibarr
-				tallerpro_record_stock_movement($prev_fk_product, $diff, 'Ajuste manual de stock', 'taller_material', $rowid, $user);
+				$res_sm = tallerpro_record_stock_movement($prev_fk_product, $diff, 'Ajuste manual de stock', 'taller_material', $rowid, $user);
+				if ($res_sm < 0) {
+					$ok = false;
+				}
 
-				$sql_mvt = "INSERT INTO " . $table_stock_mvt . " (fk_material, cantidad, tipo, stock_anterior, stock_posterior, fecha, fk_user, descripcion, entity) VALUES (";
-				$sql_mvt .= ((int) $rowid) . ", " . $diff . ", 'ajuste_manual', " . $base_stock . ", " . ((float) $stock) . ", '" . $db->idate(dol_now()) . "', " . ((int) $user->id) . ", 'Ajuste manual de stock', " . ((int) $conf->entity) . ")";
-				$db->query($sql_mvt);
+				if ($ok) {
+					$sql_mvt = "INSERT INTO " . $table_stock_mvt . " (fk_material, cantidad, tipo, stock_anterior, stock_posterior, fecha, fk_user, descripcion, entity) VALUES (";
+					$sql_mvt .= ((int) $rowid) . ", " . $diff . ", 'ajuste_manual', " . $base_stock . ", " . ((float) $stock) . ", '" . $db->idate(dol_now()) . "', " . ((int) $user->id) . ", 'Ajuste manual de stock', " . ((int) $conf->entity) . ")";
+					if (!$db->query($sql_mvt)) {
+						$ok = false;
+					}
+				}
 			}
+		} else {
+			$ok = false;
+		}
+
+		if ($ok) {
+			$db->commit();
 			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
 			header("Location: " . $_SERVER['PHP_SELF']);
 			exit;
 		} else {
+			$db->rollback();
 			dol_syslog("TallerPro - Error al actualizar material ID " . $rowid . ": " . $db->lasterror(), LOG_ERR);
 			setEventMessages("Error al actualizar el material", null, 'errors');
 		}
@@ -310,27 +253,21 @@ if ($action == 'update_material' || $action == 'edit_material') {
 
 // Acción: Eliminar Material (Seguro vía POST con token)
 if ($action == 'delete_material' || $action == 'delete') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('delete');
 
 	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
 	if ($rowid > 0) {
+		$db->begin();
 		$sql_del = "UPDATE " . $table_material . " SET status = 0 WHERE rowid = " . ((int) $rowid) . " AND entity IN (" . getEntity('taller_material') . ")";
 		$resql = $db->query($sql_del);
 		if ($resql) {
+			$db->commit();
 			setEventMessages($langs->trans("RecordDeleted"), null, 'mesgs');
 			header("Location: " . $_SERVER['PHP_SELF']);
 			exit;
 		} else {
+			$db->rollback();
 			dol_syslog("TallerPro - Error al eliminar material ID " . $rowid . ": " . $db->lasterror(), LOG_ERR);
 			setEventMessages("Error al eliminar el material", null, 'errors');
 		}
@@ -580,6 +517,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							</span>
 						</div>
 					</div>
+					<?php if ($can_write): ?>
 					<div>
 						<button type="button" class="tallerpro-btn-primary" id="tallerOpenModalBtn">
 							<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -589,6 +527,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<span>Añadir</span>
 						</button>
 					</div>
+					<?php endif; ?>
 				</div>
 
 				<!-- Table Card -->
@@ -641,6 +580,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<td style="color: #1e293b; font-weight: 500;"><?php echo number_format((float) $mat->precio, 2, '.', ''); ?> €</td>
 										<td>
 											<div class="tallerpro-actions">
+												<?php if ($can_write): ?>
 												<button type="button" class="tallerpro-action-btn btn-edit-material" title="Editar"
 													data-id="<?php echo (int) $mat->rowid; ?>"
 													data-nombre="<?php echo dol_escape_htmltag($mat->nombre); ?>"
@@ -653,6 +593,8 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 														<path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path>
 													</svg>
 												</button>
+												<?php endif; ?>
+												<?php if ($can_delete): ?>
 												<button type="button"
 													class="tallerpro-action-btn btn-delete-action"
 													title="Eliminar"
@@ -663,6 +605,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 														<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
 													</svg>
 												</button>
+												<?php endif; ?>
 											</div>
 										</td>
 									</tr>

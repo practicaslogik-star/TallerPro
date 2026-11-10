@@ -1004,10 +1004,31 @@ if (window.__tallerProLoaded) {
                 fetch('reparaciones.php', {
                     method: 'POST',
                     body: formData
-                }).catch(console.error);
-            }
-
-            if (row) {
+                })
+                .then(function (res) { return res.json(); })
+                .then(function (data) {
+                    if (data && data.success) {
+                        if (row) {
+                            row.style.transition = 'all 0.25s ease';
+                            row.style.opacity = '0';
+                            row.style.transform = 'translateX(20px)';
+                            setTimeout(function () {
+                                row.remove();
+                                if (typeof filterReparaciones === 'function') {
+                                    filterReparaciones();
+                                }
+                            }, 250);
+                        }
+                        if (typeof window.showTallerToast === 'function') {
+                            window.showTallerToast('Reparación eliminada correctamente');
+                        }
+                    } else if (typeof window.showTallerToast === 'function') {
+                        window.showTallerToast((data && (data.message || data.error)) || 'No tienes permiso para eliminar la reparación', 'error');
+                    }
+                })
+                .catch(console.error);
+            } else if (row) {
+                // Mock row removal
                 row.style.transition = 'all 0.25s ease';
                 row.style.opacity = '0';
                 row.style.transform = 'translateX(20px)';
@@ -1017,30 +1038,42 @@ if (window.__tallerProLoaded) {
                         filterReparaciones();
                     }
                 }, 250);
+                if (typeof window.showTallerToast === 'function') {
+                    window.showTallerToast('Reparación eliminada correctamente');
+                }
             }
 
-            if (typeof window.showTallerToast === 'function') {
-                window.showTallerToast('Reparación eliminada correctamente');
-            }
             pendingDeleteAction = null;
             pendingDeleteUrl = null;
             pendingDeleteRow = null;
             pendingDeleteRowId = null;
         });
 
-        // Modal Confirmación de Facturación
-        let pendingFacturarUrl = null;
+        // Modal Confirmación de Facturación (vía POST seguro con token CSRF)
+        let pendingFacturarId = null;
+
+        function submitFacturarPost(rowid) {
+            const form = document.getElementById('tallerFacturarForm');
+            const rowidInput = document.getElementById('facturarFormRowid');
+            if (form && rowidInput && rowid) {
+                rowidInput.value = rowid;
+                form.submit();
+            }
+        }
 
         window.openFacturarModal = function (btn) {
             if (!btn) return;
-            const url = btn.getAttribute('data-facturar-url') || btn.getAttribute('href');
-            window.__tallerPendingFacturarUrl = url;
-            pendingFacturarUrl = url;
+            const tr = btn.closest('tr');
+            const rowid = btn.getAttribute('data-id') || (tr ? tr.getAttribute('data-id') : '');
+            if (!rowid) return;
+
+            window.__tallerPendingFacturarId = rowid;
+            pendingFacturarId = rowid;
             const modal = document.getElementById('facturarConfirmModal');
             if (modal) {
                 modal.classList.add('active');
-            } else if (url && confirm('¿Deseas facturar esta reparación? Se generará la factura en estado borrador en Dolibarr.')) {
-                window.location.href = url;
+            } else if (confirm('¿Deseas facturar esta reparación? Se generará la factura en estado borrador en Dolibarr.')) {
+                submitFacturarPost(rowid);
             }
         };
 
@@ -1057,12 +1090,12 @@ if (window.__tallerProLoaded) {
             const modal = document.getElementById('facturarConfirmModal');
             if (cancelBtn && modal) {
                 modal.classList.remove('active');
-                window.__tallerPendingFacturarUrl = null;
-                pendingFacturarUrl = null;
+                window.__tallerPendingFacturarId = null;
+                pendingFacturarId = null;
             } else if (modal && e.target === modal) {
                 modal.classList.remove('active');
-                window.__tallerPendingFacturarUrl = null;
-                pendingFacturarUrl = null;
+                window.__tallerPendingFacturarId = null;
+                pendingFacturarId = null;
             }
         });
 
@@ -1074,11 +1107,11 @@ if (window.__tallerProLoaded) {
 
             modal.classList.remove('active');
 
-            const targetUrl = window.__tallerPendingFacturarUrl || pendingFacturarUrl;
-            if (targetUrl) {
-                window.__tallerPendingFacturarUrl = null;
-                pendingFacturarUrl = null;
-                window.location.href = targetUrl;
+            const targetId = window.__tallerPendingFacturarId || pendingFacturarId;
+            if (targetId) {
+                window.__tallerPendingFacturarId = null;
+                pendingFacturarId = null;
+                submitFacturarPost(targetId);
             }
         });
 
@@ -1147,13 +1180,13 @@ if (window.__tallerProLoaded) {
             const actionsDiv = tr.querySelector('.tallerpro-actions');
             const existingFacturarBtn = tr.querySelector('.tallerpro-btn-facturar-action');
             const hasFactura = tr.getAttribute('data-has-factura') === '1';
+            const canFacturar = tr.getAttribute('data-can-facturar') === '1';
 
-            if (newEstado === 'finalizada' && !hasFactura) {
+            if (newEstado === 'finalizada' && !hasFactura && canFacturar) {
                 if (!existingFacturarBtn && actionsDiv) {
                     const facturarBtn = document.createElement('button');
                     facturarBtn.type = 'button';
-                    const targetUrl = tr.getAttribute('data-facturar-url') || (window.location.pathname + '?action=facturar_reparacion&rowid=' + rowid);
-                    facturarBtn.setAttribute('data-facturar-url', targetUrl);
+                    facturarBtn.setAttribute('data-id', rowid);
                     facturarBtn.className = 'tallerpro-btn-facturar-action';
                     facturarBtn.title = 'Emitir Factura oficial de esta reparación';
                     facturarBtn.onclick = function () { window.openFacturarModal(this); };
@@ -1195,9 +1228,15 @@ if (window.__tallerProLoaded) {
                 body: formData
             }).then(function (res) {
                 return res.json();
-            }).then(function () {
-                if (typeof window.showTallerToast === 'function') {
-                    window.showTallerToast('Estado actualizado a ' + (newEstado === 'finalizada' ? 'Finalizada' : 'En curso'));
+            }).then(function (data) {
+                if (data && data.success) {
+                    if (typeof window.showTallerToast === 'function') {
+                        window.showTallerToast('Estado actualizado a ' + (newEstado === 'finalizada' ? 'Finalizada' : 'En curso'));
+                    }
+                } else {
+                    if (typeof window.showTallerToast === 'function') {
+                        window.showTallerToast((data && (data.message || data.error)) || 'No tienes permiso para actualizar el estado', 'error');
+                    }
                 }
             }).catch(function (err) {
                 console.error('Error al actualizar estado:', err);

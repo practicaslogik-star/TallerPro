@@ -58,13 +58,10 @@ require_once DOL_DOCUMENT_ROOT . "/core/lib/admin.lib.php";
 // Load translations
 $langs->loadLangs(array("admin", "taller@taller"));
 
+require_once __DIR__ . '/lib/taller.lib.php';
+
 // Security check
-if (!isModEnabled('taller')) {
-	accessforbidden('Module not enabled');
-}
-if (empty($user->admin)) {
-	accessforbidden('Solo los administradores pueden gestionar la configuración del taller');
-}
+tallerpro_require_permission('admin');
 
 require_once DOL_DOCUMENT_ROOT . '/core/lib/security.lib.php';
 
@@ -72,14 +69,8 @@ $action = GETPOST('action', 'aZ09');
 
 // Guardar datos editados del taller
 if ($action == 'update_settings') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('admin');
 	$nombre = trim(GETPOST('taller_nombre', 'alphanohtml'));
 	$cif = trim(GETPOST('taller_cif', 'alphanohtml'));
 	$email = trim(GETPOST('taller_email', 'alphanohtml'));
@@ -87,7 +78,7 @@ if ($action == 'update_settings') {
 	$direccion = trim(GETPOST('taller_direccion', 'alphanohtml'));
 	$poblacion = trim(GETPOST('taller_poblacion', 'alphanohtml'));
 	$iban = trim(GETPOST('taller_iban', 'alphanohtml'));
-	$mostrar_iban = (!empty($_POST['taller_mostrar_iban']) && ($_POST['taller_mostrar_iban'] === '1' || $_POST['taller_mostrar_iban'] === 'on' || $_POST['taller_mostrar_iban'] === 1)) ? 1 : 0;
+	$mostrar_iban = (GETPOST('taller_mostrar_iban', 'alpha') === '1' || GETPOST('taller_mostrar_iban', 'alpha') === 'on' || GETPOSTINT('taller_mostrar_iban') === 1) ? 1 : 0;
 
 	dolibarr_set_const($db, 'TALLER_NOMBRE_COMERCIAL', $nombre, 'chaine', 0, '', $conf->entity);
 	dolibarr_set_const($db, 'TALLER_CIF', $cif, 'chaine', 0, '', $conf->entity);

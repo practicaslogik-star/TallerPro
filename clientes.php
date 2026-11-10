@@ -56,10 +56,15 @@ if (!$res) {
 // Load translation files required by the page
 $langs->loadLangs(array("taller@taller", "companies"));
 
+require_once __DIR__ . '/lib/taller.lib.php';
+
 // Security check
-if (!isModEnabled('taller')) {
-	accessforbidden('Module not enabled');
-}
+tallerpro_require_permission('read');
+
+$can_write = $user->hasRight('taller', 'write');
+$can_delete = $user->hasRight('taller', 'delete');
+
+$action = GETPOST('action', 'aZ09');
 
 $societe_enabled = isModEnabled('societe');
 if (!$societe_enabled && !empty($action) && in_array($action, array('create_client', 'add_client', 'update_client', 'edit_client', 'delete_client', 'delete'))) {
@@ -72,47 +77,17 @@ $clientes_url = dol_buildpath('/taller/clientes.php', 1);
 
 require_once DOL_DOCUMENT_ROOT . '/societe/class/societe.class.php';
 
-$action = GETPOST('action', 'alpha');
-if (empty($action) && !empty($_POST['action'])) {
-	$action = $_POST['action'];
-}
-
 // Acción: Crear Cliente en módulo Terceros de Dolibarr
 if ($action == 'create_client' || $action == 'add_client') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('write');
 
 	$name    = trim(GETPOST('name', 'alphanohtml'));
-	if (empty($name) && !empty($_POST['name'])) {
-		$name = trim($_POST['name']);
-	}
-	$phone   = trim(GETPOST('phone', 'alpha'));
-	if (empty($phone) && !empty($_POST['phone'])) {
-		$phone = trim($_POST['phone']);
-	}
+	$phone   = trim(GETPOST('phone', 'alphanohtml'));
 	$email   = trim(GETPOST('email', 'custom', 0, FILTER_SANITIZE_EMAIL));
-	if (empty($email) && !empty($_POST['email'])) {
-		$email = trim($_POST['email']);
-	}
 	$cif     = trim(GETPOST('cif', 'alphanohtml'));
-	if (empty($cif) && !empty($_POST['cif'])) {
-		$cif = trim($_POST['cif']);
-	}
 	$address = trim(GETPOST('address', 'alphanohtml'));
-	if (empty($address) && !empty($_POST['address'])) {
-		$address = trim($_POST['address']);
-	}
-
 	$notes   = trim(GETPOST('notes', 'restricthtml'));
-	if (empty($notes) && !empty($_POST['notes'])) {
-		$notes = trim($_POST['notes']);
-	}
 
 	if (empty($name)) {
 		setEventMessages($langs->trans("ErrorFieldRequired", $langs->transnoentitiesnoconv("Name")), null, 'errors');
@@ -150,47 +125,20 @@ if ($action == 'create_client' || $action == 'add_client') {
 
 // Acción: Actualizar Cliente en módulo Terceros de Dolibarr
 if ($action == 'update_client' || $action == 'edit_client') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('write');
 
 	$socid = GETPOSTINT('socid');
-	if (empty($socid) && !empty($_POST['socid'])) {
-		$socid = (int) $_POST['socid'];
-	}
-	if (empty($socid) && !empty($_POST['rowid'])) {
-		$socid = (int) $_POST['rowid'];
+	if (empty($socid)) {
+		$socid = GETPOSTINT('rowid');
 	}
 
 	$name    = trim(GETPOST('name', 'alphanohtml'));
-	if (empty($name) && !empty($_POST['name'])) {
-		$name = trim($_POST['name']);
-	}
-	$phone   = trim(GETPOST('phone', 'alpha'));
-	if (empty($phone) && !empty($_POST['phone'])) {
-		$phone = trim($_POST['phone']);
-	}
+	$phone   = trim(GETPOST('phone', 'alphanohtml'));
 	$email   = trim(GETPOST('email', 'custom', 0, FILTER_SANITIZE_EMAIL));
-	if (empty($email) && !empty($_POST['email'])) {
-		$email = trim($_POST['email']);
-	}
 	$cif     = trim(GETPOST('cif', 'alphanohtml'));
-	if (empty($cif) && !empty($_POST['cif'])) {
-		$cif = trim($_POST['cif']);
-	}
 	$address = trim(GETPOST('address', 'alphanohtml'));
-	if (empty($address) && !empty($_POST['address'])) {
-		$address = trim($_POST['address']);
-	}
 	$notes   = trim(GETPOST('notes', 'restricthtml'));
-	if (empty($notes) && !empty($_POST['notes'])) {
-		$notes = trim($_POST['notes']);
-	}
 
 	if ($socid <= 0) {
 		setEventMessages("ID de cliente inválido", null, 'errors');
@@ -199,7 +147,7 @@ if ($action == 'update_client' || $action == 'edit_client') {
 	} else {
 		$soc = new Societe($db);
 		$res = $soc->fetch($socid);
-		if ($res > 0) {
+		if ($res > 0 && tallerpro_is_entity_allowed($soc->entity, 'societe')) {
 			$soc->name         = $name;
 			$soc->nom          = $name;
 			$soc->phone        = $phone;
@@ -227,26 +175,17 @@ if ($action == 'update_client' || $action == 'edit_client') {
 
 // Acción: Eliminar Cliente (Seguro vía POST con token)
 if ($action == 'delete_client' || $action == 'delete') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('delete');
 
-	$socid = GETPOST('socid', 'int');
-	if (empty($socid) && !empty($_POST['socid'])) {
-		$socid = (int) $_POST['socid'];
-	}
-	if (empty($socid) && !empty($_POST['rowid'])) {
-		$socid = (int) $_POST['rowid'];
+	$socid = GETPOSTINT('socid');
+	if (empty($socid)) {
+		$socid = GETPOSTINT('rowid');
 	}
 	if ($socid > 0) {
 		$soc = new Societe($db);
 		$res = $soc->fetch($socid);
-		if ($res > 0) {
+		if ($res > 0 && tallerpro_is_entity_allowed($soc->entity, 'societe')) {
 			$result = $soc->delete($socid, $user);
 			if ($result > 0) {
 				setEventMessages($langs->trans("RecordDeleted"), null, 'mesgs');
@@ -262,28 +201,6 @@ if ($action == 'delete_client' || $action == 'delete') {
 
 
 
-// Ensure vehicle table exists
-$sql_veh_create = "CREATE TABLE IF NOT EXISTS " . MAIN_DB_PREFIX . "taller_vehiculo (
-    rowid           INT AUTO_INCREMENT PRIMARY KEY,
-    fk_soc          INT NOT NULL,
-    matricula       VARCHAR(32) NOT NULL,
-    marca           VARCHAR(64) DEFAULT NULL,
-    modelo          VARCHAR(64) DEFAULT NULL,
-    anio            VARCHAR(10) DEFAULT NULL,
-    color           VARCHAR(32) DEFAULT NULL,
-    vin             VARCHAR(64) DEFAULT NULL,
-    km              INT DEFAULT 0,
-    notas           TEXT DEFAULT NULL,
-    date_creation   DATETIME NOT NULL,
-    tms             TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    fk_user_creat   INT NOT NULL,
-    entity          INT DEFAULT 1,
-    status          SMALLINT DEFAULT 1,
-    INDEX idx_taller_vehiculo_fk_soc (fk_soc),
-    INDEX idx_taller_vehiculo_matricula (matricula)
-) ENGINE=innodb;";
-$db->query($sql_veh_create);
-
 $socid = GETPOSTINT('socid');
 if (empty($socid)) {
 	$socid = GETPOSTINT('id');
@@ -296,13 +213,13 @@ $client_invoices = array();
 if ($socid > 0) {
 	$soc = new Societe($db);
 	$res = $soc->fetch($socid);
-	if ($res > 0) {
+	if ($res > 0 && tallerpro_is_entity_allowed($soc->entity, 'societe')) {
 		$client_detail = $soc;
 
 		// Conteo y lista de vehículos del cliente
 		$sql_v = "SELECT v.rowid, v.matricula, v.marca, v.modelo, v.anio, v.color, v.km ";
 		$sql_v .= "FROM " . MAIN_DB_PREFIX . "taller_vehiculo as v ";
-		$sql_v .= "WHERE v.fk_soc = " . ((int) $socid) . " AND v.status = 1 ";
+		$sql_v .= "WHERE v.fk_soc = " . ((int) $socid) . " AND v.status = 1 AND v.entity IN (" . getEntity('taller_vehiculo') . ") ";
 		$sql_v .= "ORDER BY v.rowid DESC";
 		$res_v = $db->query($sql_v);
 		if ($res_v) {
@@ -314,7 +231,7 @@ if ($socid > 0) {
 		// Conteo y lista de facturas del cliente
 		$sql_f = "SELECT f.rowid, f.ref, f.total_ttc, f.datef, f.paye, f.fk_statut ";
 		$sql_f .= "FROM " . MAIN_DB_PREFIX . "facture as f ";
-		$sql_f .= "WHERE f.fk_soc = " . ((int) $socid) . " ";
+		$sql_f .= "WHERE f.fk_soc = " . ((int) $socid) . " AND f.entity IN (" . getEntity('facture') . ") ";
 		$sql_f .= "ORDER BY f.datef DESC";
 		$res_f = $db->query($sql_f);
 		if ($res_f) {
@@ -329,7 +246,7 @@ if ($socid > 0) {
 $sql = "SELECT s.rowid, s.nom as name, s.phone, s.email, s.address, s.siren as cif, s.note_private as notes, ";
 $sql .= "COUNT(v.rowid) as nb_vehiculos ";
 $sql .= " FROM " . MAIN_DB_PREFIX . "societe as s";
-$sql .= " LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON (v.fk_soc = s.rowid AND v.status = 1)";
+$sql .= " LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON (v.fk_soc = s.rowid AND v.status = 1 AND v.entity IN (" . getEntity('taller_vehiculo') . "))";
 $sql .= " WHERE s.client IN (1, 2, 3)";
 $sql .= " AND s.entity IN (" . getEntity('societe') . ")";
 $sql .= " GROUP BY s.rowid, s.nom, s.phone, s.email, s.address, s.siren, s.note_private";
@@ -607,6 +524,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 									<h1 class="tallerpro-client-name"><?php echo dol_escape_htmltag($client_detail->nom); ?></h1>
 									<p class="tallerpro-client-contact"><?php echo dol_escape_htmltag($contact_str); ?></p>
 								</div>
+								<?php if ($can_write): ?>
 								<button type="button" class="tallerpro-action-btn btn-edit-client"
 									title="Editar cliente"
 									data-id="<?php echo (int) $client_detail->id; ?>"
@@ -621,6 +539,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 										<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
 									</svg>
 								</button>
+								<?php endif; ?>
 							</div>
 							<div class="tallerpro-client-meta-group">
 								<div class="tallerpro-client-meta-item">
@@ -726,6 +645,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<h1 class="tallerpro-page-title"><?php echo $langs->trans("Clientes"); ?></h1>
 							<p class="tallerpro-page-subtitle"><?php echo $num_rows; ?> registro(s)</p>
 						</div>
+						<?php if ($can_write): ?>
 						<div>
 							<button type="button" class="tallerpro-btn-primary" id="tallerOpenModalBtn">
 								<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -735,6 +655,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<span>Añadir</span>
 							</button>
 						</div>
+						<?php endif; ?>
 					</div>
 
 					<!-- Table Card -->
@@ -772,6 +693,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															<line x1="10" y1="14" x2="21" y2="3"></line>
 														</svg>
 													</a>
+													<?php if ($can_write): ?>
 													<button type="button" class="tallerpro-action-btn btn-edit-client"
 														title="Editar cliente"
 														data-id="<?php echo (int) $obj->rowid; ?>"
@@ -786,6 +708,8 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															<path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
 														</svg>
 													</button>
+													<?php endif; ?>
+													<?php if ($can_delete): ?>
 													<button type="button"
 														class="tallerpro-action-btn btn-delete-action"
 														title="Eliminar"
@@ -796,6 +720,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 															<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
 														</svg>
 													</button>
+													<?php endif; ?>
 												</div>
 											</td>
 										</tr>

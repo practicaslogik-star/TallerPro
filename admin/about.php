@@ -1,6 +1,6 @@
 <?php
 /* Copyright (C) 2004-2017 Laurent Destailleur  <eldy@users.sourceforge.net>
- * Copyright (C) 2026		SuperAdmin
+ * Copyright (C) 2026		Logi-K Soluciones Digitales <https://logi-k.es/>
  * Copyright (C) 2024       Frédéric France         <frederic.france@free.fr>
  *
  * This program is free software: you can redistribute it and/or modify
@@ -72,7 +72,7 @@ require_once dirname(__DIR__).'/lib/taller.lib.php';
 $langs->loadLangs(array("errors", "admin", "taller@taller"));
 
 // Access control
-if (!$user->admin) {
+if (!$user->admin || !empty($user->socid)) {
 	accessforbidden();
 }
 

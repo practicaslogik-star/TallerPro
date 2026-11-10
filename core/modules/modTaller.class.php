@@ -2,7 +2,7 @@
 /* Copyright (C) 2004-2018	Laurent Destailleur			<eldy@users.sourceforge.net>
  * Copyright (C) 2018-2019	Nicolas ZABOURI				<info@inovea-conseil.com>
  * Copyright (C) 2019-2024	Frédéric France				<frederic.france@free.fr>
- * Copyright (C) 2026		SuperAdmin
+ * Copyright (C) 2026		Logi-K Soluciones Digitales	<https://logi-k.es/>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -66,17 +66,17 @@ class modTaller extends DolibarrModules
 
 		// DESCRIPTION_FLAG
 		// Module description, used if translation string 'ModuleTallerDesc' not found (Taller is name of module).
-		$this->description = "TallerDescription";
+		$this->description = "Gestión integral de talleres mecánicos y automoción para Dolibarr ERP/CRM";
 		// Used only if file README.md and README-LL.md not found.
-		$this->descriptionlong = "TallerDescription";
+		$this->descriptionlong = "Módulo completo de gestión de taller: recepción de vehículos, clientes, órdenes de trabajo, control de recambios, aseguradoras y facturación oficial.";
 
 		// Author
-		$this->editor_name = '';
-		$this->editor_url = '';		// Must be an external online web site
+		$this->editor_name = 'Logi-K Soluciones Digitales';
+		$this->editor_url = 'https://logi-k.es/';		// Must be an external online web site
 		$this->editor_squarred_logo = '';					// Must be image filename into the module/img directory followed with @modulename. Example: 'myimage.png@taller'
 
 		// Possible values for version are: 'development', 'experimental', 'dolibarr', 'dolibarr_deprecated', 'experimental_deprecated' or a version string like 'x.y.z'
-		$this->version = '1.0';
+		$this->version = '1.0.0';
 		// Url to the file with your last numberversion of this module
 		//$this->url_last_version = 'http://www.example.com/versionmodule.txt';
 
@@ -156,9 +156,9 @@ class modTaller extends DolibarrModules
 		$this->langfiles = array("taller@taller");
 
 		// Prerequisites
-		$this->phpmin = array(7, 1); // Minimum version of PHP required by module
+		$this->phpmin = array(7, 4); // Minimum version of PHP required by module
 		// $this->phpmax = array(8, 0); // Maximum version of PHP required by module
-		$this->need_dolibarr_version = array(19, -3); // Minimum version of Dolibarr required by module
+		$this->need_dolibarr_version = array(16, 0); // Minimum version of Dolibarr required by module
 		// $this->max_dolibarr_version = array(19, -3); // Maximum version of Dolibarr required by module
 		$this->need_javascript_ajax = 0;
 
@@ -294,24 +294,29 @@ class modTaller extends DolibarrModules
 		$r = 0;
 		// Add here entries to declare new permissions
 		/* BEGIN MODULEBUILDER PERMISSIONS */
-		/*
-		$o = 1;
-		$this->rights[$r][0] = $this->numero . sprintf("%02d", ($o * 10) + 1); // Permission id (must not be already used)
-		$this->rights[$r][1] = 'Read objects of Taller'; // Permission label
-		$this->rights[$r][4] = 'myobject';
-		$this->rights[$r][5] = 'read'; // In php code, permission will be checked by test if ($user->hasRight('taller', 'myobject', 'read'))
+		$this->rights[$r][0] = $this->numero . sprintf("%02d", 1); // Permission id
+		$this->rights[$r][1] = 'PermissionTallerRead'; // Permission label
+		$this->rights[$r][3] = 0;
+		$this->rights[$r][4] = 'read'; // In php code, permission will be checked by test if ($user->hasRight('taller', 'read'))
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf("%02d", ($o * 10) + 2); // Permission id (must not be already used)
-		$this->rights[$r][1] = 'Create/Update objects of Taller'; // Permission label
-		$this->rights[$r][4] = 'myobject';
-		$this->rights[$r][5] = 'write'; // In php code, permission will be checked by test if ($user->hasRight('taller', 'myobject', 'write'))
+
+		$this->rights[$r][0] = $this->numero . sprintf("%02d", 2);
+		$this->rights[$r][1] = 'PermissionTallerWrite';
+		$this->rights[$r][3] = 0;
+		$this->rights[$r][4] = 'write'; // $user->hasRight('taller', 'write')
 		$r++;
-		$this->rights[$r][0] = $this->numero . sprintf("%02d", ($o * 10) + 3); // Permission id (must not be already used)
-		$this->rights[$r][1] = 'Delete objects of Taller'; // Permission label
-		$this->rights[$r][4] = 'myobject';
-		$this->rights[$r][5] = 'delete'; // In php code, permission will be checked by test if ($user->hasRight('taller', 'myobject', 'delete'))
+
+		$this->rights[$r][0] = $this->numero . sprintf("%02d", 3);
+		$this->rights[$r][1] = 'PermissionTallerDelete';
+		$this->rights[$r][3] = 0;
+		$this->rights[$r][4] = 'delete'; // $user->hasRight('taller', 'delete')
 		$r++;
-		*/
+
+		$this->rights[$r][0] = $this->numero . sprintf("%02d", 4);
+		$this->rights[$r][1] = 'PermissionTallerFacturar';
+		$this->rights[$r][3] = 0;
+		$this->rights[$r][4] = 'facturar'; // $user->hasRight('taller', 'facturar')
+		$r++;
 		/* END MODULEBUILDER PERMISSIONS */
 
 
@@ -331,22 +336,22 @@ class modTaller extends DolibarrModules
 			'langs' => 'taller@taller', // Lang file to use (without .lang) by module. File must be in langs/code_CODE/ directory.
 			'position' => 1000 + $r,
 			'enabled' => 'isModEnabled("taller")', // Define condition to show or hide menu entry. Use 'isModEnabled("taller")' if entry must be visible if module is enabled.
-			'perms' => '1', // Use 'perms'=>'$user->hasRight("taller", "myobject", "read")' if you want your menu with a permission rules
+			'perms' => '$user->hasRight("taller", "read")', // Solo usuarios internos con permiso de lectura
 			'target' => '',
-			'user' => 2, // 0=Menu for internal users, 1=external users, 2=both
+			'user' => 0, // 0=Menu for internal users only, 1=external users, 2=both
 		);
 		/* END MODULEBUILDER TOPMENU */
 
 		/* BEGIN MODULEBUILDER LEFTMENU MYOBJECT */
 		$menu_items = array(
-			array('code' => 'inicio', 'titre' => 'Inicio', 'url' => '/taller/tallerindex.php', 'icon' => 'fa-home'),
-			array('code' => 'clientes', 'titre' => 'Clientes', 'url' => '/taller/clientes.php', 'icon' => 'fa-users'),
-			array('code' => 'vehiculos', 'titre' => 'Vehículos', 'url' => '/taller/vehiculos.php', 'icon' => 'fa-car'),
-			array('code' => 'reparaciones', 'titre' => 'Reparaciones', 'url' => '/taller/reparaciones.php', 'icon' => 'fa-wrench'),
-			array('code' => 'materiales', 'titre' => 'Materiales', 'url' => '/taller/materiales.php', 'icon' => 'fa-box'),
-			array('code' => 'seguros', 'titre' => 'Seguros', 'url' => '/taller/seguros.php', 'icon' => 'fa-shield-alt'),
-			array('code' => 'facturas', 'titre' => 'Facturas', 'url' => '/taller/facturas.php', 'icon' => 'fa-file-invoice-dollar'),
-			array('code' => 'configuracion', 'titre' => 'Configuración', 'url' => '/taller/admin/setup.php', 'icon' => 'fa-cog'),
+			array('code' => 'inicio', 'titre' => 'Inicio', 'url' => '/taller/tallerindex.php', 'icon' => 'fa-home', 'perms' => '$user->hasRight("taller", "read")'),
+			array('code' => 'clientes', 'titre' => 'Clientes', 'url' => '/taller/clientes.php', 'icon' => 'fa-users', 'perms' => '$user->hasRight("taller", "read")'),
+			array('code' => 'vehiculos', 'titre' => 'Vehículos', 'url' => '/taller/vehiculos.php', 'icon' => 'fa-car', 'perms' => '$user->hasRight("taller", "read")'),
+			array('code' => 'reparaciones', 'titre' => 'Reparaciones', 'url' => '/taller/reparaciones.php', 'icon' => 'fa-wrench', 'perms' => '$user->hasRight("taller", "read")'),
+			array('code' => 'materiales', 'titre' => 'Materiales', 'url' => '/taller/materiales.php', 'icon' => 'fa-box', 'perms' => '$user->hasRight("taller", "read")'),
+			array('code' => 'seguros', 'titre' => 'Seguros', 'url' => '/taller/seguros.php', 'icon' => 'fa-shield-alt', 'perms' => '$user->hasRight("taller", "read")'),
+			array('code' => 'facturas', 'titre' => 'Facturas', 'url' => '/taller/facturas.php', 'icon' => 'fa-file-invoice-dollar', 'perms' => '$user->hasRight("taller", "read") || $user->hasRight("taller", "facturar")'),
+			array('code' => 'configuracion', 'titre' => 'Configuración', 'url' => '/taller/admin/setup.php', 'icon' => 'fa-cog', 'perms' => '$user->admin'),
 		);
 
 		foreach ($menu_items as $mitem) {
@@ -361,9 +366,9 @@ class modTaller extends DolibarrModules
 				'langs' => 'taller@taller',
 				'position' => 1000 + $r,
 				'enabled' => 'isModEnabled("taller")',
-				'perms' => '1',
+				'perms' => $mitem['perms'],
 				'target' => '',
-				'user' => 2,
+				'user' => 0,
 			);
 		}
 		/* END MODULEBUILDER LEFTMENU MYOBJECT */
@@ -460,6 +465,8 @@ class modTaller extends DolibarrModules
 		include_once DOL_DOCUMENT_ROOT.'/core/class/extrafields.class.php';
 		$extrafields = new ExtraFields($this->db);
 		$extrafields->addExtraField('fk_vehiculo', "Vehículo Taller", 'link', 1, '', 'facture', 0, 0, '', array('options'=>array('taller_vehiculo:matricula:rowid::status=1')), 1, '', -1, 0, '', '', 'taller@taller', 'isModEnabled("taller")');
+		$extrafields->addExtraField('fk_reparacion', "Reparación Taller", 'int', 2, '10', 'facture', 0, 0, '', '', 1, '', -1, 0, '', '', 'taller@taller', 'isModEnabled("taller")');
+		$extrafields->addExtraField('tipo_doc', "Tipo de Documento", 'varchar', 3, '32', 'facture', 0, 0, '', '', 1, '', -1, 0, '', '', 'taller@taller', 'isModEnabled("taller")');
 
 		// Permissions
 		$this->remove($options);

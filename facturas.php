@@ -59,10 +59,17 @@ if (!$res) {
 // Load translation files required by the page
 $langs->loadLangs(array("taller@taller"));
 
+require_once __DIR__ . '/lib/taller.lib.php';
+
+$action = GETPOST('action', 'aZ09');
+
 // Security check
-if (!isModEnabled('taller')) {
-	accessforbidden('Module not enabled');
-}
+$is_ajax_action = in_array($action, array('get_next_factura_numero', 'get_factura_lineas', 'add_factura_linea', 'delete_factura_linea', 'save_factura_totales'))
+	|| (GETPOSTINT('ajax') || !empty($_SERVER['HTTP_X_REQUESTED_WITH']));
+tallerpro_require_permission('facturar_or_read', $is_ajax_action);
+
+$user_can_facturar = $user->hasRight('taller', 'facturar');
+$user_can_delete_fac = $user->hasRight('taller', 'delete') && $user_can_facturar;
 
 $facture_enabled = isModEnabled('facture');
 if (!$facture_enabled && !empty($action) && in_array($action, array('create_factura', 'add_factura', 'update_factura', 'delete_factura', 'add_factura_linea', 'delete_factura_linea', 'save_factura_totales'))) {
@@ -78,25 +85,6 @@ require_once DOL_DOCUMENT_ROOT . '/core/class/extrafields.class.php';
 
 $table_vehiculo = MAIN_DB_PREFIX . "taller_vehiculo";
 $table_soc = MAIN_DB_PREFIX . "societe";
-
-// Ensure extrafield fk_vehiculo exists on facture_extrafields
-$sql_ef_check = "SHOW COLUMNS FROM " . MAIN_DB_PREFIX . "facture_extrafields LIKE 'fk_vehiculo'";
-$res_ef_check = $db->query($sql_ef_check);
-if ($res_ef_check && $db->num_rows($res_ef_check) == 0) {
-	$db->query("ALTER TABLE " . MAIN_DB_PREFIX . "facture_extrafields ADD COLUMN fk_vehiculo INT DEFAULT NULL");
-}
-
-$sql_ef_rep = "SHOW COLUMNS FROM " . MAIN_DB_PREFIX . "facture_extrafields LIKE 'fk_reparacion'";
-$res_ef_rep = $db->query($sql_ef_rep);
-if ($res_ef_rep && $db->num_rows($res_ef_rep) == 0) {
-	$db->query("ALTER TABLE " . MAIN_DB_PREFIX . "facture_extrafields ADD COLUMN fk_reparacion INT DEFAULT NULL");
-}
-
-$sql_ef_tipo = "SHOW COLUMNS FROM " . MAIN_DB_PREFIX . "facture_extrafields LIKE 'tipo_doc'";
-$res_ef_tipo = $db->query($sql_ef_tipo);
-if ($res_ef_tipo && $db->num_rows($res_ef_tipo) == 0) {
-	$db->query("ALTER TABLE " . MAIN_DB_PREFIX . "facture_extrafields ADD COLUMN tipo_doc VARCHAR(32) DEFAULT 'factura'");
-}
 
 // Función para obtener la siguiente referencia prevista de factura en Dolibarr
 if (!function_exists('getNextFacturaNumero')) {
@@ -131,11 +119,6 @@ if (!function_exists('tallerpro_clean_notas')) {
 	}
 }
 
-$action = GETPOST('action', 'alpha');
-if (empty($action) && !empty($_POST['action'])) {
-	$action = $_POST['action'];
-}
-
 // AJAX: Obtener siguiente número de factura automático
 if ($action == 'get_next_factura_numero') {
 	$next_num = getNextFacturaNumero($db);
@@ -146,55 +129,31 @@ if ($action == 'get_next_factura_numero') {
 
 // Acción: Crear Factura Nativa en Dolibarr
 if ($action == 'create_factura' || $action == 'add_factura') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('facturar');
 
 	$fecha = trim(GETPOST('fecha', 'alpha'));
-	if (empty($fecha) && !empty($_POST['fecha'])) {
-		$fecha = trim($_POST['fecha']);
-	}
 	if (empty($fecha)) {
 		$fecha = date('Y-m-d');
 	}
 
-	$total_raw = GETPOST('total', 'alpha');
-	if ($total_raw === '' && isset($_POST['total'])) {
-		$total_raw = $_POST['total'];
-	}
-	$total = (float) str_replace(',', '.', $total_raw);
-
+	$total = (float) price2num(GETPOST('total', 'alphanohtml'));
 	$fk_soc = GETPOSTINT('fk_soc');
-	if (empty($fk_soc) && !empty($_POST['fk_soc'])) {
-		$fk_soc = (int) $_POST['fk_soc'];
-	}
-
 	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
-	if (empty($fk_vehiculo) && !empty($_POST['fk_vehiculo'])) {
-		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
-	}
 
 	$estado = trim(GETPOST('estado', 'alphanohtml'));
-	if (empty($estado) && !empty($_POST['estado'])) {
-		$estado = trim($_POST['estado']);
-	}
 	if (empty($estado) || ($estado != 'Pagada' && $estado != 'Pendiente' && $estado != 'Borrador')) {
 		$estado = 'Borrador';
 	}
 
 	$notas = trim(GETPOST('notas', 'restricthtml'));
-	if (empty($notas) && !empty($_POST['notas'])) {
-		$notas = trim($_POST['notas']);
-	}
 
 	if ($fk_soc <= 0) {
 		setEventMessages("Debe seleccionar un cliente para emitir la factura", null, 'errors');
 	} else {
+		$db->begin();
+		$ok = true;
+
 		$fac = new Facture($db);
 		$fac->socid = (int) $fk_soc;
 		$fac->date = !empty($fecha) ? dol_stringtotime($fecha) : dol_now();
@@ -207,20 +166,32 @@ if ($action == 'create_factura' || $action == 'add_factura') {
 			if ($total > 0) {
 				$tva_tx = 21.0;
 				$subprice = round($total / (1 + ($tva_tx / 100)), 2);
-				$fac->addline("Servicios de taller", $subprice, 1, $tva_tx, 0, 0, 0, 0, '', '', 0, 0, 0, 'HT', 0, 1);
-			}
-			if ($estado == 'Borrador') {
-				// Permanece en borrador (PROV...), permitiendo edición y borrado
-			} else {
-				$fac->validate($user);
-				if ($estado == 'Pagada') {
-					$fac->setPaid($user);
+				$res_line = $fac->addline("Servicios de taller", $subprice, 1, $tva_tx, 0, 0, 0, 0, '', '', 0, 0, 0, 'HT', 0, 1);
+				if ($res_line <= 0) {
+					$ok = false;
 				}
 			}
+			if ($ok && $estado != 'Borrador') {
+				$res_val = $fac->validate($user);
+				if ($res_val >= 0) {
+					if ($estado == 'Pagada') {
+						$fac->setPaid($user);
+					}
+				} else {
+					$ok = false;
+				}
+			}
+		} else {
+			$ok = false;
+		}
+
+		if ($ok) {
+			$db->commit();
 			setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
 			header("Location: " . $_SERVER['PHP_SELF'] . '?id=' . $fac_id);
 			exit;
 		} else {
+			$db->rollback();
 			dol_syslog("TallerPro - Error al crear factura: " . $fac->error . " " . implode(' ', $fac->errors), LOG_ERR);
 			setEventMessages("Error al crear la factura", null, 'errors');
 		}
@@ -229,50 +200,21 @@ if ($action == 'create_factura' || $action == 'add_factura') {
 
 // Acción: Actualizar Factura
 if ($action == 'update_factura' || $action == 'edit_factura') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('facturar');
 
 	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
-
 	$fecha = trim(GETPOST('fecha', 'alpha'));
-	if (empty($fecha) && !empty($_POST['fecha'])) {
-		$fecha = trim($_POST['fecha']);
-	}
-
 	$fk_soc = GETPOSTINT('fk_soc');
-	if (empty($fk_soc) && !empty($_POST['fk_soc'])) {
-		$fk_soc = (int) $_POST['fk_soc'];
-	}
-
 	$fk_vehiculo = GETPOSTINT('fk_vehiculo');
-	if (empty($fk_vehiculo) && !empty($_POST['fk_vehiculo'])) {
-		$fk_vehiculo = (int) $_POST['fk_vehiculo'];
-	}
-
 	$estado = trim(GETPOST('estado', 'alphanohtml'));
-	if (empty($estado) && !empty($_POST['estado'])) {
-		$estado = trim($_POST['estado']);
-	}
-
 	$notas = trim(GETPOST('notas', 'restricthtml'));
-	if (empty($notas) && !empty($_POST['notas'])) {
-		$notas = trim($_POST['notas']);
-	}
 
 	if ($rowid <= 0) {
 		setEventMessages("Identificador de factura no válido", null, 'errors');
 	} else {
 		$fac = new Facture($db);
-		if ($fac->fetch($rowid) > 0) {
+		if ($fac->fetch($rowid) > 0 && tallerpro_is_entity_allowed($fac->entity, 'facture')) {
 			if ($fac->statut != Facture::STATUS_DRAFT) {
 				setEventMessages("Solo se pueden editar facturas en estado Borrador", null, 'errors');
 				header("Location: " . $_SERVER['PHP_SELF'] . '?id=' . $rowid);
@@ -281,17 +223,23 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 
 			$old_ref = $fac->ref;
 
+			$db->begin();
+			$ok = true;
+
 			// Actualizar Fecha y Notas (públicas) en la factura borrador o presupuesto
 			if (!empty($fecha)) {
 				$fac->date = dol_stringtotime($fecha);
 			}
 			$fac->note_public = $notas;
-			$fac->update($user);
+			$res_upd = $fac->update($user);
+			if ($res_upd < 0) {
+				$ok = false;
+			}
 
 			// Actualizar el estado si se cambia a Pendiente o Pagada (solo facturas normales, presupuestos siempre en borrador)
 			$fac->fetch_optionals();
 			$is_presupuesto = (!empty($fac->array_options['options_tipo_doc']) && $fac->array_options['options_tipo_doc'] === 'presupuesto');
-			if (!$is_presupuesto && ($estado == 'Pendiente' || $estado == 'Pagada')) {
+			if ($ok && !$is_presupuesto && ($estado == 'Pendiente' || $estado == 'Pagada')) {
 				$res_val = $fac->validate($user);
 				if ($res_val >= 0) {
 					if ($estado == 'Pagada') {
@@ -299,20 +247,22 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 					}
 					// Sincronizar referencia definitiva en reparaciones si se validó la factura
 					if (!empty($old_ref) && $old_ref !== $fac->ref) {
-						$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_reparacion SET ref_factura = '" . $db->escape($fac->ref) . "' WHERE ref_factura = '" . $db->escape($old_ref) . "'");
+						$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_reparacion SET ref_factura = '" . $db->escape($fac->ref) . "' WHERE ref_factura = '" . $db->escape($old_ref) . "' AND entity IN (" . getEntity('taller_reparacion') . ")");
 					}
-					setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
-					header("Location: " . $_SERVER['PHP_SELF'] . '?id=' . $rowid);
-					exit;
 				} else {
+					$ok = false;
 					dol_syslog("TallerPro - Error al validar factura borrador ID " . $rowid . ": " . $fac->error . " " . implode(' ', $fac->errors), LOG_ERR);
-					setEventMessages("Error al validar la factura borrador", null, 'errors');
 				}
-			} else {
-				// Permanece en borrador, no se alteran otros campos
+			}
+
+			if ($ok) {
+				$db->commit();
 				setEventMessages($langs->trans("RecordSaved"), null, 'mesgs');
 				header("Location: " . $_SERVER['PHP_SELF'] . '?id=' . $rowid);
 				exit;
+			} else {
+				$db->rollback();
+				setEventMessages("Error al actualizar o validar la factura borrador", null, 'errors');
 			}
 		} else {
 			setEventMessages("No se encontró la factura a modificar", null, 'errors');
@@ -322,25 +272,12 @@ if ($action == 'update_factura' || $action == 'edit_factura') {
 
 // Acción: Cambiar Estado de Factura directamente desde la tabla (Borrador -> Pendiente / Pagada, Pendiente <-> Pagada)
 if ($action == 'update_factura_estado' || $action == 'update_estado') {
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		if (GETPOST('ajax', 'int') || !empty($_POST['ajax']) || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
-			header('Content-Type: application/json');
-			echo json_encode(array('success' => false, 'error' => 'Token de seguridad inválido'));
-			exit;
-		}
-		accessforbidden('Invalid security token');
-	}
+	$is_ajax_state = (bool) (GETPOSTINT('ajax') || !empty($_SERVER['HTTP_X_REQUESTED_WITH']));
+	tallerpro_require_post_csrf($is_ajax_state);
+	tallerpro_require_permission('facturar', $is_ajax_state);
 
 	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
 	$new_estado = trim(GETPOST('new_estado', 'alphanohtml'));
-	if (empty($new_estado) && !empty($_POST['new_estado'])) {
-		$new_estado = trim($_POST['new_estado']);
-	}
 
 	$res_success = false;
 	$error_msg = '';
@@ -350,7 +287,7 @@ if ($action == 'update_factura_estado' || $action == 'update_estado') {
 
 	if ($rowid > 0 && in_array($new_estado, array('Pendiente', 'Pagada'))) {
 		$fac = new Facture($db);
-		if ($fac->fetch($rowid) > 0) {
+		if ($fac->fetch($rowid) > 0 && tallerpro_is_entity_allowed($fac->entity, 'facture')) {
 			$fac->fetch_optionals();
 			if (!empty($fac->array_options['options_tipo_doc']) && $fac->array_options['options_tipo_doc'] === 'presupuesto') {
 				$error_msg = "Los presupuestos no tienen estado y siempre permanecen en borrador";
@@ -368,7 +305,7 @@ if ($action == 'update_factura_estado' || $action == 'update_estado') {
 						}
 						// Sincronizar referencia si cambió en órdenes de reparación
 						if (!empty($old_ref) && $old_ref !== $fac->ref) {
-							$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_reparacion SET ref_factura = '" . $db->escape($fac->ref) . "' WHERE ref_factura = '" . $db->escape($old_ref) . "'");
+							$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_reparacion SET ref_factura = '" . $db->escape($fac->ref) . "' WHERE ref_factura = '" . $db->escape($old_ref) . "' AND entity IN (" . getEntity('taller_reparacion') . ")");
 						}
 						$res_success = true;
 					} else {
@@ -402,7 +339,7 @@ if ($action == 'update_factura_estado' || $action == 'update_estado') {
 		$error_msg = "Datos de estado o factura no válidos";
 	}
 
-	if (GETPOST('ajax', 'int') || !empty($_POST['ajax']) || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
+	if (GETPOSTINT('ajax') || !empty($_SERVER['HTTP_X_REQUESTED_WITH'])) {
 		header('Content-Type: application/json');
 		if ($res_success) {
 			echo json_encode(array(
@@ -431,37 +368,32 @@ if ($action == 'update_factura_estado' || $action == 'update_estado') {
 
 // Acción: Eliminar Factura (Seguro vía POST con token)
 if ($action == 'delete_factura' || $action == 'delete') {
-	if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-		accessforbidden('Method not allowed');
-	}
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		accessforbidden('Invalid security token');
-	}
+	tallerpro_require_post_csrf();
+	tallerpro_require_permission('facturar');
+	tallerpro_require_permission('delete');
 
 	$rowid = GETPOSTINT('rowid');
-	if (empty($rowid) && !empty($_POST['rowid'])) {
-		$rowid = (int) $_POST['rowid'];
-	}
 	if ($rowid > 0) {
 		$fac = new Facture($db);
-		if ($fac->fetch($rowid) > 0) {
+		if ($fac->fetch($rowid) > 0 && tallerpro_is_entity_allowed($fac->entity, 'facture')) {
 			if ($fac->statut != Facture::STATUS_DRAFT) {
 				setEventMessages("Solo se pueden eliminar facturas en estado Borrador", null, 'errors');
 				header("Location: " . $_SERVER['PHP_SELF']);
 				exit;
 			}
 			$del_ref = $fac->ref;
+			$db->begin();
 			$res = $fac->delete($user);
 			if ($res > 0) {
 				if (!empty($del_ref)) {
-					$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_reparacion SET ref_factura = NULL WHERE ref_factura = '" . $db->escape($del_ref) . "'");
+					$db->query("UPDATE " . MAIN_DB_PREFIX . "taller_reparacion SET ref_factura = NULL WHERE ref_factura = '" . $db->escape($del_ref) . "' AND entity IN (" . getEntity('taller_reparacion') . ")");
 				}
+				$db->commit();
 				setEventMessages($langs->trans("RecordDeleted"), null, 'mesgs');
 				header("Location: " . $_SERVER['PHP_SELF']);
 				exit;
 			} else {
+				$db->rollback();
 				dol_syslog("TallerPro - Error al eliminar factura ID " . $rowid . ": " . $fac->error, LOG_ERR);
 				setEventMessages("No se pudo eliminar la factura solicitada", null, 'errors');
 			}
@@ -472,9 +404,6 @@ if ($action == 'delete_factura' || $action == 'delete') {
 // Generar documento PDF de la factura según diseño de referencia
 if ($action == 'pdf' || $action == 'download_pdf') {
 	$fac_id = GETPOSTINT('id');
-	if (empty($fac_id) && !empty($_GET['id'])) {
-		$fac_id = (int) $_GET['id'];
-	}
 	if (empty($fac_id)) {
 		$fac_id = GETPOSTINT('fk_factura');
 	}
@@ -493,7 +422,7 @@ if ($action == 'get_factura_lineas') {
 	$out = array('materiales' => array(), 'reparaciones' => array(), 'factura' => null);
 	if ($fk_factura > 0) {
 		$fac = new Facture($db);
-		if ($fac->fetch($fk_factura) > 0) {
+		if ($fac->fetch($fk_factura) > 0 && tallerpro_is_entity_allowed($fac->entity, 'facture')) {
 			$fac->fetch_lines();
 			$estado_label = ($fac->statut == Facture::STATUS_DRAFT) ? 'Borrador' : (($fac->paye == 1 || $fac->statut == Facture::STATUS_CLOSED) ? 'Pagada' : 'Pendiente');
 			$out['factura'] = (object) array(
@@ -536,69 +465,30 @@ if ($action == 'get_factura_lineas') {
 
 // AJAX: Añadir línea (Material o Reparación)
 if ($action == 'add_factura_linea') {
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		header('Content-Type: application/json');
-		echo json_encode(array('status' => 'error', 'message' => 'Token de seguridad inválido'));
-		exit;
-	}
+	tallerpro_require_post_csrf(true);
+	tallerpro_require_permission('facturar', true);
 
 	$fk_factura = GETPOSTINT('fk_factura');
-	if (empty($fk_factura) && !empty($_POST['fk_factura'])) {
-		$fk_factura = (int) $_POST['fk_factura'];
-	}
 
 	$tipo = trim(GETPOST('tipo', 'alpha'));
-	if (empty($tipo) && !empty($_POST['tipo'])) {
-		$tipo = trim($_POST['tipo']);
-	}
 	if (empty($tipo)) {
 		$tipo = 'material';
 	}
 
 	$fk_material = GETPOSTINT('fk_material');
-	if (empty($fk_material) && !empty($_POST['fk_material'])) {
-		$fk_material = (int) $_POST['fk_material'];
-	}
-
 	$codigo = trim(GETPOST('codigo', 'alphanohtml'));
-	if (empty($codigo) && !empty($_POST['codigo'])) {
-		$codigo = trim($_POST['codigo']);
-	}
-
 	$descripcion = trim(GETPOST('descripcion', 'alphanohtml'));
-	if (empty($descripcion) && !empty($_POST['descripcion'])) {
-		$descripcion = trim($_POST['descripcion']);
-	}
 
-	$cantidad_raw = GETPOST('cantidad', 'alpha');
-	if ($cantidad_raw === '' && isset($_POST['cantidad'])) {
-		$cantidad_raw = $_POST['cantidad'];
-	}
-	$cantidad = (float) str_replace(',', '.', $cantidad_raw);
+	$cantidad = (float) price2num(GETPOST('cantidad', 'alphanohtml'));
 	if ($cantidad <= 0) $cantidad = 1.0;
 
-	$precio_raw = GETPOST('precio', 'alpha');
-	if ($precio_raw === '' && isset($_POST['precio'])) {
-		$precio_raw = $_POST['precio'];
-	}
-	$precio = (float) str_replace(',', '.', $precio_raw);
-
-	$descuento_raw = GETPOST('descuento', 'alpha');
-	if ($descuento_raw === '' && isset($_POST['descuento'])) {
-		$descuento_raw = $_POST['descuento'];
-	}
-	$descuento = (float) str_replace(',', '.', $descuento_raw);
+	$precio = (float) price2num(GETPOST('precio', 'alphanohtml'));
+	$descuento = (float) price2num(GETPOST('descuento', 'alphanohtml'));
 
 	$total_neto = $cantidad * $precio * (1 - ($descuento / 100));
 	if ($total_neto < 0) $total_neto = 0;
 
 	$notas = trim(GETPOST('notas', 'restricthtml'));
-	if (empty($notas) && !empty($_POST['notas'])) {
-		$notas = trim($_POST['notas']);
-	}
-
 	$guardar_catalogo = GETPOSTINT('guardar_catalogo');
 
 	if ($fk_factura <= 0) {
@@ -614,7 +504,7 @@ if ($action == 'add_factura_linea') {
 	}
 
 	$fac = new Facture($db);
-	if ($fac->fetch($fk_factura) <= 0) {
+	if ($fac->fetch($fk_factura) <= 0 || !tallerpro_is_entity_allowed($fac->entity, 'facture')) {
 		header('Content-Type: application/json');
 		echo json_encode(array('status' => 'error', 'message' => 'Factura no encontrada'));
 		exit;
@@ -647,7 +537,7 @@ if ($action == 'add_factura_linea') {
 	$fk_product_line = 0;
 	if ($tipo == 'material') {
 		if ($fk_material > 0) {
-			$res_m = $db->query("SELECT fk_product FROM " . MAIN_DB_PREFIX . "taller_material WHERE rowid = " . ((int) $fk_material));
+			$res_m = $db->query("SELECT fk_product FROM " . MAIN_DB_PREFIX . "taller_material WHERE rowid = " . ((int) $fk_material) . " AND entity IN (" . getEntity('taller_material') . ")");
 			if ($res_m && ($m_obj = $db->fetch_object($res_m))) {
 				$fk_product_line = (int) $m_obj->fk_product;
 			}
@@ -692,26 +582,15 @@ if ($action == 'add_factura_linea') {
 
 // AJAX: Eliminar línea
 if ($action == 'delete_factura_linea') {
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		header('Content-Type: application/json');
-		echo json_encode(array('status' => 'error', 'message' => 'Token de seguridad inválido o expirado'));
-		exit;
-	}
+	tallerpro_require_post_csrf(true);
+	tallerpro_require_permission('facturar', true);
 
 	$linea_id = GETPOSTINT('linea_id');
-	if (empty($linea_id) && !empty($_POST['linea_id'])) {
-		$linea_id = (int) $_POST['linea_id'];
-	}
 	$fk_factura = GETPOSTINT('fk_factura');
-	if (empty($fk_factura) && !empty($_POST['fk_factura'])) {
-		$fk_factura = (int) $_POST['fk_factura'];
-	}
 
 	if ($fk_factura > 0 && $linea_id > 0) {
 		$fac = new Facture($db);
-		if ($fac->fetch($fk_factura) > 0) {
+		if ($fac->fetch($fk_factura) > 0 && tallerpro_is_entity_allowed($fac->entity, 'facture')) {
 			if ($fac->statut != Facture::STATUS_DRAFT) {
 				header('Content-Type: application/json');
 				echo json_encode(array('status' => 'error', 'message' => 'Solo se pueden eliminar líneas de facturas en estado Borrador'));
@@ -731,28 +610,15 @@ if ($action == 'delete_factura_linea') {
 
 // AJAX: Guardar totales de factura
 if ($action == 'save_factura_totales') {
-	$token = GETPOST('token', 'alpha');
-	$valid_token = (!empty($_SESSION['token']) && $token === $_SESSION['token']) || (!empty($_SESSION['newtoken']) && $token === $_SESSION['newtoken']);
-	if (!$valid_token) {
-		header('Content-Type: application/json');
-		echo json_encode(array('status' => 'error', 'message' => 'Token de seguridad inválido o expirado'));
-		exit;
-	}
+	tallerpro_require_post_csrf(true);
+	tallerpro_require_permission('facturar', true);
 
 	$fk_factura = GETPOSTINT('fk_factura');
-	if (empty($fk_factura) && !empty($_POST['fk_factura'])) {
-		$fk_factura = (int) $_POST['fk_factura'];
-	}
-
-	$descuento_global_raw = GETPOST('descuento_global', 'alpha');
-	if ($descuento_global_raw === '' && isset($_POST['descuento_global'])) {
-		$descuento_global_raw = $_POST['descuento_global'];
-	}
-	$descuento_global = (float) str_replace(',', '.', $descuento_global_raw);
+	$descuento_global = (float) price2num(GETPOST('descuento_global', 'alphanohtml'));
 
 	if ($fk_factura > 0) {
 		$fac = new Facture($db);
-		if ($fac->fetch($fk_factura) > 0) {
+		if ($fac->fetch($fk_factura) > 0 && tallerpro_is_entity_allowed($fac->entity, 'facture')) {
 			if ($fac->statut != Facture::STATUS_DRAFT) {
 				header('Content-Type: application/json');
 				echo json_encode(array('status' => 'error', 'message' => 'Solo se pueden modificar totales de facturas en estado Borrador'));
@@ -800,7 +666,7 @@ $materials_catalog = array();
 $sql_mc = "SELECT tm.rowid, tm.ref, tm.nombre, tm.precio, tm.stock, tm.fk_product, ps.reel as wh_stock ";
 $sql_mc .= "FROM " . MAIN_DB_PREFIX . "taller_material tm ";
 $sql_mc .= "LEFT JOIN " . MAIN_DB_PREFIX . "product_stock ps ON ps.fk_product = tm.fk_product AND ps.fk_entrepot = " . ((int) $wh_id_fac) . " ";
-$sql_mc .= "WHERE tm.status = 1 ORDER BY tm.nombre ASC";
+$sql_mc .= "WHERE tm.status = 1 AND tm.entity IN (" . getEntity('taller_material') . ") ORDER BY tm.nombre ASC";
 $res_mc = $db->query($sql_mc);
 if ($res_mc) {
 	while ($mc = $db->fetch_object($res_mc)) {
@@ -836,9 +702,6 @@ $next_factura_numero = getNextFacturaNumero($db);
 
 // Vista individual de una factura (Documental)
 $view_id = GETPOSTINT('id');
-if (empty($view_id) && !empty($_GET['id'])) {
-	$view_id = (int) $_GET['id'];
-}
 $factura_single = null;
 $single_materiales = array();
 $single_reparaciones = array();
@@ -860,7 +723,7 @@ if ($view_id > 0) {
 	$sql_single .= "LEFT JOIN " . MAIN_DB_PREFIX . "societe as s ON f.fk_soc = s.rowid ";
 	$sql_single .= "LEFT JOIN " . MAIN_DB_PREFIX . "facture_extrafields as fe ON fe.fk_object = f.rowid ";
 	$sql_single .= "LEFT JOIN " . MAIN_DB_PREFIX . "taller_vehiculo as v ON fe.fk_vehiculo = v.rowid ";
-	$sql_single .= "WHERE f.rowid = " . ((int) $view_id);
+	$sql_single .= "WHERE f.rowid = " . ((int) $view_id) . " AND f.entity IN (" . getEntity('facture') . ")";
 	$res_single = $db->query($sql_single);
 	if ($res_single && ($fs = $db->fetch_object($res_single))) {
 		$factura_single = $fs;
@@ -1341,6 +1204,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 							<h1 class="tallerpro-page-title"><?php echo $langs->trans("Facturas"); ?></h1>
 							<p class="tallerpro-page-subtitle"><?php echo $total_facturas; ?> registro(s)</p>
 						</div>
+						<?php if ($user_can_facturar): ?>
 						<div>
 							<button type="button" class="tallerpro-btn-primary" id="tallerOpenModalBtn">
 								<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -1350,6 +1214,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 								<span>Añadir</span>
 							</button>
 						</div>
+						<?php endif; ?>
 					</div>
 
 					<?php echo dol_htmloutput_events(); ?>
@@ -1414,8 +1279,8 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 											$cur_estado = 'Pendiente';
 										}
 										$is_borrador = (isset($f->fk_statut) && (int)$f->fk_statut == 0);
-										$can_edit = $is_borrador;
-										$can_delete = $is_borrador;
+										$can_edit = $is_borrador && $user_can_facturar;
+										$can_delete = $is_borrador && $user_can_delete_fac;
 										?>
 										<tr data-invoice-id="<?php echo (int) $f->rowid; ?>" data-estado="<?php echo $cur_estado; ?>" data-tipo-doc="<?php echo $is_presupuesto ? 'presupuesto' : 'factura'; ?>">
 											<td style="color: #1e293b; font-weight: 700;">
@@ -1458,6 +1323,7 @@ $facturas_url = dol_buildpath('/taller/facturas.php', 1);
 														data-id="<?php echo (int) $f->rowid; ?>"
 														data-current-estado="<?php echo $cur_estado; ?>"
 														data-ref="<?php echo dol_escape_htmltag($f->numero_factura); ?>"
+														<?php if (!$user_can_facturar) echo 'disabled'; ?>
 														title="Cambiar estado de factura">
 														<?php if ($is_borrador): ?>
 															<option value="Borrador" selected>Borrador</option>

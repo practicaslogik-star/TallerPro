@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS llx_taller_reparacion (
     entity          INT DEFAULT 1,
     status          SMALLINT DEFAULT 1,
     estado          VARCHAR(32) DEFAULT 'en_curso',
+    stock_descontado SMALLINT DEFAULT 0,
     INDEX idx_taller_rep_fk_vehiculo (fk_vehiculo),
     INDEX idx_taller_rep_fecha (fecha)
 ) ENGINE=innodb;
